@@ -20,21 +20,22 @@ npm run preview
 
 ## Planner
 
-- Add tasks to Unscheduled or directly to a day.
-- Drag tasks between days and into a different order.
-- Open a task to edit its title, notes, and planning date. Up and Down buttons offer a keyboard alternative to dragging.
+- Type in Unscheduled and press Enter to capture a task, or use Add task on any day.
+- Drag tasks between days and into a different order. A line shows where the task will land.
+- Keyboard alternative to dragging: focus a task and press Alt (Option) with Up or Down to reorder, or Left or Right to move it one day.
+- Open a task to edit its title, notes, and planning date. Quick dates offer Unscheduled, Today, Tomorrow, and Next Monday.
 - Choose one main outcome per day. Moving an outcome into a day that already has one preserves that day's existing choice.
 - Complete and reopen tasks. Delete with Undo.
 - Browse weeks and reveal weekends. On mobile, choose a day from the week strip and open Unscheduled separately.
-- Unfinished tasks stay on their original date and appear under Needs a decision. Nothing automatically rolls forward.
+- Unfinished tasks stay on their original date and appear under From earlier, with a one-click move to today. Nothing automatically rolls forward.
 
 ## Data and backups
 
 Tasks are saved to local storage in this browser on this device. No account, server, or cloud sync is included. Other tabs at the same origin receive saved updates. Simultaneous edits in different tabs are not conflict-merged.
 
-Clearing browser site data removes the planner. Use Export backup to download a JSON copy and Import backup to restore it. Import replaces the current planner after confirmation. Export first to preserve the current tasks.
+Clearing browser site data removes the planner. Use Export in the top bar to download a JSON copy and Import to restore it. Import replaces the current planner after confirmation. Export first to preserve the current tasks.
 
-If saved data cannot be read, editing is locked and existing storage is left intact. Retry or restore a valid backup. If a write fails, changes remain in memory and the app warns you to retry or export before leaving.
+If saved data cannot be read, editing is locked and existing storage is left intact. Retry, restore a valid backup, or download the saved data as it is stored. Export is disabled in this state because there is no readable planner to export. If a write fails, changes remain in memory and the app warns you to retry or export before leaving.
 
 ## Checks
 

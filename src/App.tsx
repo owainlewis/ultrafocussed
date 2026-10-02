@@ -1,25 +1,25 @@
 import {
   useEffect,
+  useId,
   useRef,
   useState,
-  type FormEvent,
   type DragEvent,
+  type FormEvent,
+  type KeyboardEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import {
   ArrowDown,
   ArrowUp,
-  ArrowUpRight,
   Check,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
-  GripVertical,
-  Inbox,
-  MoreHorizontal,
+  Download,
   Plus,
   Star,
-  Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import {
@@ -39,11 +39,26 @@ import {
 
 const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'long' });
 const shortDay = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
-const monthName = new Intl.DateTimeFormat(undefined, { month: 'long' });
 const readableDate = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
   month: 'short',
 });
+const shortDate = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+});
+const rangeDate = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const MOVE_KEYS = 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight';
+
+type Notice = { text: string; visible: boolean };
+type DropTarget = { date: string | null; beforeId?: string };
+type Patch = Partial<Omit<Task, 'id'>>;
+
 function initialData(): { state: PlannerState; error: boolean } {
   try {
     return {
@@ -55,21 +70,85 @@ function initialData(): { state: PlannerState; error: boolean } {
   }
 }
 
-function TaskComposer({
+function download(content: string, name: string) {
+  const url = URL.createObjectURL(
+    new Blob([content], { type: 'application/json' }),
+  );
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Opens a native modal dialog and returns focus to the opener when it closes.
+function useModal(
+  ref: RefObject<HTMLDialogElement | null>,
+  focus?: () => void,
+) {
+  useEffect(() => {
+    const opener = document.activeElement;
+    const dialog = ref.current;
+    dialog?.showModal();
+    focus?.();
+    return () => {
+      if (dialog?.open) dialog.close?.();
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, []);
+}
+
+function CaptureField({ onAdd }: { onAdd: (title: string) => void }) {
+  const [title, setTitle] = useState('');
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!title.trim()) return;
+    onAdd(title.trim());
+    setTitle('');
+  };
+  return (
+    <form className="capture" onSubmit={submit}>
+      <Plus size={16} aria-hidden="true" />
+      <input
+        aria-label="New task for unscheduled"
+        placeholder="Capture a task"
+        value={title}
+        maxLength={300}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setTitle('');
+        }}
+      />
+      {title.trim() && <button className="small-primary">Add</button>}
+    </form>
+  );
+}
+
+function DayComposer({
   date,
   onAdd,
-  prominent = false,
 }: {
-  date: string | null;
-  onAdd: (title: string, date: string | null) => void;
-  prominent?: boolean;
+  date: string;
+  onAdd: (title: string, date: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const input = useRef<HTMLInputElement>(null);
+  const opener = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+  const day = parseDate(date);
   useEffect(() => {
-    if (editing) input.current?.focus();
-  }, [editing]);
+    if (open) input.current?.focus();
+    else if (returnFocus.current) {
+      returnFocus.current = false;
+      opener.current?.focus();
+    }
+  }, [open]);
+  const close = (refocus: boolean) => {
+    returnFocus.current = refocus;
+    setOpen(false);
+    setTitle('');
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim()) return;
@@ -77,81 +156,91 @@ function TaskComposer({
     setTitle('');
     input.current?.focus();
   };
-  if (!editing)
+  if (!open)
     return (
       <button
-        className={`add-task ${prominent ? 'prominent' : ''}`}
-        onClick={() => setEditing(true)}
+        ref={opener}
+        className="add-task"
+        aria-label={`Add task to ${dayName.format(day)} ${readableDate.format(day)}`}
+        onClick={() => setOpen(true)}
       >
-        <Plus size={15} />
+        <Plus size={15} aria-hidden="true" />
         <span>Add task</span>
       </button>
     );
   return (
-    <form className="composer" onSubmit={submit}>
+    <form
+      className="composer"
+      onSubmit={submit}
+      onBlur={(e) => {
+        if (!title.trim() && !e.currentTarget.contains(e.relatedTarget))
+          close(false);
+      }}
+    >
       <input
         ref={input}
-        aria-label={`New task for ${date ? readableDate.format(parseDate(date)) : 'unscheduled'}`}
-        placeholder="What needs doing?"
+        aria-label={`New task for ${readableDate.format(day)}`}
+        placeholder="New task"
         value={title}
         maxLength={300}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
-            setEditing(false);
-            setTitle('');
+            e.preventDefault();
+            close(true);
           }
         }}
       />
       <div className="composer-actions">
-        <span>Enter to add</span>
+        <span>Enter to add, Esc to close</span>
         <button
           type="button"
           className="icon-button"
           aria-label="Close task entry"
-          onClick={() => {
-            setEditing(false);
-            setTitle('');
-          }}
+          onClick={() => close(true)}
         >
-          <X size={14} />
-        </button>
-        <button className="small-primary" disabled={!title.trim()}>
-          Add
+          <X size={15} />
         </button>
       </div>
     </form>
   );
 }
 
-function TaskCard({
+function TaskRow({
   task,
+  dropBefore,
   onToggle,
   onEdit,
+  onMoveKey,
   onDrop,
+  onDragOver,
   onDragStart,
   onDragEnd,
 }: {
   task: Task;
+  dropBefore: boolean;
   onToggle: () => void;
   onEdit: () => void;
+  onMoveKey: (key: string) => void;
   onDrop: (event: DragEvent) => void;
+  onDragOver: (event: DragEvent) => void;
   onDragStart: (event: DragEvent) => void;
   onDragEnd: () => void;
 }) {
+  const note = task.notes.trim().split('\n')[0];
   return (
-    <article
-      className={`task-card ${task.completed ? 'completed' : ''} ${task.main ? 'main-task' : ''}`}
+    <li
+      className={`task ${task.completed ? 'completed' : ''} ${task.main ? 'main-task' : ''} ${dropBefore ? 'drop-before' : ''}`}
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={onDragOver}
       onDrop={onDrop}
     >
       {task.main && (
-        <div className="outcome-label">
-          <Star size={11} fill="currentColor" /> Main outcome
-        </div>
+        <span className="outcome-label">
+          <Star size={12} fill="currentColor" aria-hidden="true" /> Main outcome
+        </span>
       )}
       <div className="task-row">
         <button
@@ -162,26 +251,32 @@ function TaskCard({
         >
           {task.completed && <Check size={13} strokeWidth={2.6} />}
         </button>
-        <button className="task-title" onClick={onEdit}>
-          {task.title}
-        </button>
-        <button
-          className="task-more icon-button"
-          aria-label={`Edit ${task.title}`}
-          onClick={onEdit}
-        >
-          <MoreHorizontal size={16} />
-        </button>
+        <div className="task-text">
+          <button
+            className="task-title"
+            data-task-id={task.id}
+            aria-keyshortcuts={MOVE_KEYS}
+            aria-describedby="move-hint"
+            onClick={onEdit}
+            onKeyDown={(e: KeyboardEvent) => {
+              if (!e.altKey || !e.key.startsWith('Arrow')) return;
+              e.preventDefault();
+              onMoveKey(e.key);
+            }}
+          >
+            {task.title}
+          </button>
+          {note && <p className="task-note">{note}</p>}
+        </div>
       </div>
-      {task.notes && <p className="task-note">{task.notes.split('\n')[0]}</p>}
-      <GripVertical className="drag-handle" size={13} aria-hidden="true" />
-    </article>
+    </li>
   );
 }
 
 function DetailPanel({
   task,
   tasks,
+  today,
   onChange,
   onClose,
   onDelete,
@@ -189,13 +284,15 @@ function DetailPanel({
 }: {
   task: Task;
   tasks: Task[];
-  onChange: (patch: Partial<Omit<Task, 'id'>>) => void;
+  today: string;
+  onChange: (patch: Patch) => void;
   onClose: () => void;
   onDelete: () => void;
   onReorder: (direction: -1 | 1) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const dateId = useId();
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes);
   const [date, setDate] = useState(task.date ?? '');
@@ -207,14 +304,21 @@ function DetailPanel({
     notes !== task.notes ||
     date !== (task.date ?? '') ||
     main !== task.main;
-  useEffect(() => {
-    dialog.current?.showModal();
-    titleRef.current?.focus();
-  }, []);
+  useModal(dialog, () => titleRef.current?.focus());
   const close = () => {
     if (dirty && !window.confirm('Discard your unsaved task changes?')) return;
     onClose();
   };
+  const choose = (value: string) => {
+    setDate(value);
+    if (!value) setMain(false);
+  };
+  const quickDates: [string, string][] = [
+    ['Unscheduled', ''],
+    ['Today', today],
+    ['Tomorrow', dateKey(addDays(parseDate(today), 1))],
+    ['Next Monday', dateKey(addDays(weekStart(parseDate(today)), 7))],
+  ];
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim()) return;
@@ -258,27 +362,35 @@ function DetailPanel({
               className="title-input"
               value={title}
               maxLength={300}
-              rows={3}
+              rows={2}
               required
               onChange={(e) => setTitle(e.target.value)}
             />
           </label>
-          <label className="field">
-            Plan for
+          <div className="field">
+            <label htmlFor={dateId}>Plan for</label>
             <input
+              id={dateId}
               type="date"
               value={date}
               min="0001-01-01"
               max="9999-12-31"
-              onInput={(e) => {
-                setDate(e.currentTarget.value);
-                if (!e.currentTarget.value) setMain(false);
-              }}
+              onInput={(e) => choose(e.currentTarget.value)}
             />
-            <span className="field-help">
-              A day to work on it. Leave blank for unscheduled.
-            </span>
-          </label>
+            <div className="quick-dates" role="group" aria-label="Quick dates">
+              {quickDates.map(([label, value]) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="chip"
+                  aria-pressed={date === value}
+                  onClick={() => choose(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           {date && (
             <label className="main-option">
               <input
@@ -290,13 +402,13 @@ function DetailPanel({
                 <strong>Main outcome</strong>
                 <small>The one thing you want to finish that day.</small>
               </span>
-              <Star size={17} />
             </label>
           )}
           <label className="field">
-            Notes <span className="optional">Optional</span>
+            <span>
+              Notes <span className="optional">Optional</span>
+            </span>
             <textarea
-              placeholder="Anything you need to remember…"
               rows={6}
               maxLength={10000}
               value={notes}
@@ -304,7 +416,10 @@ function DetailPanel({
             />
           </label>
           <div className="order-controls">
-            <span>Order in this list</span>
+            <span>
+              Position in {task.date ? 'this day' : 'Unscheduled'}
+              <small>Alt + arrow keys on a task also move it.</small>
+            </span>
             <button
               className="secondary-button"
               type="button"
@@ -324,7 +439,7 @@ function DetailPanel({
           </div>
           <div className="panel-footer">
             <button type="button" className="delete-button" onClick={onDelete}>
-              <Trash2 size={15} /> Delete task
+              Delete task
             </button>
             <button
               type="submit"
@@ -342,46 +457,47 @@ function DetailPanel({
 
 function Help({ onClose }: { onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    dialog.current?.showModal();
-  }, []);
+  useModal(dialog);
   return (
     <dialog
       ref={dialog}
       className="help-dialog"
       aria-labelledby="help-title"
-      onCancel={onClose}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
     >
-      <button
-        className="icon-button help-close"
-        aria-label="Close planner help"
-        onClick={onClose}
-      >
-        <X size={18} />
-      </button>
-      <h2 id="help-title">A little room to focus.</h2>
-      <p>
-        Capture anything in Unscheduled. Give it a day when you’re ready. Choose
-        one main outcome and let the rest follow.
-      </p>
+      <header className="panel-header">
+        <h2 id="help-title">How the planner works</h2>
+        <button
+          className="icon-button"
+          aria-label="Close planner help"
+          onClick={onClose}
+        >
+          <X size={18} />
+        </button>
+      </header>
       <ul>
-        <li>Drag tasks between days or into a different order.</li>
+        <li>Type in Unscheduled and press Enter to capture a task.</li>
         <li>
-          Open a task to edit notes, choose a date, or move it up and down with
-          your keyboard.
+          Drag a task to another day or position. With the keyboard, focus a
+          task and press Alt (Option) with Up or Down to reorder, or Left or
+          Right to move it a day.
         </li>
         <li>
-          Unfinished tasks stay on their original day until you decide where
-          they go next.
+          Open a task to edit its notes, pick a date, or make it the day’s main
+          outcome.
+        </li>
+        <li>
+          Unfinished tasks stay on their day. They are listed under From earlier
+          until you move, finish, or delete them.
         </li>
       </ul>
       <p className="help-storage">
-        Your planner is saved in this browser on this device. Clearing site data
-        clears your tasks. Export a backup whenever you need one.
+        Tasks are saved in this browser on this device. Clearing site data
+        removes them. Use Export to keep a backup file.
       </p>
-      <button className="primary-button" onClick={onClose}>
-        Got it
-      </button>
     </dialog>
   );
 }
@@ -400,26 +516,30 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dropDate, setDropDate] = useState<string | null | undefined>();
-  const [notice, setNotice] = useState('');
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{
+    id: string;
+    onlyIfLost: boolean;
+  } | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [deleted, setDeleted] = useState<{ task: Task; index: number } | null>(
     null,
   );
   const today = dateKey(new Date());
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
+  const dayKeys = days.map(dateKey);
   const weekendTasks = state.tasks.filter((task) =>
-    days.slice(5).some((day) => task.date === dateKey(day)),
+    dayKeys.slice(5).includes(task.date ?? ''),
   ).length;
   const currentTask = state.tasks.find((task) => task.id === editingId);
   const unscheduled = state.tasks.filter((task) => task.date === null);
+  const openUnscheduled = unscheduled.filter((task) => !task.completed).length;
   const earlier = state.tasks.filter(
     (task) => task.date !== null && task.date < today && !task.completed,
   );
   const visibleDays = weekends ? days : days.slice(0, 5);
-  const scheduledWeek = state.tasks.filter((task) =>
-    days.some((day) => dateKey(day) === task.date),
-  );
-  const done = scheduledWeek.filter((task) => task.completed).length;
+  const announce = (text: string, visible = false) =>
+    setNotice({ text, visible });
 
   useEffect(() => {
     if (readError) return;
@@ -439,7 +559,7 @@ export default function App() {
         setState(decodeState(event.newValue));
         setDeleted(null);
         setEditingId(null);
-        setNotice('Planner updated from another tab.');
+        announce('Planner updated from another tab.', true);
       } catch {
         setReadError(true);
       }
@@ -449,17 +569,27 @@ export default function App() {
   }, [readError, saveError]);
   useEffect(() => {
     if (!notice) return;
-    const timeout = window.setTimeout(() => setNotice(''), 6000);
+    const timeout = window.setTimeout(() => setNotice(null), 6000);
     return () => window.clearTimeout(timeout);
   }, [notice]);
+  // Keep keyboard focus on a task after it moves or its dialog closes.
+  useEffect(() => {
+    if (!focusRequest) return;
+    setFocusRequest(null);
+    const active = document.activeElement;
+    if (focusRequest.onlyIfLost && active && active !== document.body) return;
+    Array.from(document.querySelectorAll<HTMLElement>('[data-task-id]'))
+      .find((element) => element.dataset.taskId === focusRequest.id)
+      ?.focus();
+  }, [focusRequest]);
 
   const setTasks = (change: (tasks: Task[]) => Task[]) =>
     setState((current) => ({ ...current, tasks: change(current.tasks) }));
   const addTask = (title: string, date: string | null) => {
     setTasks((tasks) => [...tasks, createTask(title, date)]);
-    setNotice(`Added “${title}”.`);
+    announce(`Added “${title}”.`);
   };
-  const editTask = (id: string, patch: Partial<Omit<Task, 'id'>>) =>
+  const editTask = (id: string, patch: Patch) =>
     setTasks((tasks) => updateTask(tasks, id, patch));
   const goWeek = (direction: number) => {
     const next = addDays(week, direction * 7);
@@ -472,45 +602,131 @@ export default function App() {
     if ([0, 6].includes(new Date().getDay())) setWeekends(true);
     setInboxOpen(false);
   };
+  // Bring a date into view so a moved task stays visible.
+  const showDate = (date: string) => {
+    const day = parseDate(date);
+    if (!dayKeys.includes(date)) setWeek(weekStart(day));
+    if ([0, 6].includes(day.getDay())) setWeekends(true);
+    setSelectedDay(date);
+    setInboxOpen(false);
+  };
+  // Like showDate, but also opens the Unscheduled rail on mobile.
+  const reveal = (date: string | null) => {
+    if (date) showDate(date);
+    else setInboxOpen(true);
+  };
+  const moveTo = (task: Task, date: string | null, follow: boolean) => {
+    const moved = moveTask(state.tasks, task.id, date);
+    setState((current) => ({ ...current, tasks: moved }));
+    const kept = moved.find((item) => item.id === task.id)?.main;
+    const label = date ? shortDate.format(parseDate(date)) : 'Unscheduled';
+    const outOfView =
+      !follow &&
+      date !== null &&
+      !visibleDays.some((day) => dateKey(day) === date);
+    if (task.main && !kept)
+      announce(`Moved to ${label}. That day already has a main outcome.`, true);
+    else announce(`Moved to ${label}.`, outOfView);
+    if (follow && date) showDate(date);
+    setFocusRequest({ id: task.id, onlyIfLost: !follow });
+  };
+  const reorder = (id: string, direction: -1 | 1) => {
+    const task = state.tasks.find((item) => item.id === id);
+    if (!task) return false;
+    const siblings = state.tasks.filter((item) => item.date === task.date);
+    const neighbour =
+      siblings[siblings.findIndex((item) => item.id === id) + direction];
+    if (!neighbour) return false;
+    setTasks((tasks) => {
+      const next = [...tasks];
+      const from = next.findIndex((item) => item.id === id);
+      const to = next.findIndex((item) => item.id === neighbour.id);
+      [next[from], next[to]] = [next[to], next[from]];
+      return next;
+    });
+    announce(direction < 0 ? 'Moved up.' : 'Moved down.');
+    return true;
+  };
+  const onMoveKey = (task: Task, key: string) => {
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      if (reorder(task.id, key === 'ArrowUp' ? -1 : 1))
+        setFocusRequest({ id: task.id, onlyIfLost: false });
+      return;
+    }
+    const step = key === 'ArrowRight' ? 1 : key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    if (task.date === null) {
+      if (step > 0) moveTo(task, today, true);
+      return;
+    }
+    moveTo(task, dateKey(addDays(parseDate(task.date), step)), true);
+  };
+  const clearDrag = () => {
+    setDraggingId(null);
+    setDropTarget(null);
+  };
   const onDrop = (event: DragEvent, date: string | null, beforeId?: string) => {
     event.preventDefault();
     event.stopPropagation();
     const id = event.dataTransfer.getData('text/plain');
     if (state.tasks.some((task) => task.id === id)) {
       setTasks((tasks) => moveTask(tasks, id, date, beforeId));
-      setNotice('Task moved.');
+      announce('Task moved.');
     }
-    setDraggingId(null);
-    setDropDate(undefined);
+    clearDrag();
   };
-  const renderTask = (task: Task) => (
-    <TaskCard
-      key={task.id}
-      task={task}
-      onToggle={() => editTask(task.id, { completed: !task.completed })}
-      onEdit={() => setEditingId(task.id)}
-      onDrop={(event) => onDrop(event, task.date, task.id)}
-      onDragStart={(event) => {
-        event.dataTransfer.setData('text/plain', task.id);
-        event.dataTransfer.effectAllowed = 'move';
-        setDraggingId(task.id);
-      }}
-      onDragEnd={() => {
-        setDraggingId(null);
-        setDropDate(undefined);
-      }}
-    />
-  );
+  const overTarget = (
+    event: DragEvent,
+    date: string | null,
+    beforeId?: string,
+  ) => {
+    if (!draggingId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
+    setDropTarget((current) =>
+      current?.date === date && current.beforeId === beforeId
+        ? current
+        : { date, beforeId },
+    );
+  };
+  const dragStart = (event: DragEvent, id: string) => {
+    event.dataTransfer.setData('text/plain', id);
+    event.dataTransfer.effectAllowed = 'move';
+    setDraggingId(id);
+  };
   const dropProps = (date: string | null) => ({
-    onDragOver: (event: DragEvent) => {
-      if (draggingId) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-        setDropDate(date);
-      }
+    onDragOver: (event: DragEvent) => overTarget(event, date),
+    onDragLeave: (event: DragEvent) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+        setDropTarget(null);
     },
     onDrop: (event: DragEvent) => onDrop(event, date),
   });
+  const renderList = (tasks: Task[], date: string | null) => (
+    <ul
+      className={`task-list ${draggingId && dropTarget?.date === date && !dropTarget.beforeId ? 'drop-end' : ''}`}
+    >
+      {tasks.map((task) => (
+        <TaskRow
+          key={task.id}
+          task={task}
+          dropBefore={
+            !!draggingId &&
+            draggingId !== task.id &&
+            dropTarget?.beforeId === task.id
+          }
+          onToggle={() => editTask(task.id, { completed: !task.completed })}
+          onEdit={() => setEditingId(task.id)}
+          onMoveKey={(key) => onMoveKey(task, key)}
+          onDrop={(event) => onDrop(event, task.date, task.id)}
+          onDragOver={(event) => overTarget(event, task.date, task.id)}
+          onDragStart={(event) => dragStart(event, task.id)}
+          onDragEnd={clearDrag}
+        />
+      ))}
+    </ul>
+  );
   const retrySave = () => {
     try {
       if (readError) {
@@ -520,23 +736,28 @@ export default function App() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         setSaveError(false);
       }
-      setNotice('Planner saved.');
+      announce('Planner saved.', true);
     } catch {
-      setNotice(
+      announce(
         'Storage is still unavailable. Export a backup to keep your work.',
+        true,
       );
     }
   };
   const exportBackup = () => {
-    const url = URL.createObjectURL(
-      new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }),
-    );
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ultrafocussed-${today}.json`;
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setNotice('Planner backup exported.');
+    download(JSON.stringify(state, null, 2), `ultrafocussed-${today}.json`);
+    announce('Planner backup exported.', true);
+  };
+  // When saved data cannot be read, offer the raw stored value, not the empty planner.
+  const exportRaw = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw === null) throw new Error('Nothing stored');
+      download(raw, `ultrafocussed-unreadable-${today}.json`);
+      announce('Saved data downloaded as it is stored.', true);
+    } catch {
+      announce('Could not read the saved data from this browser.', true);
+    }
   };
   const importRef = useRef<HTMLInputElement>(null);
   const importBackup = async (file: File | undefined) => {
@@ -553,11 +774,12 @@ export default function App() {
         setReadError(false);
         setEditingId(null);
         setDeleted(null);
-        setNotice('Planner restored from backup.');
+        announce('Planner restored from backup.', true);
       }
     } catch {
-      setNotice(
+      announce(
         'Could not import this file. Choose an Ultrafocussed JSON backup under 10 MB.',
+        true,
       );
     }
     if (importRef.current) importRef.current.value = '';
@@ -565,18 +787,49 @@ export default function App() {
 
   const inbox: ReactNode = (
     <aside
-      className={`inbox ${inboxOpen ? 'mobile-open' : ''} ${draggingId && dropDate === null ? 'drop-active' : ''}`}
+      className={`inbox ${inboxOpen ? 'mobile-open' : ''} ${draggingId && dropTarget?.date === null ? 'drop-active' : ''}`}
       aria-label="Unscheduled tasks"
       {...dropProps(null)}
     >
+      {earlier.length > 0 && (
+        <section className="earlier" aria-labelledby="earlier-title">
+          <h2 id="earlier-title">
+            From earlier <span className="count">{earlier.length}</span>
+          </h2>
+          <p>Unfinished on a past day. Move, finish, or delete.</p>
+          <ul>
+            {earlier.map((task) => (
+              <li
+                key={task.id}
+                className="earlier-task"
+                draggable
+                onDragStart={(event) => dragStart(event, task.id)}
+                onDragEnd={clearDrag}
+              >
+                <button
+                  className="earlier-open"
+                  aria-label={`Open ${task.title}, from ${shortDate.format(parseDate(task.date!))}`}
+                  onClick={() => setEditingId(task.id)}
+                >
+                  {task.title}
+                  <small>{shortDate.format(parseDate(task.date!))}</small>
+                </button>
+                <button
+                  className="chip"
+                  aria-label={`Move ${task.title} to today`}
+                  onClick={() => moveTo(task, today, false)}
+                >
+                  Today
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="inbox-heading">
-        <div>
-          <Inbox size={17} />
-          <h2>Unscheduled</h2>
-          <span className="count">
-            {unscheduled.filter((task) => !task.completed).length}
-          </span>
-        </div>
+        <h2>
+          Unscheduled <span className="count">{openUnscheduled}</span>
+        </h2>
         <button
           className="icon-button inbox-close"
           aria-label="Close unscheduled"
@@ -585,78 +838,100 @@ export default function App() {
           <X size={17} />
         </button>
       </div>
-      <p className="inbox-description">
-        A place for everything.
-        <br />
-        Give it a day when you’re ready.
-      </p>
-      <div className="task-list">{unscheduled.map(renderTask)}</div>
-      <TaskComposer date={null} onAdd={addTask} />
-      {unscheduled.length === 0 && (
-        <div className="inbox-empty">
-          <div className="empty-lines" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-          <p>
-            Get it out of your head.
-            <br />
-            Your week can wait a moment.
-          </p>
-        </div>
+      <CaptureField onAdd={(title) => addTask(title, null)} />
+      {unscheduled.length > 0 ? (
+        renderList(unscheduled, null)
+      ) : (
+        <p className="empty-note">Nothing unscheduled.</p>
       )}
-      {earlier.length > 0 && (
-        <section className="earlier">
-          <h3>
-            Needs a decision <span className="count">{earlier.length}</span>
-          </h3>
-          <p>Unfinished from earlier days.</p>
-          {earlier.map((task) => (
-            <button
-              key={task.id}
-              className="earlier-task"
-              onClick={() => setEditingId(task.id)}
-            >
-              <span>
-                {task.title}
-                <small>{readableDate.format(parseDate(task.date!))}</small>
-              </span>
-              <ArrowUpRight size={14} />
-            </button>
-          ))}
-        </section>
-      )}
-      <div className="inbox-footnote">
-        <span className="little-dot" /> Less on your list. More on your mind.
-      </div>
     </aside>
   );
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <a className="brand" href="./" aria-label="Ultrafocussed planner">
-          <span className="brand-mark" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          ultrafocussed<span className="brand-period">.</span>
-        </a>
-        <div className="header-right">
+      <header className="topbar">
+        <span className="brand">ultrafocussed</span>
+        <div className="week-nav">
+          <button
+            className="icon-button"
+            aria-label="Previous week"
+            onClick={() => goWeek(-1)}
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            className="icon-button"
+            aria-label="Next week"
+            onClick={() => goWeek(1)}
+          >
+            <ChevronRight size={18} />
+          </button>
+          <h1>
+            {rangeDate.formatRange(
+              visibleDays[0],
+              visibleDays[visibleDays.length - 1],
+            )}
+          </h1>
+          <button className="text-button" onClick={goToday}>
+            Today
+          </button>
+        </div>
+        <div className="view-controls">
+          <button
+            className="mobile-inbox-button"
+            aria-expanded={inboxOpen}
+            onClick={() => setInboxOpen(!inboxOpen)}
+          >
+            Unscheduled <span className="count">{openUnscheduled}</span>
+            {earlier.length > 0 && (
+              <span className="earlier-flag">{earlier.length} earlier</span>
+            )}
+          </button>
+          <label className="weekend-control">
+            <input
+              type="checkbox"
+              checked={weekends}
+              onChange={(e) => {
+                setWeekends(e.target.checked);
+                if (!e.target.checked && dayKeys.slice(5).includes(selectedDay))
+                  setSelectedDay(dayKeys[0]);
+              }}
+            />
+            <span>
+              Weekends
+              {!weekends && weekendTasks > 0 ? ` (${weekendTasks})` : ''}
+            </span>
+          </label>
+        </div>
+        <div className="top-actions">
           <span
             className={`save-status ${saveError || readError ? 'save-failed' : ''}`}
           >
-            <span className="little-dot" />
-            {saveError || readError ? 'Not saved' : 'Saved on this device'}
+            {saveError || readError ? 'Not saved' : 'Saved locally'}
           </span>
+          <button
+            className="icon-button labelled"
+            aria-label="Export backup"
+            disabled={readError}
+            onClick={exportBackup}
+          >
+            <Download size={16} />
+            <span>Export</span>
+          </button>
+          <button
+            className="icon-button labelled"
+            aria-label="Import backup"
+            onClick={() => importRef.current?.click()}
+          >
+            <Upload size={16} />
+            <span>Import</span>
+          </button>
           <button
             className="icon-button"
             aria-label="Planner help"
             onClick={() => setHelpOpen(true)}
           >
-            <CircleHelp size={19} />
+            <CircleHelp size={18} />
           </button>
         </div>
       </header>
@@ -668,108 +943,33 @@ export default function App() {
               : 'Your latest changes could not be saved. Keep this page open and retry, or export a backup.'}
           </span>
           <button onClick={retrySave}>Retry</button>
-          <button onClick={exportBackup}>Export backup</button>
-          {readError && (
-            <button onClick={() => importRef.current?.click()}>
-              Restore backup
-            </button>
+          {readError ? (
+            <>
+              <button onClick={() => importRef.current?.click()}>
+                Restore backup
+              </button>
+              <button onClick={exportRaw}>Download saved data</button>
+            </>
+          ) : (
+            <button onClick={exportBackup}>Export backup</button>
           )}
         </div>
       )}
       <main>
-        <fieldset className="planner-content" disabled={readError}>
-          <div className="page-heading">
-            <div>
-              <h1>Your week, with intention.</h1>
-              <p>A little structure. A little space. Focus on what matters.</p>
-            </div>
-            <div className="week-summary">
-              <span>
-                {scheduledWeek.length
-                  ? `${done} of ${scheduledWeek.length} done`
-                  : 'A fresh week'}
-              </span>
-              <span className="summary-line" aria-hidden="true">
-                <span
-                  style={{
-                    width: `${scheduledWeek.length ? (done / scheduledWeek.length) * 100 : 0}%`,
-                  }}
-                />
-              </span>
-            </div>
-          </div>
-          <div className="planner-toolbar">
-            <div className="week-navigation">
-              <div className="arrow-group">
-                <button
-                  className="icon-button"
-                  aria-label="Previous week"
-                  onClick={() => goWeek(-1)}
-                >
-                  <ChevronLeft size={17} />
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label="Next week"
-                  onClick={() => goWeek(1)}
-                >
-                  <ChevronRight size={17} />
-                </button>
-              </div>
-              <h2>
-                {monthName.format(week)}
-                {week.getMonth() !== days[6].getMonth() &&
-                  ` – ${monthName.format(days[6])}`}{' '}
-                <span>
-                  {week.getFullYear()}
-                  {week.getFullYear() !== days[6].getFullYear() &&
-                    ` / ${days[6].getFullYear()}`}
-                </span>
-              </h2>
-              <button className="today-button" onClick={goToday}>
-                Today
-              </button>
-            </div>
-            <div className="view-controls">
+        <span id="move-hint" hidden>
+          Alt with arrow keys moves this task.
+        </span>
+        <nav className="mobile-days" aria-label="Choose day">
+          {visibleDays.map((day) => {
+            const key = dateKey(day);
+            return (
               <button
-                className="mobile-inbox-button secondary-button"
-                aria-expanded={inboxOpen}
-                onClick={() => setInboxOpen(!inboxOpen)}
-              >
-                <Inbox size={15} />
-                Unscheduled{' '}
-                <span>
-                  {unscheduled.filter((task) => !task.completed).length}
-                </span>
-              </button>
-              <label className="weekend-control">
-                <input
-                  type="checkbox"
-                  checked={weekends}
-                  onChange={(e) => {
-                    setWeekends(e.target.checked);
-                    if (
-                      !e.target.checked &&
-                      days.slice(5).some((day) => dateKey(day) === selectedDay)
-                    )
-                      setSelectedDay(dateKey(week));
-                  }}
-                />
-                <span>
-                  Weekends
-                  {!weekends && weekendTasks > 0 ? ` (${weekendTasks})` : ''}
-                </span>
-              </label>
-            </div>
-          </div>
-          <nav className="mobile-days" aria-label="Choose day">
-            {visibleDays.map((day) => (
-              <button
-                key={dateKey(day)}
-                className={`${selectedDay === dateKey(day) ? 'selected' : ''} ${today === dateKey(day) ? 'is-today' : ''}`}
-                aria-pressed={selectedDay === dateKey(day)}
+                key={key}
+                className={`${selectedDay === key && !inboxOpen ? 'selected' : ''} ${today === key ? 'is-today' : ''}`}
+                aria-pressed={selectedDay === key && !inboxOpen}
+                aria-label={`${dayName.format(day)} ${readableDate.format(day)}${today === key ? ', today' : ''}`}
                 onClick={() => {
-                  setSelectedDay(dateKey(day));
+                  setSelectedDay(key);
                   setInboxOpen(false);
                 }}
               >
@@ -779,72 +979,49 @@ export default function App() {
                   className="day-dot"
                   style={{
                     visibility: state.tasks.some(
-                      (task) => task.date === dateKey(day),
+                      (task) => task.date === key && !task.completed,
                     )
                       ? 'visible'
                       : 'hidden',
                   }}
                 />
               </button>
-            ))}
-          </nav>
-          <div className={`planner-board ${weekends ? 'with-weekends' : ''}`}>
+            );
+          })}
+        </nav>
+        <fieldset className="planner-content" disabled={readError}>
+          <div className={`board ${weekends ? 'with-weekends' : ''}`}>
             {inbox}
             <div className="days-grid">
               {visibleDays.map((day) => {
                 const key = dateKey(day);
                 const tasks = state.tasks.filter((task) => task.date === key);
+                const open = tasks.filter((task) => !task.completed).length;
                 const isToday = key === today;
                 return (
                   <section
                     key={key}
                     aria-label={`${dayName.format(day)} ${readableDate.format(day)}`}
-                    className={`day-column ${isToday ? 'today-column' : ''} ${key === selectedDay ? 'mobile-selected' : ''} ${draggingId && dropDate === key ? 'drop-active' : ''}`}
+                    className={`day-column ${isToday ? 'today-column' : ''} ${key < today ? 'past-column' : ''} ${key === selectedDay ? 'mobile-selected' : ''} ${draggingId && dropTarget?.date === key ? 'drop-active' : ''}`}
                     {...dropProps(key)}
                   >
                     <header className="day-heading">
-                      <div>
-                        <h3>{dayName.format(day)}</h3>
-                        <span
-                          className={`day-number ${isToday ? 'today-number' : ''}`}
-                        >
-                          {day.getDate()}
-                        </span>
-                      </div>
-                      <span className="day-count">
-                        {isToday
-                          ? 'Today'
-                          : `${tasks.filter((task) => !task.completed).length} ${tasks.filter((task) => !task.completed).length === 1 ? 'task' : 'tasks'}`}
-                      </span>
+                      <h2>
+                        <span className="day-name">{shortDay.format(day)}</span>
+                        <span className="day-number">{day.getDate()}</span>
+                      </h2>
+                      {isToday && <span className="today-tag">Today</span>}
+                      {open > 0 && (
+                        <span className="day-count">{open} open</span>
+                      )}
                     </header>
-                    <div className="task-list">{tasks.map(renderTask)}</div>
-                    <TaskComposer date={key} onAdd={addTask} />
-                    {tasks.length === 0 && (
-                      <div className="day-empty">
-                        <span className="empty-dash" />
-                        {isToday
-                          ? 'What matters today?'
-                          : 'Room to make progress.'}
-                      </div>
-                    )}
+                    {renderList(tasks, key)}
+                    <DayComposer date={key} onAdd={addTask} />
                   </section>
                 );
               })}
             </div>
           </div>
-          <footer className="board-footer">
-            <span>
-              <GripVertical size={13} />
-              Drag to plan. Click a task to make it yours.
-            </span>
-            <div>
-              <button onClick={exportBackup}>Export backup</button>
-              <span aria-hidden="true">·</span>
-              <button onClick={() => importRef.current?.click()}>
-                Import backup
-              </button>
-            </div>
-          </footer>
         </fieldset>
         <input
           ref={importRef}
@@ -881,7 +1058,7 @@ export default function App() {
                   return next;
                 });
                 setDeleted(null);
-                setNotice('Task restored.');
+                announce('Task restored.');
               }}
             >
               Undo
@@ -895,12 +1072,14 @@ export default function App() {
             </button>
           </div>
         ) : (
-          notice && (
+          notice &&
+          (notice.visible ? (
             <div className="toast">
-              <Check size={15} />
-              <span>{notice}</span>
+              <span>{notice.text}</span>
             </div>
-          )
+          ) : (
+            <span className="visually-hidden">{notice.text}</span>
+          ))
         )}
       </div>
       {currentTask && (
@@ -908,10 +1087,29 @@ export default function App() {
           key={currentTask.id}
           task={currentTask}
           tasks={state.tasks}
-          onClose={() => setEditingId(null)}
+          today={today}
+          onClose={() => {
+            setEditingId(null);
+            // A save that moved the task has already asked for focus; keep it.
+            setFocusRequest((current) =>
+              current?.id === currentTask.id && !current.onlyIfLost
+                ? current
+                : { id: currentTask.id, onlyIfLost: true },
+            );
+          }}
           onChange={(patch) => {
             editTask(currentTask.id, patch);
-            setNotice('Task updated.');
+            const date = patch.date ?? null;
+            if (date === currentTask.date) {
+              announce('Task updated.');
+              return;
+            }
+            // Follow the task to its new date so its title can take focus.
+            reveal(date);
+            setFocusRequest({ id: currentTask.id, onlyIfLost: false });
+            announce(
+              `Task moved to ${date ? shortDate.format(parseDate(date)) : 'Unscheduled'}.`,
+            );
           }}
           onDelete={() => {
             setDeleted({
@@ -925,24 +1123,7 @@ export default function App() {
             );
             setEditingId(null);
           }}
-          onReorder={(direction) => {
-            const siblings = state.tasks.filter(
-              (task) => task.date === currentTask.date,
-            );
-            const index = siblings.findIndex(
-              (task) => task.id === currentTask.id,
-            );
-            const neighbour = siblings[index + direction];
-            if (!neighbour) return;
-            setTasks((tasks) => {
-              const next = [...tasks];
-              const from = next.findIndex((task) => task.id === currentTask.id);
-              const to = next.findIndex((task) => task.id === neighbour.id);
-              [next[from], next[to]] = [next[to], next[from]];
-              return next;
-            });
-            setNotice('Task order updated.');
-          }}
+          onReorder={(direction) => reorder(currentTask.id, direction)}
         />
       )}
       {helpOpen && <Help onClose={() => setHelpOpen(false)} />}

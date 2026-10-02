@@ -31,16 +31,33 @@ async function capture(title: string) {
   const inbox = screen.getByRole('complementary', {
     name: 'Unscheduled tasks',
   });
-  await user.click(
-    within(inbox).getByRole('button', { name: 'Add task', exact: true }),
-  );
   await user.type(
-    screen.getByRole('textbox', { name: 'New task for unscheduled' }),
+    within(inbox).getByRole('textbox', { name: 'New task for unscheduled' }),
     `${title}{Enter}`,
   );
   return user;
 }
 const saved = () => decodeState(localStorage.getItem(STORAGE_KEY));
+const today = dateKey(new Date());
+const tomorrow = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return dateKey(date);
+};
+const stored = (tasks: object[]) =>
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      tasks: tasks.map((task) => ({
+        date: null,
+        notes: '',
+        completed: false,
+        main: false,
+        ...task,
+      })),
+    }),
+  );
 
 describe('planner user flows', () => {
   it('captures, completes, and reopens a task across a reload', async () => {
@@ -191,5 +208,202 @@ describe('planner user flows', () => {
       ),
     );
     expect(saved().tasks[0].title).toBe('Keep this task');
+  });
+  it('offers the raw saved data, not an empty planner, while storage is unreadable', () => {
+    localStorage.setItem(STORAGE_KEY, '{invalid');
+    render(<App />);
+    const exportButton = screen.getByRole('button', {
+      name: 'Export backup',
+    }) as HTMLButtonElement;
+    expect(exportButton.disabled).toBe(true);
+    expect(
+      within(screen.getByRole('alert')).getByRole('button', {
+        name: 'Download saved data',
+      }),
+    ).toBeTruthy();
+  });
+  it('moves and reorders tasks with Alt and arrow keys, keeping focus', async () => {
+    stored([
+      { id: 'a', title: 'First' },
+      { id: 'b', title: 'Second' },
+    ]);
+    render(<App />);
+    const user = userEvent.setup();
+    const second = screen.getByRole('button', { name: 'Second', exact: true });
+    second.focus();
+    await user.keyboard('{Alt>}{ArrowUp}{/Alt}');
+    expect(saved().tasks.map((task) => task.id)).toEqual(['b', 'a']);
+    await user.keyboard('{Alt>}{ArrowRight}{/Alt}');
+    expect(saved().tasks.find((task) => task.id === 'b')?.date).toBe(today);
+    expect(document.activeElement?.textContent).toBe('Second');
+    await user.keyboard('{Alt>}{ArrowRight}{/Alt}');
+    expect(saved().tasks.find((task) => task.id === 'b')?.date).toBe(
+      tomorrow(),
+    );
+    expect(document.activeElement?.textContent).toBe('Second');
+  });
+  it('plans a task with a quick date in task details', async () => {
+    render(<App />);
+    const user = await capture('Book a call');
+    await user.click(
+      screen.getByRole('button', { name: 'Book a call', exact: true }),
+    );
+    await user.click(
+      within(screen.getByRole('group', { name: 'Quick dates' })).getByRole(
+        'button',
+        { name: 'Tomorrow' },
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(saved().tasks[0].date).toBe(tomorrow());
+  });
+  it('lists unfinished earlier tasks and moves one to today', async () => {
+    stored([
+      { id: 'old', title: 'Old task', date: '2020-01-06' },
+      { id: 'done', title: 'Done task', date: '2020-01-06', completed: true },
+    ]);
+    render(<App />);
+    const earlier = screen.getByRole('region', { name: /From earlier/ });
+    expect(within(earlier).queryByText('Done task')).toBeNull();
+    await userEvent
+      .setup()
+      .click(
+        within(earlier).getByRole('button', { name: 'Move Old task to today' }),
+      );
+    expect(saved().tasks.find((task) => task.id === 'old')?.date).toBe(today);
+    expect(screen.queryByRole('region', { name: /From earlier/ })).toBeNull();
+  });
+  it('closes a day composer with Escape and returns focus to Add task', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const add = screen.getAllByRole('button', { name: /^Add task to / })[0];
+    const name = add.getAttribute('aria-label');
+    await user.click(add);
+    await user.keyboard('Draft{Enter}');
+    expect(saved().tasks[0].title).toBe('Draft');
+    await user.keyboard('{Escape}');
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(name);
+  });
+});
+
+describe('closing task details after a date change', () => {
+  // Friday 2 October 2026, with weekends hidden by default.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 2, 12));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const label = (day: number, month = 9) => {
+    const date = new Date(2026, month, day, 12);
+    return `${new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(date)} ${new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(date)}`;
+  };
+  const focusedTitle = () => document.activeElement?.textContent;
+  async function openFridayTask() {
+    stored([{ id: 'f', title: 'Friday task', date: '2026-10-02' }]);
+    render(<App />);
+    const user = userEvent.setup();
+    const title = within(
+      screen.getByRole('region', { name: label(2) }),
+    ).getByRole('button', { name: 'Friday task', exact: true });
+    title.focus();
+    await user.click(title);
+    return user;
+  }
+  const quickDate = (name: string) =>
+    within(screen.getByRole('group', { name: 'Quick dates' })).getByRole(
+      'button',
+      { name },
+    );
+
+  it('follows a task saved into another week and focuses it there', async () => {
+    const user = await openFridayTask();
+    await user.click(quickDate('Next Monday'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(saved().tasks[0].date).toBe('2026-10-05');
+    const monday = screen.getByRole('region', { name: label(5) });
+    expect(screen.queryByRole('region', { name: label(2) })).toBeNull();
+    expect(
+      within(screen.getByRole('navigation', { name: 'Choose day' }))
+        .getByRole('button', { name: label(5) })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(monday.contains(document.activeElement)).toBe(true);
+    expect(focusedTitle()).toBe('Friday task');
+  });
+  it('reveals a hidden weekend when a task is saved to Saturday', async () => {
+    const user = await openFridayTask();
+    expect(screen.queryByRole('region', { name: label(3) })).toBeNull();
+    fireEvent.input(screen.getByLabelText(/Plan for/), {
+      target: { value: '2026-10-03' },
+    });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(saved().tasks[0].date).toBe('2026-10-03');
+    expect(
+      (screen.getByRole('checkbox', { name: /Weekends/ }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    const saturday = screen.getByRole('region', { name: label(3) });
+    expect(
+      within(screen.getByRole('navigation', { name: 'Choose day' }))
+        .getByRole('button', { name: label(3) })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(saturday.contains(document.activeElement)).toBe(true);
+    expect(focusedTitle()).toBe('Friday task');
+  });
+  it('opens Unscheduled when a task is saved without a date', async () => {
+    const user = await openFridayTask();
+    await user.click(quickDate('Unscheduled'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(saved().tasks[0]).toMatchObject({ date: null, main: false });
+    expect(
+      screen
+        .getByRole('button', { name: /^Unscheduled/, expanded: true })
+        .getAttribute('aria-expanded'),
+    ).toBe('true');
+    const inbox = screen.getByRole('complementary', {
+      name: 'Unscheduled tasks',
+    });
+    expect(inbox.contains(document.activeElement)).toBe(true);
+    expect(focusedTitle()).toBe('Friday task');
+  });
+  it('keeps the view and opener when details close without a date change', async () => {
+    const user = await openFridayTask();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await user.click(quickDate('Next Monday'));
+    await user.click(
+      screen.getByRole('button', { name: 'Close task details' }),
+    );
+    expect(saved().tasks[0].date).toBe('2026-10-02');
+    expect(screen.getByRole('region', { name: label(2) })).toBeTruthy();
+    expect(focusedTitle()).toBe('Friday task');
+  });
+  it('returns focus to the From earlier opener after saving notes', async () => {
+    stored([{ id: 'o', title: 'Old task', date: '2026-09-01' }]);
+    render(<App />);
+    const user = userEvent.setup();
+    const opener = within(
+      screen.getByRole('region', { name: /From earlier/ }),
+    ).getByRole('button', { name: /^Open Old task/ });
+    opener.focus();
+    await user.click(opener);
+    await user.type(
+      screen.getByRole('textbox', { name: 'Notes Optional' }),
+      'Still relevant',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(saved().tasks[0]).toMatchObject({
+      date: '2026-09-01',
+      notes: 'Still relevant',
+    });
+    expect(document.activeElement).toBe(
+      within(screen.getByRole('region', { name: /From earlier/ })).getByRole(
+        'button',
+        { name: /^Open Old task/ },
+      ),
+    );
+    expect(screen.getByRole('region', { name: label(2) })).toBeTruthy();
   });
 });
