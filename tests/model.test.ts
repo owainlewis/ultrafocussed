@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addDays,
+  addMonths,
   createTask,
   dateKey,
   decodeState,
+  monthDays,
   moveTask,
   parseDate,
   updateTask,
@@ -41,6 +43,33 @@ test('week navigation uses Monday and survives month, year, and daylight-saving 
   );
   assert.equal(dateKey(addDays(parseDate('2026-10-24'), 2)), '2026-10-26');
   assert.equal(dateKey(parseDate('0099-01-01')), '0099-01-01');
+});
+test('month grids hold every date in whole Monday-first weeks', () => {
+  const span = (key: string) => {
+    const days = monthDays(parseDate(key)).map(dateKey);
+    return [days.length, days[0], days[days.length - 1]];
+  };
+  // Starts on a Thursday.
+  assert.deepEqual(span('2026-10-17'), [35, '2026-09-28', '2026-11-01']);
+  // Starts on Monday and ends on Sunday: no padding.
+  assert.deepEqual(span('2027-02-10'), [28, '2027-02-01', '2027-02-28']);
+  // Starts on Saturday with 31 days: six weeks.
+  assert.deepEqual(span('2026-08-01'), [42, '2026-07-27', '2026-09-06']);
+  // Leap February.
+  assert.deepEqual(span('2028-02-29'), [35, '2028-01-31', '2028-03-05']);
+  // The daylight-saving change on 29 March neither skips nor repeats a date.
+  const march = monthDays(parseDate('2026-03-01')).map(dateKey);
+  assert.equal(new Set(march).size, march.length);
+  assert.deepEqual(march.slice(-8, -6), ['2026-03-29', '2026-03-30']);
+});
+test('month navigation keeps the day of the month where it exists', () => {
+  const step = (key: string, months: number) =>
+    dateKey(addMonths(parseDate(key), months));
+  assert.equal(step('2026-01-31', 1), '2026-02-28');
+  assert.equal(step('2028-01-31', 1), '2028-02-29');
+  assert.equal(step('2026-03-31', -1), '2026-02-28');
+  assert.equal(step('2026-12-15', 1), '2027-01-15');
+  assert.equal(step('2027-01-04', -1), '2026-12-04');
 });
 test('moving tasks changes their day and order without duplicating or losing work', () => {
   const tasks = [task('a'), task('b', null), task('c')];

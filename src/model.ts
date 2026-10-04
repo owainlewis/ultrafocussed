@@ -50,6 +50,29 @@ export function addDays(date: Date, days: number): Date {
 export function weekStart(date: Date): Date {
   return addDays(date, -((date.getDay() + 6) % 7));
 }
+function monthEnd(date: Date): Date {
+  const end = new Date(date);
+  end.setMonth(end.getMonth() + 1, 0);
+  return end;
+}
+// Keeps the day of the month where possible: 31 January plus one month is the last day of February.
+export function addMonths(date: Date, months: number): Date {
+  const next = new Date(date);
+  next.setDate(1);
+  next.setMonth(next.getMonth() + months);
+  next.setDate(Math.min(date.getDate(), monthEnd(next).getDate()));
+  return next;
+}
+// Every date of the month in whole Monday-first weeks, padded with neighbouring days.
+export function monthDays(date: Date): Date[] {
+  const first = new Date(date);
+  first.setDate(1);
+  const last = dateKey(addDays(weekStart(monthEnd(first)), 6));
+  const days: Date[] = [];
+  for (let day = weekStart(first); dateKey(day) <= last; day = addDays(day, 1))
+    days.push(day);
+  return days;
+}
 export function decodeState(raw: string | null): PlannerState {
   if (raw === null) return emptyState();
   const value = JSON.parse(raw);

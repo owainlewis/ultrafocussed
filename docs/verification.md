@@ -52,3 +52,15 @@ Storage failures and backup import are proven by UI tests rather than injected b
 - Daily planning: component test links a task, schedules it for today, reloads, renames the goal, and unlinks the task. Existing planner tests cover movement, completion, storage failure, backup, and keyboard flows.
 - Compatibility: model tests verify version 1 migration, goal/task backup round-trip, retained links after task moves/completion, and rejection of invalid goals or dangling links.
 - Real browser: desktop created a goal, linked and scheduled a task, and reloaded to verify persistence. Keyboard Enter expanded Goals. At 390 × 844, edited a goal and verified the task label changed. No warning/error console logs were captured. Screenshots were inspected for desktop and mobile layout.
+
+## Week and month views (2026-10-04)
+
+- Automated: 12 model tests and 24 component tests pass; production build and formatting checks pass.
+- Month boundaries: model tests cover Monday-first grids for a Thursday start (35 days), a Monday-to-Sunday February (28), a Saturday start with 31 days (42), a leap February, and the March daylight-saving change. Month steps clamp 31 January to the end of February in normal and leap years and cross year ends.
+- View switching: a component test operates the labelled toggle with the keyboard, checks both pressed states, shows all 35 October cells with weekends hidden in the week view, marks today, steps to September with the selected day kept, and switches back to Week on a selected Saturday, which reveals weekends and keeps that date selected.
+- Shared state: component tests complete a task and capture a task in month cells, move a task with Next Monday and follow it, reorder and move tasks with Alt + arrows across the October/November boundary with focus kept, and confirm the week view shows the same single records.
+- Goals: a component test checks the 90-day focus, open linked tasks in date order with Unscheduled last, opening and unlinking a task from the panel, and editing the focus.
+- Mobile: a component test with the mobile media query checks the compact grid, the selected day's list below it, an Alt + Right move that follows the task, day capture, and the Goals panel.
+- Real browser: desktop Month capture added a task, Alt + Right moved it to the next day, Week showed the same task, and Month completion updated that record. Mobile day selection showed the matching task list and opened its task entry. Next/previous month navigation was verified. Desktop and mobile screenshots were inspected. Console inspection found no warnings or errors.
+- Final review: independent finish review returned Approve / ship with no findings.
+- Limits: assistive-technology use beyond the existing keyboard and labelled-control checks, heavy task density, and intermediate tablet widths were not verified in the browser for this change.

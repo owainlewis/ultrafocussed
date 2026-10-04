@@ -33,6 +33,8 @@ Goals and tasks share the local save and JSON backup. Existing version 1 planner
 - Choose one main outcome per day. Moving an outcome into a day that already has one preserves that day's existing choice.
 - Complete and reopen tasks. Delete with Undo.
 - Browse weeks and reveal weekends. On mobile, choose a day from the week strip and open Unscheduled separately.
+- Switch between Week and Month in the top bar. Month shows every date of the month, Monday first, with weekends always included. Capture, complete, open, drag, and Alt + arrow moves work in each day cell. Your goals, their next 90 days, and their open linked tasks sit beside the calendar. On mobile, tap a date to see that day's tasks below the calendar; goals follow below.
+- The selected date carries across views and navigation. Next and previous month keep the day of the month where it exists.
 - Unfinished tasks stay on their original date and appear under From earlier, with a one-click move to today. Nothing automatically rolls forward.
 
 ## Data and backups
@@ -51,4 +53,4 @@ npm run build
 npm run format:check
 ```
 
-Model tests cover persistence format, invalid data, local calendar dates, week boundaries, moving and reordering, completion, and main outcomes. Browser verification is recorded in [docs/verification.md](docs/verification.md).
+Model tests cover persistence format, invalid data, local calendar dates, week and month boundaries, moving and reordering, completion, and main outcomes. Browser verification is recorded in [docs/verification.md](docs/verification.md).

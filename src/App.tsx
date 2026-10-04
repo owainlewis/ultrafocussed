@@ -24,10 +24,12 @@ import {
 } from 'lucide-react';
 import {
   addDays,
+  addMonths,
   createTask,
   dateKey,
   decodeState,
   emptyState,
+  monthDays,
   moveTask,
   parseDate,
   STORAGE_KEY,
@@ -54,11 +56,39 @@ const rangeDate = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   year: 'numeric',
 });
+const monthName = new Intl.DateTimeFormat(undefined, {
+  month: 'long',
+  year: 'numeric',
+});
 const MOVE_KEYS = 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight';
+const NARROW = '(max-width: 760px)';
 
 type Notice = { text: string; visible: boolean };
 type DropTarget = { date: string | null; beforeId?: string };
 type Patch = Partial<Omit<Task, 'id'>>;
+type View = 'week' | 'month';
+
+// Matches the mobile breakpoint in styles.css. On mobile the month shows one day's list below the grid.
+function useNarrow() {
+  const [narrow, setNarrow] = useState(
+    () => typeof matchMedia === 'function' && matchMedia(NARROW).matches,
+  );
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const list = matchMedia(NARROW);
+    const change = () => setNarrow(list.matches);
+    list.addEventListener('change', change);
+    return () => list.removeEventListener('change', change);
+  }, []);
+  return narrow;
+}
+
+const goalStatus = (goal: Goal) =>
+  goal.completed
+    ? 'Completed'
+    : goal.targetDate
+      ? `Target: ${rangeDate.format(parseDate(goal.targetDate))}`
+      : 'No target date';
 
 function initialData(): { state: PlannerState; error: boolean } {
   try {
@@ -476,20 +506,126 @@ function DetailPanel({
   );
 }
 
+// The week view shows goals as a collapsible strip; the month view shows them beside the calendar.
 function GoalsPanel({
   goals,
+  tasks,
   disabled,
+  layout,
   onSave,
+  onOpenTask,
 }: {
   goals: Goal[];
+  tasks: Task[];
   disabled: boolean;
+  layout: 'strip' | 'side';
   onSave: (goal: Goal) => void;
+  onOpenTask: (id: string) => void;
 }) {
   const [editing, setEditing] = useState<Goal | null>(null);
   const [expanded, setExpanded] = useState(false);
   // A restored backup or another tab must not leave a stale goal draft open.
   useEffect(() => setEditing(null), [goals]);
   const active = goals.filter((goal) => !goal.completed);
+  const addButton = (
+    <button
+      className="secondary-button"
+      disabled={disabled}
+      onClick={() =>
+        setEditing({
+          id: crypto.randomUUID(),
+          title: '',
+          reason: '',
+          targetDate: null,
+          focus: '',
+          completed: false,
+        })
+      }
+    >
+      Add goal
+    </button>
+  );
+  const editor = editing && !disabled && (
+    <GoalEditor
+      key={editing.id}
+      goal={editing}
+      onClose={() => setEditing(null)}
+      onSave={(goal) => {
+        onSave(goal);
+        setEditing(null);
+        setExpanded(true);
+      }}
+    />
+  );
+  if (layout === 'side')
+    return (
+      <aside className="goals-side" aria-labelledby="goals-side-title">
+        <div className="goals-side-heading">
+          <h2 id="goals-side-title">
+            Goals <span className="count">{active.length}</span>
+          </h2>
+          {addButton}
+        </div>
+        {goals.length === 0 && (
+          <p className="empty-note">
+            No goals yet. Add an outcome you want to achieve.
+          </p>
+        )}
+        <ul className="goal-cards">
+          {goals.map((goal) => {
+            // Dated work first, in date order, then unscheduled work.
+            const linked = tasks
+              .filter((task) => task.goalId === goal.id && !task.completed)
+              .sort((a, b) =>
+                a.date === b.date
+                  ? 0
+                  : b.date === null || (a.date !== null && a.date < b.date)
+                    ? -1
+                    : 1,
+              );
+            return (
+              <li
+                key={goal.id}
+                className={`goal-card ${goal.completed ? 'goal-completed' : ''}`}
+              >
+                <button
+                  className="goal-open"
+                  disabled={disabled}
+                  onClick={() => setEditing(goal)}
+                >
+                  <strong>{goal.title}</strong>
+                  <span>{goalStatus(goal)}</span>
+                </button>
+                <div className="goal-focus">
+                  <h3>Next 90 days</h3>
+                  <p>{goal.focus || 'Not set yet.'}</p>
+                </div>
+                {linked.length > 0 && (
+                  <ul
+                    className="goal-tasks"
+                    aria-label={`Open tasks for ${goal.title}`}
+                  >
+                    {linked.map((task) => (
+                      <li key={task.id}>
+                        <button onClick={() => onOpenTask(task.id)}>
+                          {task.title}
+                          <small>
+                            {task.date
+                              ? shortDate.format(parseDate(task.date))
+                              : 'Unscheduled'}
+                          </small>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {editor}
+      </aside>
+    );
   return (
     <section className="goals-section" aria-label="Your goals">
       <div className="goals-heading">
@@ -507,22 +643,7 @@ function GoalsPanel({
               : 'Give your daily work a direction.'}
           </p>
         )}
-        <button
-          className="secondary-button"
-          disabled={disabled}
-          onClick={() =>
-            setEditing({
-              id: crypto.randomUUID(),
-              title: '',
-              reason: '',
-              targetDate: null,
-              focus: '',
-              completed: false,
-            })
-          }
-        >
-          Add goal
-        </button>
+        {addButton}
       </div>
       {expanded && (
         <div className="goals-list">
@@ -537,13 +658,7 @@ function GoalsPanel({
               onClick={() => setEditing(goal)}
             >
               <strong>{goal.title}</strong>
-              <span>
-                {goal.completed
-                  ? 'Completed'
-                  : goal.targetDate
-                    ? `Target: ${goal.targetDate}`
-                    : 'No target date'}
-              </span>
+              <span>{goalStatus(goal)}</span>
               {goal.focus && (
                 <p>
                   <span>Next 90 days:</span> {goal.focus}
@@ -553,18 +668,7 @@ function GoalsPanel({
           ))}
         </div>
       )}
-      {editing && !disabled && (
-        <GoalEditor
-          key={editing.id}
-          goal={editing}
-          onClose={() => setEditing(null)}
-          onSave={(goal) => {
-            onSave(goal);
-            setEditing(null);
-            setExpanded(true);
-          }}
-        />
-      )}
+      {editor}
     </section>
   );
 }
@@ -731,6 +835,10 @@ function Help({ onClose }: { onClose: () => void }) {
           outcome.
         </li>
         <li>
+          Switch between Week and Month in the top bar. Month shows every date,
+          with each goal and its next 90 days alongside.
+        </li>
+        <li>
           Unfinished tasks stay on their day. They are listed under From earlier
           until you move, finish, or delete them.
         </li>
@@ -748,8 +856,10 @@ export default function App() {
   const [state, setState] = useState<PlannerState>(initial.state);
   const [readError, setReadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(false);
-  const [week, setWeek] = useState(() => weekStart(new Date()));
+  // The selected date anchors both views: the week and month shown always contain it.
   const [selectedDay, setSelectedDay] = useState(() => dateKey(new Date()));
+  const [view, setView] = useState<View>('week');
+  const narrow = useNarrow();
   const [weekends, setWeekends] = useState(
     () => new Date().getDay() === 0 || new Date().getDay() === 6,
   );
@@ -767,7 +877,11 @@ export default function App() {
     null,
   );
   const today = dateKey(new Date());
+  const selected = parseDate(selectedDay);
+  const week = weekStart(selected);
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
+  const month = monthDays(selected);
+  const monthKeys = month.map(dateKey);
   const dayKeys = days.map(dateKey);
   const weekendTasks = state.tasks.filter((task) =>
     dayKeys.slice(5).includes(task.date ?? ''),
@@ -832,24 +946,32 @@ export default function App() {
   };
   const editTask = (id: string, patch: Patch) =>
     setTasks((tasks) => updateTask(tasks, id, patch));
-  const goWeek = (direction: number) => {
-    const next = addDays(week, direction * 7);
-    setWeek(next);
-    setSelectedDay(dateKey(next));
+  // A week step selects that week's Monday; a month step keeps the day of the month where it exists.
+  const goPeriod = (direction: number) => {
+    setSelectedDay(
+      dateKey(
+        view === 'month'
+          ? addMonths(selected, direction)
+          : addDays(week, direction * 7),
+      ),
+    );
   };
   const goToday = () => {
-    setWeek(weekStart(new Date()));
     setSelectedDay(today);
     if ([0, 6].includes(new Date().getDay())) setWeekends(true);
     setInboxOpen(false);
   };
   // Bring a date into view so a moved task stays visible.
   const showDate = (date: string) => {
-    const day = parseDate(date);
-    if (!dayKeys.includes(date)) setWeek(weekStart(day));
-    if ([0, 6].includes(day.getDay())) setWeekends(true);
+    if ([0, 6].includes(parseDate(date).getDay())) setWeekends(true);
     setSelectedDay(date);
     setInboxOpen(false);
+  };
+  // Week view reveals weekends when the selected date falls on one, so the date stays visible.
+  const switchView = (next: View) => {
+    setView(next);
+    if (next === 'week') showDate(selectedDay);
+    else setInboxOpen(false);
   };
   // Like showDate, but also opens the Unscheduled rail on mobile.
   const reveal = (date: string | null) => {
@@ -864,7 +986,7 @@ export default function App() {
     const outOfView =
       !follow &&
       date !== null &&
-      !visibleDays.some((day) => dateKey(day) === date);
+      !(view === 'month' ? monthKeys : visibleDays.map(dateKey)).includes(date);
     if (task.main && !kept)
       announce(`Moved to ${label}. That day already has a main outcome.`, true);
     else announce(`Moved to ${label}.`, outOfView);
@@ -1088,6 +1210,97 @@ export default function App() {
       )}
     </aside>
   );
+  const goalsPanel = (layout: 'strip' | 'side') => (
+    <GoalsPanel
+      goals={state.goals}
+      tasks={state.tasks}
+      disabled={readError}
+      layout={layout}
+      onOpenTask={setEditingId}
+      onSave={(goal) =>
+        setState((current) => ({
+          ...current,
+          goals: current.goals.some((item) => item.id === goal.id)
+            ? current.goals.map((item) => (item.id === goal.id ? goal : item))
+            : [...current.goals, goal],
+        }))
+      }
+    />
+  );
+  const openCount = (key: string) =>
+    state.tasks.filter((task) => task.date === key && !task.completed).length;
+  // Mobile shows a compact date grid with the selected day's list below it.
+  const monthArea: ReactNode = (
+    <div className="month-area">
+      <section
+        className="month-calendar"
+        aria-label={`${monthName.format(selected)} calendar`}
+      >
+        <div className="month-weekdays" aria-hidden="true">
+          {month.slice(0, 7).map((day) => (
+            <span key={dateKey(day)}>{shortDay.format(day)}</span>
+          ))}
+        </div>
+        <div className="month-grid">
+          {month.map((day) => {
+            const key = dateKey(day);
+            const tasks = state.tasks.filter((task) => task.date === key);
+            const open = openCount(key);
+            const label = `${dayName.format(day)} ${readableDate.format(day)}`;
+            return (
+              <section
+                key={key}
+                aria-label={label}
+                className={`month-cell ${key === today ? 'today-cell' : ''} ${key < today ? 'past-cell' : ''} ${day.getMonth() !== selected.getMonth() ? 'other-month' : ''} ${key === selectedDay ? 'selected-cell' : ''} ${draggingId && dropTarget?.date === key ? 'drop-active' : ''}`}
+                {...dropProps(key)}
+              >
+                <header className="month-cell-heading">
+                  <button
+                    className="month-date"
+                    aria-pressed={key === selectedDay}
+                    aria-label={`${label}${key === today ? ', today' : ''}${open ? `, ${open} open` : ''}`}
+                    onClick={() => setSelectedDay(key)}
+                  >
+                    {day.getDate()}
+                  </button>
+                  {key === today && <span className="today-tag">Today</span>}
+                  {narrow && open > 0 && <span className="day-dot" />}
+                </header>
+                {!narrow && renderList(tasks, key)}
+                {!narrow && <DayComposer date={key} onAdd={addTask} />}
+              </section>
+            );
+          })}
+        </div>
+      </section>
+      {narrow && (
+        <section
+          className={`month-day ${draggingId && dropTarget?.date === selectedDay ? 'drop-active' : ''}`}
+          aria-label={`Tasks for ${dayName.format(selected)} ${readableDate.format(selected)}`}
+          {...dropProps(selectedDay)}
+        >
+          <header className="day-heading">
+            <h2>
+              <span className="day-name">{dayName.format(selected)}</span>
+              <span className="day-number">
+                {readableDate.format(selected)}
+              </span>
+            </h2>
+            {selectedDay === today && <span className="today-tag">Today</span>}
+            {openCount(selectedDay) > 0 && (
+              <span className="day-count">{openCount(selectedDay)} open</span>
+            )}
+          </header>
+          {renderList(
+            state.tasks.filter((task) => task.date === selectedDay),
+            selectedDay,
+          )}
+          <DayComposer key={selectedDay} date={selectedDay} onAdd={addTask} />
+        </section>
+      )}
+      {goalsPanel('side')}
+    </div>
+  );
 
   return (
     <div className="app-shell">
@@ -1096,29 +1309,42 @@ export default function App() {
         <div className="week-nav">
           <button
             className="icon-button"
-            aria-label="Previous week"
-            onClick={() => goWeek(-1)}
+            aria-label={`Previous ${view}`}
+            onClick={() => goPeriod(-1)}
           >
             <ChevronLeft size={18} />
           </button>
           <button
             className="icon-button"
-            aria-label="Next week"
-            onClick={() => goWeek(1)}
+            aria-label={`Next ${view}`}
+            onClick={() => goPeriod(1)}
           >
             <ChevronRight size={18} />
           </button>
           <h1>
-            {rangeDate.formatRange(
-              visibleDays[0],
-              visibleDays[visibleDays.length - 1],
-            )}
+            {view === 'month'
+              ? monthName.format(selected)
+              : rangeDate.formatRange(
+                  visibleDays[0],
+                  visibleDays[visibleDays.length - 1],
+                )}
           </h1>
           <button className="text-button" onClick={goToday}>
             Today
           </button>
         </div>
         <div className="view-controls">
+          <div className="view-toggle" role="group" aria-label="View">
+            {(['week', 'month'] as const).map((option) => (
+              <button
+                key={option}
+                aria-pressed={view === option}
+                onClick={() => switchView(option)}
+              >
+                {option === 'week' ? 'Week' : 'Month'}
+              </button>
+            ))}
+          </div>
           <button
             className="mobile-inbox-button"
             aria-expanded={inboxOpen}
@@ -1129,21 +1355,26 @@ export default function App() {
               <span className="earlier-flag">{earlier.length} earlier</span>
             )}
           </button>
-          <label className="weekend-control">
-            <input
-              type="checkbox"
-              checked={weekends}
-              onChange={(e) => {
-                setWeekends(e.target.checked);
-                if (!e.target.checked && dayKeys.slice(5).includes(selectedDay))
-                  setSelectedDay(dayKeys[0]);
-              }}
-            />
-            <span>
-              Weekends
-              {!weekends && weekendTasks > 0 ? ` (${weekendTasks})` : ''}
-            </span>
-          </label>
+          {view === 'week' && (
+            <label className="weekend-control">
+              <input
+                type="checkbox"
+                checked={weekends}
+                onChange={(e) => {
+                  setWeekends(e.target.checked);
+                  if (
+                    !e.target.checked &&
+                    dayKeys.slice(5).includes(selectedDay)
+                  )
+                    setSelectedDay(dayKeys[0]);
+                }}
+              />
+              <span>
+                Weekends
+                {!weekends && weekendTasks > 0 ? ` (${weekendTasks})` : ''}
+              </span>
+            </label>
+          )}
         </div>
         <div className="top-actions">
           <span
@@ -1197,84 +1428,81 @@ export default function App() {
           )}
         </div>
       )}
-      <GoalsPanel
-        goals={state.goals}
-        disabled={readError}
-        onSave={(goal) =>
-          setState((current) => ({
-            ...current,
-            goals: current.goals.some((item) => item.id === goal.id)
-              ? current.goals.map((item) => (item.id === goal.id ? goal : item))
-              : [...current.goals, goal],
-          }))
-        }
-      />
+      {view === 'week' && goalsPanel('strip')}
       <main>
         <span id="move-hint" hidden>
           Alt with arrow keys moves this task.
         </span>
-        <nav className="mobile-days" aria-label="Choose day">
-          {visibleDays.map((day) => {
-            const key = dateKey(day);
-            return (
-              <button
-                key={key}
-                className={`${selectedDay === key && !inboxOpen ? 'selected' : ''} ${today === key ? 'is-today' : ''}`}
-                aria-pressed={selectedDay === key && !inboxOpen}
-                aria-label={`${dayName.format(day)} ${readableDate.format(day)}${today === key ? ', today' : ''}`}
-                onClick={() => {
-                  setSelectedDay(key);
-                  setInboxOpen(false);
-                }}
-              >
-                <span>{shortDay.format(day)}</span>
-                <strong>{day.getDate()}</strong>
-                <span
-                  className="day-dot"
-                  style={{
-                    visibility: state.tasks.some(
-                      (task) => task.date === key && !task.completed,
-                    )
-                      ? 'visible'
-                      : 'hidden',
+        {view === 'week' && (
+          <nav className="mobile-days" aria-label="Choose day">
+            {visibleDays.map((day) => {
+              const key = dateKey(day);
+              return (
+                <button
+                  key={key}
+                  className={`${selectedDay === key && !inboxOpen ? 'selected' : ''} ${today === key ? 'is-today' : ''}`}
+                  aria-pressed={selectedDay === key && !inboxOpen}
+                  aria-label={`${dayName.format(day)} ${readableDate.format(day)}${today === key ? ', today' : ''}`}
+                  onClick={() => {
+                    setSelectedDay(key);
+                    setInboxOpen(false);
                   }}
-                />
-              </button>
-            );
-          })}
-        </nav>
+                >
+                  <span>{shortDay.format(day)}</span>
+                  <strong>{day.getDate()}</strong>
+                  <span
+                    className="day-dot"
+                    style={{
+                      visibility: state.tasks.some(
+                        (task) => task.date === key && !task.completed,
+                      )
+                        ? 'visible'
+                        : 'hidden',
+                    }}
+                  />
+                </button>
+              );
+            })}
+          </nav>
+        )}
         <fieldset className="planner-content" disabled={readError}>
           <div className={`board ${weekends ? 'with-weekends' : ''}`}>
             {inbox}
-            <div className="days-grid">
-              {visibleDays.map((day) => {
-                const key = dateKey(day);
-                const tasks = state.tasks.filter((task) => task.date === key);
-                const open = tasks.filter((task) => !task.completed).length;
-                const isToday = key === today;
-                return (
-                  <section
-                    key={key}
-                    aria-label={`${dayName.format(day)} ${readableDate.format(day)}`}
-                    className={`day-column ${isToday ? 'today-column' : ''} ${key < today ? 'past-column' : ''} ${key === selectedDay ? 'mobile-selected' : ''} ${draggingId && dropTarget?.date === key ? 'drop-active' : ''}`}
-                    {...dropProps(key)}
-                  >
-                    <header className="day-heading">
-                      <h2>
-                        <span className="day-name">{shortDay.format(day)}</span>
-                        <span className="day-number">{day.getDate()}</span>
-                      </h2>
-                      {isToday && <span className="today-tag">Today</span>}
-                      {open > 0 && (
-                        <span className="day-count">{open} open</span>
-                      )}
-                    </header>
-                    {renderList(tasks, key)}
-                    <DayComposer date={key} onAdd={addTask} />
-                  </section>
-                );
-              })}
-            </div>
+            {view === 'month' ? (
+              monthArea
+            ) : (
+              <div className="days-grid">
+                {visibleDays.map((day) => {
+                  const key = dateKey(day);
+                  const tasks = state.tasks.filter((task) => task.date === key);
+                  const open = tasks.filter((task) => !task.completed).length;
+                  const isToday = key === today;
+                  return (
+                    <section
+                      key={key}
+                      aria-label={`${dayName.format(day)} ${readableDate.format(day)}`}
+                      className={`day-column ${isToday ? 'today-column' : ''} ${key < today ? 'past-column' : ''} ${key === selectedDay ? 'mobile-selected' : ''} ${draggingId && dropTarget?.date === key ? 'drop-active' : ''}`}
+                      {...dropProps(key)}
+                    >
+                      <header className="day-heading">
+                        <h2>
+                          <span className="day-name">
+                            {shortDay.format(day)}
+                          </span>
+                          <span className="day-number">{day.getDate()}</span>
+                        </h2>
+                        {isToday && <span className="today-tag">Today</span>}
+                        {open > 0 && (
+                          <span className="day-count">{open} open</span>
+                        )}
+                      </header>
+                      {renderList(tasks, key)}
+                      <DayComposer date={key} onAdd={addTask} />
+                    </section>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </fieldset>
         <input
