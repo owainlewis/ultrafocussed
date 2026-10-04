@@ -407,3 +407,120 @@ describe('closing task details after a date change', () => {
     expect(screen.getByRole('region', { name: label(2) })).toBeTruthy();
   });
 });
+
+it('captures and edits a goal, links a daily task, and restores both after reload', async () => {
+  const app = render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Add goal' }));
+  await user.type(
+    screen.getByRole('textbox', { name: 'Outcome' }),
+    'Grow my list',
+  );
+  await user.type(
+    screen.getByRole('textbox', { name: 'Why it matters' }),
+    'Reach the right people',
+  );
+  await user.type(
+    screen.getByRole('textbox', { name: 'Next 90 days' }),
+    'Publish useful videos',
+  );
+  fireEvent.change(screen.getByLabelText('Target date'), {
+    target: { value: '2027-10-04' },
+  });
+  await user.click(screen.getByRole('button', { name: 'Save goal' }));
+  await capture('Publish a video');
+  await user.click(
+    screen.getByRole('button', { name: 'Publish a video', exact: true }),
+  );
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Goal', exact: true }),
+    saved().goals[0].id,
+  );
+  await user.click(
+    within(screen.getByRole('dialog')).getByRole('button', {
+      name: 'Today',
+      exact: true,
+    }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(saved().tasks[0]).toMatchObject({
+    goalId: saved().goals[0].id,
+    date: today,
+  });
+  app.unmount();
+  render(<App />);
+  await user.click(screen.getByRole('button', { name: /^Goals/ }));
+  await user.click(
+    screen.getByRole('button', { name: /Grow my list.*Target/ }),
+  );
+  expect(
+    screen.getByRole('textbox', { name: 'Why it matters' }),
+  ).toHaveProperty('value', 'Reach the right people');
+  await user.clear(screen.getByRole('textbox', { name: 'Outcome' }));
+  await user.type(
+    screen.getByRole('textbox', { name: 'Outcome' }),
+    'Grow a useful audience',
+  );
+  await user.click(screen.getByRole('checkbox', { name: 'Goal completed' }));
+  await user.click(screen.getByRole('button', { name: 'Save goal' }));
+  expect(saved().goals[0]).toMatchObject({
+    title: 'Grow a useful audience',
+    completed: true,
+    targetDate: '2027-10-04',
+  });
+  expect(
+    screen
+      .getByRole('button', { name: 'Publish a video', exact: true })
+      .closest('li')?.textContent,
+  ).toContain('Grow a useful audience');
+  await user.click(
+    screen.getByRole('button', { name: 'Publish a video', exact: true }),
+  );
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Goal', exact: true }),
+    '',
+  );
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(saved().tasks[0].goalId).toBeNull();
+});
+
+it('closes a stale goal draft when another tab updates the planner', async () => {
+  const goal = {
+    id: 'g',
+    title: 'Audience',
+    reason: 'Original reason',
+    targetDate: null,
+    focus: 'Weekly videos',
+    completed: false,
+  };
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({ version: 2, tasks: [], goals: [goal] }),
+  );
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: /^Goals/ }));
+  await user.click(
+    screen.getByRole('button', { name: /Audience No target date/ }),
+  );
+  await user.type(
+    screen.getByRole('textbox', { name: 'Why it matters' }),
+    ' unsaved draft',
+  );
+  const newValue = JSON.stringify({
+    version: 2,
+    tasks: [],
+    goals: [{ ...goal, reason: 'Newer reason', title: 'Updated audience' }],
+  });
+  fireEvent(
+    window,
+    new StorageEvent('storage', { key: STORAGE_KEY, newValue }),
+  );
+  expect(screen.queryByRole('dialog', { name: 'Goal details' })).toBeNull();
+  await user.click(
+    screen.getByRole('button', { name: /Updated audience No target date/ }),
+  );
+  expect(
+    screen.getByRole('textbox', { name: 'Why it matters' }),
+  ).toHaveProperty('value', 'Newer reason');
+});

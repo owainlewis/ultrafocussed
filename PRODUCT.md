@@ -16,11 +16,11 @@ Solo users planning work across several days. Personal use is the v1 assumption 
 
 ## Product Purpose
 
-A minimalist weekly planner. Capture tasks, assign a planning date, choose a main outcome, and complete work.
+A minimalist weekly planner. Capture goals, connect daily tasks to them, assign a planning date, choose a main outcome, and complete work.
 
 ## Capabilities and Constraints
 
-Only the planner is in scope. Browser-local persistence, unscheduled tasks, dated tasks, completion, notes, reordering, and one main outcome per day. No accounts, cloud sync, or team features.
+Goals and the daily planner are in scope. Goals hold an outcome, reason, optional target date, next 90-day focus, and completion. Tasks optionally link to a goal. Browser-local persistence, unscheduled tasks, dated tasks, completion, notes, reordering, and one main outcome per day. No accounts, cloud sync, or team features.
 
 ## Brand Commitments
 

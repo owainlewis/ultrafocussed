@@ -93,7 +93,7 @@ test('unscheduled and earlier unfinished tasks are not automatically rolled forw
   );
 });
 test('malformed or incompatible data is rejected instead of silently replaced', () => {
-  assert.deepEqual(decodeState(null), { version: 1, tasks: [] });
+  assert.deepEqual(decodeState(null), { version: 2, tasks: [], goals: [] });
   for (const raw of [
     '{bad',
     '{"version":2,"tasks":[]}',
@@ -112,4 +112,56 @@ test('malformed or incompatible data is rejected instead of silently replaced', 
     assert.throws(() => decodeState(raw));
   assert.equal(validDate('2028-02-29'), true);
   assert.equal(validDate('2026-02-29'), false);
+});
+
+const goal = {
+  id: 'goal-1',
+  title: 'Grow the audience',
+  reason: 'Build the business',
+  targetDate: '2027-10-04',
+  focus: 'Publish weekly',
+  completed: false,
+};
+test('legacy backups migrate without changing tasks', () => {
+  const oldTasks = [task('old')];
+  assert.deepEqual(
+    decodeState(JSON.stringify({ version: 1, tasks: oldTasks })),
+    { version: 2, tasks: oldTasks, goals: [] },
+  );
+});
+test('goal links survive scheduling, completion, and backup restore', () => {
+  const linked = { ...task('video'), goalId: goal.id };
+  const tasks = updateTask(
+    moveTask([linked], linked.id, '2026-10-05'),
+    linked.id,
+    { completed: true },
+  );
+  const restored = decodeState(
+    JSON.stringify({ version: 2, goals: [goal], tasks }),
+  );
+  assert.deepEqual(restored.goals, [goal]);
+  assert.equal(restored.tasks[0].goalId, goal.id);
+  assert.equal(restored.tasks[0].date, '2026-10-05');
+  assert.equal(restored.tasks[0].completed, true);
+});
+test('invalid goals and dangling links are rejected', () => {
+  for (const goals of [
+    null,
+    [goal, goal],
+    [{ ...goal, targetDate: '2026-02-30' }],
+    [{ ...goal, title: ' ' }],
+  ]) {
+    assert.throws(() =>
+      decodeState(JSON.stringify({ version: 2, goals, tasks: [] })),
+    );
+  }
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({
+        version: 2,
+        goals: [],
+        tasks: [{ ...task('a'), goalId: 'missing' }],
+      }),
+    ),
+  );
 });

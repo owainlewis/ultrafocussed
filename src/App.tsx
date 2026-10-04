@@ -35,6 +35,7 @@ import {
   weekStart,
   type PlannerState,
   type Task,
+  type Goal,
 } from './model';
 
 const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'long' });
@@ -208,6 +209,7 @@ function DayComposer({
 
 function TaskRow({
   task,
+  goalTitle,
   dropBefore,
   onToggle,
   onEdit,
@@ -218,6 +220,7 @@ function TaskRow({
   onDragEnd,
 }: {
   task: Task;
+  goalTitle?: string;
   dropBefore: boolean;
   onToggle: () => void;
   onEdit: () => void;
@@ -266,6 +269,7 @@ function TaskRow({
           >
             {task.title}
           </button>
+          {goalTitle && <p className="task-goal">{goalTitle}</p>}
           {note && <p className="task-note">{note}</p>}
         </div>
       </div>
@@ -276,6 +280,7 @@ function TaskRow({
 function DetailPanel({
   task,
   tasks,
+  goals,
   today,
   onChange,
   onClose,
@@ -284,6 +289,7 @@ function DetailPanel({
 }: {
   task: Task;
   tasks: Task[];
+  goals: Goal[];
   today: string;
   onChange: (patch: Patch) => void;
   onClose: () => void;
@@ -297,13 +303,15 @@ function DetailPanel({
   const [notes, setNotes] = useState(task.notes);
   const [date, setDate] = useState(task.date ?? '');
   const [main, setMain] = useState(task.main);
+  const [goalId, setGoalId] = useState(task.goalId ?? '');
   const siblings = tasks.filter((item) => item.date === task.date);
   const index = siblings.findIndex((item) => item.id === task.id);
   const dirty =
     title !== task.title ||
     notes !== task.notes ||
     date !== (task.date ?? '') ||
-    main !== task.main;
+    main !== task.main ||
+    goalId !== (task.goalId ?? '');
   useModal(dialog, () => titleRef.current?.focus());
   const close = () => {
     if (dirty && !window.confirm('Discard your unsaved task changes?')) return;
@@ -323,6 +331,7 @@ function DetailPanel({
     event.preventDefault();
     if (!title.trim()) return;
     onChange({
+      goalId: goalId || null,
       title: title.trim(),
       notes,
       date: date || null,
@@ -391,6 +400,18 @@ function DetailPanel({
               ))}
             </div>
           </div>
+          <label className="field">
+            Goal
+            <select value={goalId} onChange={(e) => setGoalId(e.target.value)}>
+              <option value="">No goal</option>
+              {goals.map((goal) => (
+                <option key={goal.id} value={goal.id}>
+                  {goal.title}
+                  {goal.completed ? ' (completed)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
           {date && (
             <label className="main-option">
               <input
@@ -447,6 +468,226 @@ function DetailPanel({
               disabled={!title.trim()}
             >
               Save changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+  );
+}
+
+function GoalsPanel({
+  goals,
+  disabled,
+  onSave,
+}: {
+  goals: Goal[];
+  disabled: boolean;
+  onSave: (goal: Goal) => void;
+}) {
+  const [editing, setEditing] = useState<Goal | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  // A restored backup or another tab must not leave a stale goal draft open.
+  useEffect(() => setEditing(null), [goals]);
+  const active = goals.filter((goal) => !goal.completed);
+  return (
+    <section className="goals-section" aria-label="Your goals">
+      <div className="goals-heading">
+        <button
+          className="text-button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+        >
+          Goals <span className="count">{active.length}</span>
+        </button>
+        {!expanded && (
+          <p>
+            {active.length
+              ? active.map((goal) => goal.title).join(' · ')
+              : 'Give your daily work a direction.'}
+          </p>
+        )}
+        <button
+          className="secondary-button"
+          disabled={disabled}
+          onClick={() =>
+            setEditing({
+              id: crypto.randomUUID(),
+              title: '',
+              reason: '',
+              targetDate: null,
+              focus: '',
+              completed: false,
+            })
+          }
+        >
+          Add goal
+        </button>
+      </div>
+      {expanded && (
+        <div className="goals-list">
+          {goals.length === 0 && (
+            <p>No goals yet. Add an outcome you want to achieve.</p>
+          )}
+          {goals.map((goal) => (
+            <button
+              className={`goal-summary ${goal.completed ? 'goal-completed' : ''}`}
+              key={goal.id}
+              disabled={disabled}
+              onClick={() => setEditing(goal)}
+            >
+              <strong>{goal.title}</strong>
+              <span>
+                {goal.completed
+                  ? 'Completed'
+                  : goal.targetDate
+                    ? `Target: ${goal.targetDate}`
+                    : 'No target date'}
+              </span>
+              {goal.focus && (
+                <p>
+                  <span>Next 90 days:</span> {goal.focus}
+                </p>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {editing && !disabled && (
+        <GoalEditor
+          key={editing.id}
+          goal={editing}
+          onClose={() => setEditing(null)}
+          onSave={(goal) => {
+            onSave(goal);
+            setEditing(null);
+            setExpanded(true);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function GoalEditor({
+  goal,
+  onSave,
+  onClose,
+}: {
+  goal: Goal;
+  onSave: (goal: Goal) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(goal);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  useModal(dialog, () => titleRef.current?.focus());
+  const close = () => {
+    if (
+      JSON.stringify(draft) !== JSON.stringify(goal) &&
+      !window.confirm('Discard your unsaved goal changes?')
+    )
+      return;
+    onClose();
+  };
+  return (
+    <dialog
+      ref={dialog}
+      className="detail-panel"
+      aria-labelledby="goal-editor-title"
+      onCancel={(event) => {
+        event.preventDefault();
+        close();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) close();
+      }}
+    >
+      <div className="detail-content">
+        <header className="panel-header">
+          <h2 id="goal-editor-title">Goal details</h2>
+          <button
+            className="icon-button"
+            aria-label="Close goal details"
+            onClick={close}
+          >
+            <X size={20} />
+          </button>
+        </header>
+        <form
+          className="detail-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (draft.title.trim())
+              onSave({ ...draft, title: draft.title.trim() });
+          }}
+        >
+          <label className="field">
+            Outcome
+            <input
+              ref={titleRef}
+              required
+              maxLength={300}
+              value={draft.title}
+              onChange={(event) =>
+                setDraft({ ...draft, title: event.target.value })
+              }
+            />
+          </label>
+          <label className="field">
+            Why it matters
+            <textarea
+              rows={3}
+              maxLength={10000}
+              value={draft.reason}
+              onChange={(event) =>
+                setDraft({ ...draft, reason: event.target.value })
+              }
+            />
+          </label>
+          <label className="field">
+            Target date
+            <input
+              type="date"
+              min="0001-01-01"
+              max="9999-12-31"
+              value={draft.targetDate ?? ''}
+              onChange={(event) =>
+                setDraft({ ...draft, targetDate: event.target.value || null })
+              }
+            />
+          </label>
+          <label className="field">
+            Next 90 days
+            <textarea
+              rows={3}
+              maxLength={10000}
+              value={draft.focus}
+              onChange={(event) =>
+                setDraft({ ...draft, focus: event.target.value })
+              }
+            />
+          </label>
+          <label className="main-option">
+            <input
+              type="checkbox"
+              checked={draft.completed}
+              onChange={(event) =>
+                setDraft({ ...draft, completed: event.target.checked })
+              }
+            />
+            <span>Goal completed</span>
+          </label>
+          <div className="panel-footer">
+            <button className="secondary-button" type="button" onClick={close}>
+              Cancel
+            </button>
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={!draft.title.trim()}
+            >
+              Save goal
             </button>
           </div>
         </form>
@@ -710,6 +951,7 @@ export default function App() {
       {tasks.map((task) => (
         <TaskRow
           key={task.id}
+          goalTitle={state.goals.find((goal) => goal.id === task.goalId)?.title}
           task={task}
           dropBefore={
             !!draggingId &&
@@ -767,7 +1009,7 @@ export default function App() {
       const backup = decodeState(await file.text());
       if (
         window.confirm(
-          `Replace this planner with ${backup.tasks.length} tasks from this backup? Export your current planner first if you want to keep it.`,
+          `Replace this planner with ${backup.tasks.length} tasks and ${backup.goals.length} goals from this backup? Export your current planner first if you want to keep it.`,
         )
       ) {
         setState(backup);
@@ -955,6 +1197,18 @@ export default function App() {
           )}
         </div>
       )}
+      <GoalsPanel
+        goals={state.goals}
+        disabled={readError}
+        onSave={(goal) =>
+          setState((current) => ({
+            ...current,
+            goals: current.goals.some((item) => item.id === goal.id)
+              ? current.goals.map((item) => (item.id === goal.id ? goal : item))
+              : [...current.goals, goal],
+          }))
+        }
+      />
       <main>
         <span id="move-hint" hidden>
           Alt with arrow keys moves this task.
@@ -1087,6 +1341,7 @@ export default function App() {
           key={currentTask.id}
           task={currentTask}
           tasks={state.tasks}
+          goals={state.goals}
           today={today}
           onClose={() => {
             setEditingId(null);

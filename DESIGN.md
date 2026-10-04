@@ -1,6 +1,6 @@
 # Planner design
 
-The planner is an Operate surface: a quiet ledger of one week. Everything that is not a date, a task, or a control has been removed. The review that led here is in [docs/claude-ux-review.md](docs/claude-ux-review.md).
+The planner is an Operate surface: a quiet ledger of one week. Goals sit above the daily planner so direction and actions stay together. The review that led here is in [docs/claude-ux-review.md](docs/claude-ux-review.md).
 
 ## Layout
 
@@ -38,3 +38,13 @@ Nothing rolls forward automatically. Unfinished tasks from past days appear unde
 - System sans type. Body 14 px. No text below 12 px.
 - Warm neutral canvas, white day columns, tinted rail, fine rules. Forest green (`#3c6650`) marks today, focus, the main outcome, and primary actions. Muted text (`#586259`) meets WCAG AA on every surface.
 - No decorative animation, imagery, progress scores, or motivational copy.
+
+## Goals
+
+A collapsible strip above the planner shows active goal titles and an Add goal action. Expanded goals show the outcome, target date, and next 90-day focus. The list scrolls within a bounded height to keep daily planning available on desktop and mobile.
+
+Goal details use the same modal panel as task details. Capture the outcome, why it matters, optional target date, next 90-day focus, and completion. Closing a changed draft asks before discarding it. Completed goals remain editable and available in task links.
+
+Task details include an optional Goal selector. The linked goal title appears beneath the task and updates when the goal is renamed. Completion and scheduling preserve the link.
+
+Saved state version 2 contains both goals and tasks. The existing storage key is retained to migrate version 1 saved tasks and JSON backups automatically. Goals share storage failure protection, export, import, and cross-tab updates with tasks.

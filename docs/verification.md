@@ -44,3 +44,11 @@ Claude Code performed the UX/UI review and implemented the redesign. A fresh ind
 ## Limits
 
 Storage failures and backup import are proven by UI tests rather than injected browser failures. Native file picker behavior is not automated. Simultaneous cross-tab edits are last-write-wins without conflict merging. Persistence is browser-local with no account or cloud sync. Assistive-technology testing beyond keyboard and labelled-control checks is not included.
+
+## Goals and daily task links (2026-10-04)
+
+- Automated: 10 model tests and 19 component tests pass; production build and formatting checks pass.
+- Goal capture/edit: component test covers outcome, reason, date, 90-day focus, completion, and reload.
+- Daily planning: component test links a task, schedules it for today, reloads, renames the goal, and unlinks the task. Existing planner tests cover movement, completion, storage failure, backup, and keyboard flows.
+- Compatibility: model tests verify version 1 migration, goal/task backup round-trip, retained links after task moves/completion, and rejection of invalid goals or dangling links.
+- Real browser: desktop created a goal, linked and scheduled a task, and reloaded to verify persistence. Keyboard Enter expanded Goals. At 390 × 844, edited a goal and verified the task label changed. No warning/error console logs were captured. Screenshots were inspected for desktop and mobile layout.

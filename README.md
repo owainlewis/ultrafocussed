@@ -18,6 +18,12 @@ npm run build
 npm run preview
 ```
 
+## Goals
+
+Use Add goal to capture an outcome, why it matters, an optional target date, and your next 90-day focus. Expand Goals to edit or mark a goal completed. Link a task to a goal in Task details; the goal appears on the task in every day and in Unscheduled. Completed goals stay available so historical task links are preserved.
+
+Goals and tasks share the local save and JSON backup. Existing version 1 planner data and backups migrate automatically. Actual goals are entered by the user; none are prefilled.
+
 ## Planner
 
 - Type in Unscheduled and press Enter to capture a task, or use Add task on any day.

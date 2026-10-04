@@ -1,4 +1,14 @@
+export type Goal = {
+  id: string;
+  title: string;
+  reason: string;
+  targetDate: string | null;
+  focus: string;
+  completed: boolean;
+};
+
 export type Task = {
+  goalId?: string | null;
   id: string;
   title: string;
   date: string | null;
@@ -6,9 +16,13 @@ export type Task = {
   notes: string;
   main: boolean;
 };
-export type PlannerState = { version: 1; tasks: Task[] };
+export type PlannerState = { version: 2; tasks: Task[]; goals: Goal[] };
 export const STORAGE_KEY = 'ultrafocussed.planner.v1';
-export const emptyState = (): PlannerState => ({ version: 1, tasks: [] });
+export const emptyState = (): PlannerState => ({
+  version: 2,
+  tasks: [],
+  goals: [],
+});
 
 // Dates are local calendar dates, not UTC timestamps.
 export function dateKey(date: Date): string {
@@ -39,13 +53,37 @@ export function weekStart(date: Date): Date {
 export function decodeState(raw: string | null): PlannerState {
   if (raw === null) return emptyState();
   const value = JSON.parse(raw);
-  if (value?.version !== 1 || !Array.isArray(value.tasks))
+  if (![1, 2].includes(value?.version) || !Array.isArray(value.tasks))
     throw new Error('Unsupported planner data');
+  const goals: Goal[] = value.version === 1 ? [] : value.goals;
+  if (!Array.isArray(goals)) throw new Error('Invalid goals');
+  const goalIds = new Set<string>();
+  for (const goal of goals) {
+    if (
+      !goal ||
+      typeof goal.id !== 'string' ||
+      !goal.id ||
+      goalIds.has(goal.id) ||
+      typeof goal.title !== 'string' ||
+      !goal.title.trim() ||
+      goal.title.length > 300 ||
+      typeof goal.reason !== 'string' ||
+      goal.reason.length > 10000 ||
+      typeof goal.focus !== 'string' ||
+      goal.focus.length > 10000 ||
+      typeof goal.completed !== 'boolean' ||
+      (goal.targetDate !== null && !validDate(goal.targetDate))
+    )
+      throw new Error('Invalid goal');
+    goalIds.add(goal.id);
+  }
   const ids = new Set<string>();
   const mainDates = new Set<string>();
   for (const task of value.tasks) {
     if (
       !task ||
+      (task.goalId != null &&
+        (typeof task.goalId !== 'string' || !goalIds.has(task.goalId))) ||
       typeof task.id !== 'string' ||
       !task.id ||
       ids.has(task.id) ||
@@ -63,7 +101,7 @@ export function decodeState(raw: string | null): PlannerState {
     ids.add(task.id);
     if (task.main) mainDates.add(task.date);
   }
-  return value;
+  return { version: 2, tasks: value.tasks, goals };
 }
 export function createTask(title: string, date: string | null): Task {
   return {
