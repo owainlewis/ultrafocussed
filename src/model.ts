@@ -1,4 +1,14 @@
+export type Goal = {
+  id: string;
+  title: string;
+  reason: string;
+  targetDate: string | null;
+  focus: string;
+  completed: boolean;
+};
+
 export type Task = {
+  goalId?: string | null;
   id: string;
   title: string;
   date: string | null;
@@ -6,9 +16,13 @@ export type Task = {
   notes: string;
   main: boolean;
 };
-export type PlannerState = { version: 1; tasks: Task[] };
+export type PlannerState = { version: 2; tasks: Task[]; goals: Goal[] };
 export const STORAGE_KEY = 'ultrafocussed.planner.v1';
-export const emptyState = (): PlannerState => ({ version: 1, tasks: [] });
+export const emptyState = (): PlannerState => ({
+  version: 2,
+  tasks: [],
+  goals: [],
+});
 
 // Dates are local calendar dates, not UTC timestamps.
 export function dateKey(date: Date): string {
@@ -36,16 +50,63 @@ export function addDays(date: Date, days: number): Date {
 export function weekStart(date: Date): Date {
   return addDays(date, -((date.getDay() + 6) % 7));
 }
+function monthEnd(date: Date): Date {
+  const end = new Date(date);
+  end.setMonth(end.getMonth() + 1, 0);
+  return end;
+}
+// Keeps the day of the month where possible: 31 January plus one month is the last day of February.
+export function addMonths(date: Date, months: number): Date {
+  const next = new Date(date);
+  next.setDate(1);
+  next.setMonth(next.getMonth() + months);
+  next.setDate(Math.min(date.getDate(), monthEnd(next).getDate()));
+  return next;
+}
+// Every date of the month in whole Monday-first weeks, padded with neighbouring days.
+export function monthDays(date: Date): Date[] {
+  const first = new Date(date);
+  first.setDate(1);
+  const last = dateKey(addDays(weekStart(monthEnd(first)), 6));
+  const days: Date[] = [];
+  for (let day = weekStart(first); dateKey(day) <= last; day = addDays(day, 1))
+    days.push(day);
+  return days;
+}
 export function decodeState(raw: string | null): PlannerState {
   if (raw === null) return emptyState();
   const value = JSON.parse(raw);
-  if (value?.version !== 1 || !Array.isArray(value.tasks))
+  if (![1, 2].includes(value?.version) || !Array.isArray(value.tasks))
     throw new Error('Unsupported planner data');
+  const goals: Goal[] = value.version === 1 ? [] : value.goals;
+  if (!Array.isArray(goals)) throw new Error('Invalid goals');
+  const goalIds = new Set<string>();
+  for (const goal of goals) {
+    if (
+      !goal ||
+      typeof goal.id !== 'string' ||
+      !goal.id ||
+      goalIds.has(goal.id) ||
+      typeof goal.title !== 'string' ||
+      !goal.title.trim() ||
+      goal.title.length > 300 ||
+      typeof goal.reason !== 'string' ||
+      goal.reason.length > 10000 ||
+      typeof goal.focus !== 'string' ||
+      goal.focus.length > 10000 ||
+      typeof goal.completed !== 'boolean' ||
+      (goal.targetDate !== null && !validDate(goal.targetDate))
+    )
+      throw new Error('Invalid goal');
+    goalIds.add(goal.id);
+  }
   const ids = new Set<string>();
   const mainDates = new Set<string>();
   for (const task of value.tasks) {
     if (
       !task ||
+      (task.goalId != null &&
+        (typeof task.goalId !== 'string' || !goalIds.has(task.goalId))) ||
       typeof task.id !== 'string' ||
       !task.id ||
       ids.has(task.id) ||
@@ -63,7 +124,7 @@ export function decodeState(raw: string | null): PlannerState {
     ids.add(task.id);
     if (task.main) mainDates.add(task.date);
   }
-  return value;
+  return { version: 2, tasks: value.tasks, goals };
 }
 export function createTask(title: string, date: string | null): Task {
   return {

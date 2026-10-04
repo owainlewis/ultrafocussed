@@ -1,13 +1,24 @@
 # Planner design
 
-The planner is an Operate surface: a quiet ledger of one week. Everything that is not a date, a task, or a control has been removed. The review that led here is in [docs/claude-ux-review.md](docs/claude-ux-review.md).
+The planner is an Operate surface: a quiet ledger of one week, with a month view of the same work. Goals sit above the week and beside the month so direction and actions stay together. The review that led here is in [docs/claude-ux-review.md](docs/claude-ux-review.md).
 
 ## Layout
 
-- One slim top bar holds all global controls: wordmark, previous and next week, the visible date range as the page heading, Today, Weekends, save status, Export, Import, and Help.
+- One slim top bar holds all global controls: wordmark, previous and next week or month, the visible date range or month as the page heading, Today, the Week / Month toggle, Weekends (week view only), save status, Export, Import, and Help.
+- The Week / Month toggle is a labelled group of two buttons. The selected one is white with green semibold text and `aria-pressed="true"`.
+- One selected date anchors both views. The week and the month on screen always contain it. Switching views keeps it; switching to Week on a weekend date reveals weekends. A week step selects that week's Monday. A month step keeps the day of the month, clamped to the month's last day.
 - Below it, the board fills the viewport. A tinted rail on the left holds From earlier and Unscheduled. Day columns sit on white with fine rules and scroll on their own, so the week stays in view.
 - Desktop shows five days. Weekends expand on request, and the toggle shows how many weekend tasks are hidden.
-- Mobile (760 px and below) stacks the top bar into three short rows, adds a day strip, and shows one selected day. An Unscheduled button switches to the rail and shows the From earlier count.
+- Mobile (760 px and below) stacks the top bar into three short rows. Week view adds a day strip and shows one selected day. An Unscheduled button switches to the rail and shows the From earlier count.
+
+## Month view
+
+- The rail stays on the left. The calendar fills the middle, and a tinted Goals panel (288 px, 248 px at 1280 px and below) sits on the right. Between 761 and 1100 px the Goals panel moves below the calendar.
+- The calendar is Monday-first and holds every date of the month in whole weeks, padded with the neighbouring months' dates on a slightly darker ground. Weekends always show; the Weekends setting only affects the week view.
+- Each cell is a full day: a date button that selects the day, the same task rows (smaller, notes hidden, goal on one line), drag and drop, Alt + arrow moves, and an Add task row that appears on hover or focus (always on touch screens). Rows grow with their tasks; the calendar scrolls under a sticky weekday header.
+- Today has a filled green date and a "Today" tag. The selected date has a green ring.
+- Each goal in the panel shows its outcome, status or target date, next 90 days, and its open linked tasks in date order with Unscheduled last. A task opens task details; the outcome opens goal details. The Goals strip above the planner is hidden in this view.
+- Mobile (760 px and below) shows a compact date grid with 38 px date buttons and a dot for days with open tasks. The selected day's full task list sits below the grid, then the Goals panel. Unscheduled opens in place of the month, as in the week view.
 
 ## Tasks
 
@@ -21,7 +32,7 @@ The planner is an Operate surface: a quiet ledger of one week. Everything that i
 
 - Unscheduled has an always-visible capture field. Type and press Enter.
 - Each day has a quiet "Add task" row. It opens an inline field that stays open after Enter. Escape closes it and returns focus.
-- Task details open in a native modal dialog styled as a right side panel. It offers quick dates (Unscheduled, Today, Tomorrow, Next Monday), the date field, Main outcome, notes, Up and Down, Delete, and Save. Escape or a backdrop click asks before discarding edits. Saving a new date follows the task: the view moves to its week, reveals weekends, selects the day on mobile, or opens Unscheduled, and focus goes to the task. Closing without a date change returns focus to the control that opened the dialog. Cancelling or deleting never moves the view.
+- Task details open in a native modal dialog styled as a right side panel. It offers quick dates (Unscheduled, Today, Tomorrow, Next Monday), the date field, Main outcome, notes, Up and Down, Delete, and Save. Escape or a backdrop click asks before discarding edits. Saving a new date follows the task: the current view follows its planning date, reveals weekends in Week, selects the day on mobile, or opens Unscheduled, and focus goes to the task. Closing without a date change returns focus to the control that opened the dialog. Cancelling or deleting never moves the view.
 
 ## Unfinished work
 
@@ -38,3 +49,13 @@ Nothing rolls forward automatically. Unfinished tasks from past days appear unde
 - System sans type. Body 14 px. No text below 12 px.
 - Warm neutral canvas, white day columns, tinted rail, fine rules. Forest green (`#3c6650`) marks today, focus, the main outcome, and primary actions. Muted text (`#586259`) meets WCAG AA on every surface.
 - No decorative animation, imagery, progress scores, or motivational copy.
+
+## Goals
+
+A collapsible strip above the planner shows active goal titles and an Add goal action. Expanded goals show the outcome, target date, and next 90-day focus. The list scrolls within a bounded height to keep daily planning available on desktop and mobile.
+
+Goal details use the same modal panel as task details. Capture the outcome, why it matters, optional target date, next 90-day focus, and completion. Closing a changed draft asks before discarding it. Completed goals remain editable and available in task links.
+
+Task details include an optional Goal selector. The linked goal title appears beneath the task and updates when the goal is renamed. Completion and scheduling preserve the link.
+
+Saved state version 2 contains both goals and tasks. The existing storage key is retained to migrate version 1 saved tasks and JSON backups automatically. Goals share storage failure protection, export, import, and cross-tab updates with tasks.
