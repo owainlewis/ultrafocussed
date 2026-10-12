@@ -10,6 +10,8 @@ import {
   updateTask,
   validDate,
   weekStart,
+  remainingSeconds,
+  finishFocus,
   type Task,
 } from '../src/model.ts';
 const task = (
@@ -112,4 +114,61 @@ test('malformed or incompatible data is rejected instead of silently replaced', 
     assert.throws(() => decodeState(raw));
   assert.equal(validDate('2028-02-29'), true);
   assert.equal(validDate('2026-02-29'), false);
+});
+
+test('focus time follows wall clock and records actual early-stop time only once', () => {
+  const focus = {
+    taskId: 'a',
+    startedAt: 100000,
+    duration: 25,
+    stoppedAt: 160000,
+  };
+  assert.equal(
+    remainingSeconds({ ...focus, stoppedAt: undefined }, 130000),
+    1470,
+  );
+  assert.equal(remainingSeconds(focus, 9999999), 1440);
+  const state = { version: 1 as const, tasks: [task('a')], focus };
+  const finished = finishFocus(
+    state,
+    ' Drafted outline ',
+    false,
+    ' Review outline ',
+    9999999,
+  );
+  assert.equal(finished.tasks[0].sessions?.[0].minutes, 1);
+  assert.equal(finished.tasks[0].nextStep, 'Review outline');
+  assert.deepEqual(finishFocus(finished, 'again', true, '', 9999999), finished);
+  assert.deepEqual(decodeState(JSON.stringify(finished)), finished);
+});
+test('invalid new data is rejected while old backups remain valid', () => {
+  const state = { version: 1, tasks: [task('a')] };
+  for (const extra of [
+    { outcomes: { '2026-10-13': 'wrong day' } },
+    { focus: { taskId: 'missing', startedAt: 1, duration: 25 } },
+    { focus: { taskId: 'a', startedAt: 1, duration: 0 } },
+  ])
+    assert.throws(() => decodeState(JSON.stringify({ ...state, ...extra })));
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({
+        ...state,
+        tasks: [
+          {
+            ...task('a'),
+            sessions: [
+              {
+                id: 'x',
+                startedAt: 2,
+                endedAt: 1,
+                minutes: 1,
+                progress: 'done',
+              },
+            ],
+          },
+        ],
+      }),
+    ),
+  );
+  assert.deepEqual(decodeState(JSON.stringify(state)), state);
 });

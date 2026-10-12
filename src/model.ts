@@ -5,8 +5,29 @@ export type Task = {
   completed: boolean;
   notes: string;
   main: boolean;
+  nextStep?: string;
+  outcomeWeek?: string | null;
+  sessions?: FocusRecord[];
 };
-export type PlannerState = { version: 1; tasks: Task[] };
+export type FocusRecord = {
+  id: string;
+  startedAt: number;
+  endedAt: number;
+  minutes: number;
+  progress: string;
+};
+export type FocusSession = {
+  taskId: string;
+  startedAt: number;
+  duration: number;
+  stoppedAt?: number;
+};
+export type PlannerState = {
+  version: 1;
+  tasks: Task[];
+  outcomes?: Record<string, string>;
+  focus?: FocusSession | null;
+};
 export const STORAGE_KEY = 'ultrafocussed.planner.v1';
 export const emptyState = (): PlannerState => ({ version: 1, tasks: [] });
 
@@ -63,6 +84,61 @@ export function decodeState(raw: string | null): PlannerState {
     ids.add(task.id);
     if (task.main) mainDates.add(task.date);
   }
+  if (
+    value.outcomes !== undefined &&
+    (value.outcomes === null ||
+      typeof value.outcomes !== 'object' ||
+      Array.isArray(value.outcomes) ||
+      Object.entries(value.outcomes).some(
+        ([key, text]) =>
+          !validDate(key) ||
+          dateKey(weekStart(parseDate(key))) !== key ||
+          typeof text !== 'string' ||
+          text.length > 500,
+      ))
+  )
+    throw new Error('Invalid weekly outcomes');
+  for (const task of value.tasks) {
+    if (
+      (task.nextStep !== undefined &&
+        (typeof task.nextStep !== 'string' || task.nextStep.length > 500)) ||
+      (task.outcomeWeek != null &&
+        (!validDate(task.outcomeWeek) ||
+          dateKey(weekStart(parseDate(task.outcomeWeek))) !== task.outcomeWeek))
+    )
+      throw new Error('Invalid task focus data');
+    if (
+      task.sessions !== undefined &&
+      (!Array.isArray(task.sessions) ||
+        task.sessions.some(
+          (entry: FocusRecord) =>
+            !entry ||
+            typeof entry.id !== 'string' ||
+            !Number.isFinite(entry.startedAt) ||
+            !Number.isFinite(entry.endedAt) ||
+            entry.endedAt < entry.startedAt ||
+            !Number.isFinite(entry.minutes) ||
+            entry.minutes < 0 ||
+            typeof entry.progress !== 'string' ||
+            !entry.progress.trim() ||
+            entry.progress.length > 2000,
+        ))
+    )
+      throw new Error('Invalid progress history');
+  }
+  const focus = value.focus;
+  if (
+    focus != null &&
+    (!ids.has(focus.taskId) ||
+      !Number.isFinite(focus.startedAt) ||
+      !Number.isInteger(focus.duration) ||
+      focus.duration < 1 ||
+      focus.duration > 180 ||
+      (focus.stoppedAt !== undefined &&
+        (!Number.isFinite(focus.stoppedAt) ||
+          focus.stoppedAt < focus.startedAt)))
+  )
+    throw new Error('Invalid focus session');
   return value;
 }
 export function createTask(title: string, date: string | null): Task {
@@ -115,4 +191,53 @@ export function moveTask(
     : -1;
   rest.splice(index < 0 ? rest.length : index, 0, task);
   return rest;
+}
+
+export function remainingSeconds(session: FocusSession, now: number): number {
+  return Math.max(
+    0,
+    Math.ceil(
+      (session.startedAt +
+        session.duration * 60000 -
+        (session.stoppedAt ?? now)) /
+        1000,
+    ),
+  );
+}
+export function finishFocus(
+  state: PlannerState,
+  progress: string,
+  completed: boolean,
+  nextStep: string,
+  now: number,
+): PlannerState {
+  const focus = state.focus;
+  if (!focus || !progress.trim()) return state;
+  const endedAt = Math.min(
+    focus.stoppedAt ?? now,
+    focus.startedAt + focus.duration * 60000,
+  );
+  return {
+    ...state,
+    focus: null,
+    tasks: state.tasks.map((task) =>
+      task.id !== focus.taskId
+        ? task
+        : {
+            ...task,
+            completed,
+            nextStep: nextStep.trim(),
+            sessions: [
+              ...(task.sessions ?? []),
+              {
+                id: crypto.randomUUID(),
+                startedAt: focus.startedAt,
+                endedAt,
+                minutes: Math.max(0, (endedAt - focus.startedAt) / 60000),
+                progress: progress.trim(),
+              },
+            ],
+          },
+    ),
+  };
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -406,4 +407,353 @@ describe('closing task details after a date change', () => {
     );
     expect(screen.getByRole('region', { name: label(2) })).toBeTruthy();
   });
+});
+
+describe('meaningful focus loop', () => {
+  it('saves separate weekly outcomes and preserves them across reloads', async () => {
+    const app = render(<App />);
+    const user = userEvent.setup();
+    await user.type(
+      screen.getByLabelText("This week's outcome"),
+      'Publish pricing page',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save outcome' }));
+    await user.click(screen.getByRole('button', { name: 'Next week' }));
+    expect(screen.getByLabelText("This week's outcome")).toHaveProperty(
+      'value',
+      '',
+    );
+    await user.type(
+      screen.getByLabelText("This week's outcome"),
+      'Talk to five customers',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save outcome' }));
+    expect(Object.values(saved().outcomes!)).toEqual([
+      'Publish pricing page',
+      'Talk to five customers',
+    ]);
+    app.unmount();
+    render(<App />);
+    expect(screen.getByLabelText("This week's outcome")).toHaveProperty(
+      'value',
+      'Publish pricing page',
+    );
+  });
+  it('links a task, reloads an active session, stops early and records useful progress', async () => {
+    const app = render(<App />);
+    const user = await capture('Write pricing');
+    await user.type(
+      screen.getByLabelText("This week's outcome"),
+      'Launch pricing',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save outcome' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Write pricing', exact: true }),
+    );
+    await user.type(
+      screen.getByRole('textbox', { name: 'Next step Optional' }),
+      'Draft three options',
+    );
+    await user.selectOptions(
+      screen.getByLabelText('Weekly outcome'),
+      Object.keys(saved().outcomes!)[0],
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Write pricing', exact: true }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Start focus' }));
+    await user.click(screen.getByRole('button', { name: 'Begin session' }));
+    expect(saved().focus?.duration).toBe(25);
+    app.unmount();
+    render(<App />);
+    expect(screen.getByLabelText('Time remaining')).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Stop and record progress' }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Save progress' }),
+    ).toHaveProperty('disabled', true);
+    await user.type(
+      screen.getByLabelText('What moved forward?'),
+      'Drafted three options',
+    );
+    await user.clear(screen.getByLabelText('Next step'));
+    await user.type(
+      screen.getByLabelText('Next step'),
+      'Validate with a customer',
+    );
+    await user.click(screen.getByRole('button', { name: 'Save progress' }));
+    expect(saved().focus).toBeNull();
+    expect(saved().tasks[0]).toMatchObject({
+      nextStep: 'Validate with a customer',
+      completed: false,
+    });
+    expect(saved().tasks[0].sessions?.[0].progress).toBe(
+      'Drafted three options',
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Write pricing', exact: true }),
+    );
+    expect(
+      screen.getByRole('region', { name: 'Progress history' }).textContent,
+    ).toContain('Drafted three options');
+  });
+  it('recovers an elapsed timer and records completion without inflating time', async () => {
+    stored([{ id: 'focus-task', title: 'Finish proposal' }]);
+    const state = saved();
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...state,
+        focus: {
+          taskId: 'focus-task',
+          startedAt: Date.now() - 3600000,
+          duration: 25,
+        },
+      }),
+    );
+    render(<App />);
+    const user = userEvent.setup();
+    await user.type(
+      screen.getByLabelText('What moved forward?'),
+      'Sent the proposal',
+    );
+    await user.click(screen.getByLabelText('Task complete'));
+    await user.click(screen.getByRole('button', { name: 'Save progress' }));
+    expect(saved().tasks[0].completed).toBe(true);
+    expect(saved().tasks[0].sessions?.[0].minutes).toBe(25);
+  });
+});
+
+describe('focus from the board', () => {
+  const panel = () => screen.getByRole('region', { name: 'Focus session' });
+  const title = (name: string) =>
+    screen.getByRole('button', { name, exact: true });
+
+  it('runs the whole loop from a task row and moves keyboard focus with it', async () => {
+    stored([
+      { id: 'p', title: 'Draft pricing' },
+      { id: 'q', title: 'Other task' },
+    ]);
+    render(<App />);
+    const user = userEvent.setup();
+    await user.type(
+      screen.getByLabelText("This week's outcome"),
+      'Launch pricing{Enter}',
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Focus on Draft pricing' }),
+    );
+    expect(document.activeElement).toBe(
+      within(panel()).getByRole('textbox', { name: 'Next step Optional' }),
+    );
+    await user.keyboard('Write three options');
+    const minutes = within(panel()).getByRole('spinbutton', {
+      name: 'Minutes',
+    });
+    await user.clear(minutes);
+    await user.type(minutes, '40');
+    await user.click(
+      within(panel()).getByRole('checkbox', { name: /Link to/ }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Begin session' }));
+    expect(saved().focus).toMatchObject({ taskId: 'p', duration: 40 });
+    expect(saved().tasks[0]).toMatchObject({
+      nextStep: 'Write three options',
+      outcomeWeek: Object.keys(saved().outcomes!)[0],
+    });
+    expect(document.activeElement).toBe(panel());
+    expect(panel().textContent).toContain('Launch pricing');
+    expect(screen.getByText('In focus')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Focus on/ })).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Stop and record progress' }),
+    );
+    expect(document.activeElement).toBe(
+      screen.getByLabelText('What moved forward?'),
+    );
+    await user.keyboard('Wrote two of three options');
+    await user.click(screen.getByRole('button', { name: 'Save progress' }));
+    expect(saved().focus).toBeNull();
+    expect(saved().tasks[0].sessions?.[0].progress).toBe(
+      'Wrote two of three options',
+    );
+    expect(screen.queryByRole('region', { name: 'Focus session' })).toBeNull();
+    expect(document.activeElement).toBe(title('Draft pricing'));
+  });
+
+  it('keeps minutes between 1 and 180 and cancels back to the task', async () => {
+    stored([{ id: 'p', title: 'Plan sprint' }]);
+    render(<App />);
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', { name: 'Focus on Plan sprint' }),
+    );
+    const minutes = screen.getByRole('spinbutton', { name: 'Minutes' });
+    const begin = screen.getByRole('button', { name: 'Begin session' });
+    for (const [value, valid] of [
+      ['0', false],
+      ['181', false],
+      ['2.5', false],
+      ['180', true],
+      ['1', true],
+    ] as const) {
+      await user.clear(minutes);
+      await user.type(minutes, value);
+      expect((begin as HTMLButtonElement).disabled).toBe(!valid);
+    }
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('region', { name: 'Focus session' })).toBeNull();
+    expect(saved().focus ?? null).toBeNull();
+    expect(document.activeElement).toBe(title('Plan sprint'));
+  });
+
+  it('saves pending detail edits when starting focus from task details', async () => {
+    stored([{ id: 'p', title: 'Old name' }]);
+    render(<App />);
+    const user = userEvent.setup();
+    await user.click(title('Old name'));
+    const name = screen.getByRole('textbox', { name: 'Task', exact: true });
+    await user.clear(name);
+    await user.type(name, 'New name');
+    await user.click(
+      screen.getByRole('button', { name: 'Save and start focus' }),
+    );
+    expect(saved().tasks[0].title).toBe('New name');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(panel().textContent).toContain('New name');
+    expect(document.activeElement).toBe(
+      within(panel()).getByRole('textbox', { name: 'Next step Optional' }),
+    );
+  });
+
+  it('does not pull focus away when a timer ends on its own', () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    try {
+      stored([{ id: 'p', title: 'Short task' }]);
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          ...saved(),
+          focus: { taskId: 'p', startedAt: Date.now() - 59000, duration: 1 },
+        }),
+      );
+      render(<App />);
+      const capture = screen.getByRole('textbox', {
+        name: 'New task for unscheduled',
+      });
+      capture.focus();
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(screen.getByLabelText('What moved forward?')).toBeTruthy();
+      expect(document.activeElement).toBe(capture);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+it('keeps next-step edits made while a focus session is running', async () => {
+  stored([
+    { id: 'edit-running', title: 'Draft offer', nextStep: 'Write outline' },
+  ]);
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: 'Focus on Draft offer' }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Begin session' }));
+  await user.click(
+    screen.getByRole('button', { name: 'Draft offer', exact: true }),
+  );
+  await user.clear(screen.getByRole('textbox', { name: 'Next step Optional' }));
+  await user.type(
+    screen.getByRole('textbox', { name: 'Next step Optional' }),
+    'Review new outline',
+  );
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await user.click(
+    screen.getByRole('button', { name: 'Stop and record progress' }),
+  );
+  expect(screen.getByRole('textbox', { name: 'Next step' })).toHaveProperty(
+    'value',
+    'Review new outline',
+  );
+  await user.type(
+    screen.getByLabelText('What moved forward?'),
+    'Outline drafted',
+  );
+  await user.click(screen.getByRole('button', { name: 'Save progress' }));
+  expect(saved().tasks[0].nextStep).toBe('Review new outline');
+});
+
+it('keeps board completion made while reviewing a focus session', async () => {
+  stored([{ id: 'review-complete', title: 'Send offer' }]);
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Focus on Send offer' }));
+  await user.click(screen.getByRole('button', { name: 'Begin session' }));
+  await user.click(
+    screen.getByRole('button', { name: 'Stop and record progress' }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Complete Send offer' }));
+  expect(screen.getByLabelText('Task complete')).toHaveProperty(
+    'checked',
+    true,
+  );
+  await user.type(screen.getByLabelText('What moved forward?'), 'Sent offer');
+  await user.click(screen.getByRole('button', { name: 'Save progress' }));
+  expect(saved().tasks[0].completed).toBe(true);
+});
+
+it('syncs untouched review steps and preserves explicit review edits', async () => {
+  stored([
+    { id: 'review-step', title: 'Refine offer', nextStep: 'First step' },
+  ]);
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: 'Focus on Refine offer' }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Begin session' }));
+  await user.click(
+    screen.getByRole('button', { name: 'Stop and record progress' }),
+  );
+  const changeDetail = async (value: string) => {
+    await user.click(
+      screen.getByRole('button', { name: 'Refine offer', exact: true }),
+    );
+    await user.clear(
+      screen.getByRole('textbox', { name: 'Next step Optional' }),
+    );
+    await user.type(
+      screen.getByRole('textbox', { name: 'Next step Optional' }),
+      value,
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  };
+  await changeDetail('New saved step');
+  expect(
+    screen.getByRole('textbox', { name: 'Next step', exact: true }),
+  ).toHaveProperty('value', 'New saved step');
+  await user.clear(
+    screen.getByRole('textbox', { name: 'Next step', exact: true }),
+  );
+  await user.type(
+    screen.getByRole('textbox', { name: 'Next step', exact: true }),
+    'Explicit review step',
+  );
+  await changeDetail('Another saved step');
+  expect(
+    screen.getByRole('textbox', { name: 'Next step', exact: true }),
+  ).toHaveProperty('value', 'Explicit review step');
+  await user.type(
+    screen.getByLabelText('What moved forward?'),
+    'Offer refined',
+  );
+  await user.click(screen.getByRole('button', { name: 'Save progress' }));
+  expect(saved().tasks[0].nextStep).toBe('Explicit review step');
 });
