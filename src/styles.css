@@ -468,6 +468,7 @@ main {
 }
 .task {
   position: relative;
+  container-type: inline-size;
   padding: 12px 6px;
   border-top: 1px solid var(--rule-soft);
   cursor: grab;
@@ -1161,39 +1162,6 @@ dialog::backdrop {
 }
 
 /* Weekly outcome and focus loop */
-.weekly-outcome {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 6px 24px;
-  border-bottom: 1px solid var(--rule);
-  background: var(--paper);
-}
-.weekly-outcome label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.weekly-outcome input {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  font-size: 14px;
-  font-weight: 500;
-}
-.weekly-outcome input:hover:not(:disabled) {
-  border-color: var(--rule);
-}
-.weekly-outcome input:focus-visible {
-  border-color: var(--control);
-  outline-offset: 1px;
-}
 /* The panel never takes more than half the window, so the board stays
    usable and the review form scrolls into reach on short screens. */
 .focus-panel {
@@ -1346,10 +1314,6 @@ dialog::backdrop {
   font-size: 12px;
   color: var(--danger);
 }
-.focus-progress {
-  flex: 1 1 320px;
-  max-width: 560px;
-}
 .focus-after {
   display: flex;
   flex: 0 1 300px;
@@ -1445,5 +1409,68 @@ dialog::backdrop {
     height: 36px;
     min-width: 36px;
     margin: -8px -6px -8px 0;
+  }
+}
+
+/* Session controls belong to the task, never above the calendar. */
+.detail-panel .focus-panel {
+  position: static;
+  max-height: none;
+  overflow: visible;
+  margin-top: 20px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+}
+
+.task-focus.timer-active,
+.task-focus.timer-finished {
+  width: auto;
+  min-width: 64px;
+  gap: 5px;
+  padding: 4px 7px;
+  margin: -2px 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.task-focus.timer-active {
+  background: var(--accent);
+  color: var(--paper);
+}
+.task-focus.timer-active:hover {
+  background: var(--accent-strong);
+  color: var(--paper);
+}
+.task-focus.timer-finished {
+  background: var(--hover);
+  color: var(--ink);
+}
+.detail-form {
+  gap: 22px;
+}
+.field {
+  gap: 8px;
+}
+.detail-content .title-input {
+  font-size: 20px;
+  line-height: 1.4;
+}
+.progress-history {
+  padding-top: 4px;
+}
+
+@container (max-width: 140px) {
+  .task-row:has(.timer-active),
+  .task-row:has(.timer-finished) {
+    flex-wrap: wrap;
+  }
+  .task-row:has(.timer-active) .task-text,
+  .task-row:has(.timer-finished) .task-text {
+    flex-basis: calc(100% - 28px);
+  }
+  .task-focus.timer-active,
+  .task-focus.timer-finished {
+    margin-left: auto;
   }
 }

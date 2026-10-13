@@ -31,11 +31,11 @@ npm run preview
 
 ## Plan and focus
 
-Set one outcome for each week above the board. Choose the timer on any open task to focus on it: a slim strip above the board lets you set a next step, link the week's outcome, and pick 1 to 180 minutes. Stop early whenever you like. When the session ends, record what moved forward, optionally complete the task, and set the next step. Task details can also start focus, and they keep the outcome link and progress history.
+The calendar follows the toolbar directly. Choose the timer on an open task to focus on it inside task details: set a next step and pick 1 to 180 minutes. Existing weekly outcome links remain saved, but their selector is hidden. Stop early whenever you like. When the session ends, optionally complete the task, set the next step, and finish. No written update is required. Optional progress notes live in task details. Task details can also start focus and keep notes and session history. An active task’s timer shows a live countdown; an ended session shows Done. Either timer opens its session controls.
 
-An active session survives reloads and uses elapsed wall-clock time. Returning after its end opens the progress form. Recorded time is capped at the planned duration; leaving the tab open overnight does not add extra hours. Only one session can be active in this planner at a time. No four-hour target, scores, streaks, sounds, or notifications are required.
+An active session survives reloads and uses elapsed wall-clock time. Returning after its end opens the finish controls. Recorded time is capped at the planned duration; leaving the tab open overnight does not add extra hours. Only one session can be active in this planner at a time. No four-hour target, scores, streaks, sounds, or notifications are required.
 
-Outcomes, next steps, progress history, and the active session are included in JSON backups. Older version 1 backups remain readable. Deleting a task removes its history too; Undo restores it. Record progress before deleting the task with the active session.
+Outcomes, next steps, progress history, and the active session are included in JSON backups. Older version 1 backups remain readable. Deleting a task removes its history too; Undo restores it. Finish the session before deleting the task with the active session.
 
 ## Data and backups
 

@@ -10,8 +10,6 @@ import {
   type RefObject,
 } from 'react';
 import {
-  ArrowDown,
-  ArrowUp,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -214,6 +212,7 @@ function TaskRow({
   task,
   dropBefore,
   focus,
+  seconds,
   onToggle,
   onEdit,
   onFocus,
@@ -226,7 +225,8 @@ function TaskRow({
   task: Task;
   dropBefore: boolean;
   // 'active' marks the task in the running session; 'none' hides the action.
-  focus: 'available' | 'active' | 'none';
+  focus: 'available' | 'active' | 'finished' | 'none';
+  seconds: number;
   onToggle: () => void;
   onEdit: () => void;
   onFocus: () => void;
@@ -298,14 +298,34 @@ function TaskRow({
             </p>
           )}
         </div>
-        {focus === 'available' && (
+        {focus !== 'none' && (
           <button
-            className="task-focus"
-            aria-label={`Focus on ${task.title}`}
-            title="Start focus"
+            className={`task-focus ${focus === 'active' ? 'timer-active' : focus === 'finished' ? 'timer-finished' : ''}`}
+            aria-label={
+              focus === 'active'
+                ? `Open active timer for ${task.title}`
+                : focus === 'finished'
+                  ? `Finish session for ${task.title}`
+                  : `Focus on ${task.title}`
+            }
+            title={
+              focus === 'active'
+                ? 'Session running'
+                : focus === 'finished'
+                  ? 'Session ended'
+                  : 'Start focus'
+            }
             onClick={onFocus}
           >
-            <Timer size={15} aria-hidden="true" />
+            {focus === 'finished' ? (
+              <Check size={14} aria-hidden="true" />
+            ) : (
+              <Timer size={15} aria-hidden="true" />
+            )}
+            {focus === 'active' && (
+              <span aria-hidden="true">{clock(seconds)}</span>
+            )}
+            {focus === 'finished' && <span aria-hidden="true">Done</span>}
           </button>
         )}
       </div>
@@ -320,43 +340,79 @@ function DetailPanel({
   onChange,
   onClose,
   onDelete,
-  onReorder,
+  focusContent,
   onFocus,
   focusActive,
-  outcomes,
-  currentWeek,
 }: {
   task: Task;
   tasks: Task[];
+  focusContent: ReactNode;
   onFocus: (patch: Patch | null) => void;
   focusActive: boolean;
-  outcomes: Record<string, string>;
-  currentWeek: string;
   today: string;
   onChange: (patch: Patch) => void;
   onClose: () => void;
   onDelete: () => void;
-  onReorder: (direction: -1 | 1) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const dateId = useId();
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes);
+  const [progressNotes, setProgressNotes] = useState(task.progressNotes ?? '');
   const [nextStep, setNextStep] = useState(task.nextStep ?? '');
   const [outcomeWeek, setOutcomeWeek] = useState(task.outcomeWeek ?? '');
   const [date, setDate] = useState(task.date ?? '');
   const [main, setMain] = useState(task.main);
-  const siblings = tasks.filter((item) => item.date === task.date);
-  const index = siblings.findIndex((item) => item.id === task.id);
   const dirty =
     title !== task.title ||
     notes !== task.notes ||
+    progressNotes !== (task.progressNotes ?? '') ||
     nextStep !== (task.nextStep ?? '') ||
     outcomeWeek !== (task.outcomeWeek ?? '') ||
     date !== (task.date ?? '') ||
     main !== task.main;
-  useModal(dialog, () => titleRef.current?.focus());
+  const previousTask = useRef(task);
+  const hadFocus = useRef(!!focusContent);
+  useEffect(() => {
+    const before = previousTask.current;
+    setTitle((current) => (current === before.title ? task.title : current));
+    setNotes((current) => (current === before.notes ? task.notes : current));
+    setProgressNotes((current) =>
+      current === (before.progressNotes ?? '')
+        ? (task.progressNotes ?? '')
+        : current,
+    );
+    setNextStep((current) =>
+      current === (before.nextStep ?? '') ? (task.nextStep ?? '') : current,
+    );
+    setOutcomeWeek((current) =>
+      current === (before.outcomeWeek ?? '')
+        ? (task.outcomeWeek ?? '')
+        : current,
+    );
+    setDate((current) =>
+      current === (before.date ?? '') ? (task.date ?? '') : current,
+    );
+    setMain((current) => (current === before.main ? task.main : current));
+    previousTask.current = task;
+  }, [task]);
+  useEffect(() => {
+    if (hadFocus.current && !focusContent) titleRef.current?.focus();
+    hadFocus.current = !!focusContent;
+  }, [!!focusContent]);
+  useModal(dialog, () => {
+    const setup =
+      dialog.current?.querySelector<HTMLInputElement>('.focus-step input');
+    const session = dialog.current?.querySelector<HTMLElement>('.focus-panel');
+    const finish = dialog.current?.querySelector<HTMLButtonElement>(
+      '.focus-review .primary-button',
+    );
+    if (setup) setup.focus();
+    else if (finish) finish.focus();
+    else if (session) session.focus();
+    else titleRef.current?.focus();
+  });
   const close = () => {
     if (dirty && !window.confirm('Discard your unsaved task changes?')) return;
     onClose();
@@ -374,6 +430,7 @@ function DetailPanel({
   const patch = (): Patch => ({
     title: title.trim(),
     notes,
+    progressNotes,
     nextStep,
     outcomeWeek: outcomeWeek || null,
     date: date || null,
@@ -383,7 +440,7 @@ function DetailPanel({
     event.preventDefault();
     if (!title.trim()) return;
     onChange(patch());
-    onClose();
+    if (!focusContent) onClose();
   };
   return (
     <dialog
@@ -431,31 +488,6 @@ function DetailPanel({
               value={nextStep}
               onChange={(e) => setNextStep(e.target.value)}
             />
-          </label>
-          <label className="field">
-            Weekly outcome
-            <select
-              value={outcomeWeek}
-              onChange={(e) => setOutcomeWeek(e.target.value)}
-            >
-              <option value="">No outcome linked</option>
-              {Object.entries(outcomes)
-                .filter(([, text]) => text.trim())
-                .sort(([a], [b]) => b.localeCompare(a))
-                .map(([key, text]) => (
-                  <option key={key} value={key}>
-                    {key === currentWeek
-                      ? 'This week'
-                      : readableDate.format(parseDate(key))}
-                    : {text}
-                  </option>
-                ))}
-              {outcomeWeek && !outcomes[outcomeWeek]?.trim() && (
-                <option value={outcomeWeek}>
-                  Outcome removed ({outcomeWeek})
-                </option>
-              )}
-            </select>
           </label>
           <div className="field">
             <label htmlFor={dateId}>Plan for</label>
@@ -505,12 +537,21 @@ function DetailPanel({
               onChange={(e) => setNotes(e.target.value)}
             />
           </label>
+          <label className="field">
+            Progress notes <span className="optional">Optional</span>
+            <textarea
+              rows={3}
+              maxLength={10000}
+              value={progressNotes}
+              onChange={(e) => setProgressNotes(e.target.value)}
+            />
+          </label>
           {!!task.sessions?.length && (
             <section className="progress-history" aria-label="Progress history">
               <h3>Progress</h3>
               {[...task.sessions].reverse().map((entry) => (
                 <article key={entry.id}>
-                  <p>{entry.progress}</p>
+                  <p>{entry.progress || 'Focus session'}</p>
                   <small>
                     {new Date(entry.endedAt).toLocaleString()} ·{' '}
                     {Math.round(entry.minutes)} min focused
@@ -519,28 +560,6 @@ function DetailPanel({
               ))}
             </section>
           )}
-          <div className="order-controls">
-            <span>
-              Position in {task.date ? 'this day' : 'Unscheduled'}
-              <small>Alt + arrow keys on a task also move it.</small>
-            </span>
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={dirty || index === 0}
-              onClick={() => onReorder(-1)}
-            >
-              <ArrowUp size={14} /> Up
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={dirty || index === siblings.length - 1}
-              onClick={() => onReorder(1)}
-            >
-              <ArrowDown size={14} /> Down
-            </button>
-          </div>
           <div className="panel-footer">
             {(focusActive || task.completed) && (
               <small className="optional footer-note">
@@ -572,6 +591,7 @@ function DetailPanel({
             </span>
           </div>
         </form>
+        {focusContent}
       </div>
     </dialog>
   );
@@ -602,9 +622,10 @@ function Help({ onClose }: { onClose: () => void }) {
       </header>
       <ul>
         <li>
-          Set one weekly outcome above the board. Choose the timer on any open
-          task to focus on it: add a next step, set the minutes, and begin. Stop
-          early whenever you like, then note what moved forward.
+          Keep your notes and focus sessions in task details. Choose the timer
+          on any open task to focus on it: add a next step, set the minutes, and
+          begin. Stop early whenever you like. Keep progress notes in task
+          details.
         </li>
         <li>Type in Unscheduled and press Enter to capture a task.</li>
         <li>
@@ -629,49 +650,8 @@ function Help({ onClose }: { onClose: () => void }) {
   );
 }
 
-function WeeklyOutcome({
-  value,
-  disabled,
-  onSave,
-}: {
-  value: string;
-  disabled: boolean;
-  onSave: (text: string) => void;
-}) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  return (
-    <form
-      className="weekly-outcome"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave(draft.trim());
-      }}
-    >
-      <label htmlFor="weekly-outcome">This week's outcome</label>
-      <input
-        id="weekly-outcome"
-        disabled={disabled}
-        maxLength={500}
-        value={draft}
-        placeholder="What would make this week successful?"
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') setDraft(value);
-        }}
-      />
-      {draft !== value && (
-        <button disabled={disabled} className="small-primary">
-          Save outcome
-        </button>
-      )}
-    </form>
-  );
-}
-
-function clock(seconds: number) {
-  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-}
+const clock = (seconds: number) =>
+  `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
 type FocusMode = 'setup' | 'running' | 'review';
 
@@ -680,7 +660,6 @@ function FocusPanel({
   task,
   session,
   outcome,
-  linkable,
   onStart,
   onStop,
   onCancel,
@@ -690,8 +669,6 @@ function FocusPanel({
   session?: PlannerState['focus'];
   // Text of the weekly outcome this task is linked to, if any.
   outcome: string;
-  // The viewed week's outcome, offered as a link when the task has none.
-  linkable: { week: string; text: string } | null;
   onStart: (duration: number, patch: Patch) => void;
   onStop: () => void;
   onCancel: () => void;
@@ -700,12 +677,10 @@ function FocusPanel({
   const [now, setNow] = useState(Date.now());
   const [minutes, setMinutes] = useState('60');
   const [nextStep, setNextStep] = useState(task.nextStep ?? '');
-  const [link, setLink] = useState(false);
-  const [progress, setProgress] = useState('');
   const [completed, setCompleted] = useState(task.completed);
   const panel = useRef<HTMLElement>(null);
   const stepRef = useRef<HTMLInputElement>(null);
-  const progressRef = useRef<HTMLTextAreaElement>(null);
+  const finishRef = useRef<HTMLButtonElement>(null);
   const previous = useRef<FocusMode | null>(null);
   const reviewEdits = useRef({ nextStep: false, completed: false });
   const seconds = session ? remainingSeconds(session, now) : 0;
@@ -741,7 +716,7 @@ function FocusPanel({
     else if (mode === 'review') {
       setCompleted(task.completed);
       setNextStep(task.nextStep ?? '');
-      if (idle) progressRef.current?.focus();
+      if (idle) finishRef.current?.focus();
     }
   }, [mode]);
   useEffect(() => {
@@ -754,7 +729,6 @@ function FocusPanel({
     if (!validMinutes) return;
     const patch: Patch = {};
     if (nextStep !== (task.nextStep ?? '')) patch.nextStep = nextStep.trim();
-    if (link && linkable) patch.outcomeWeek = linkable.week;
     onStart(duration, patch);
   };
   const step = (task.nextStep ?? '').trim();
@@ -797,7 +771,7 @@ function FocusPanel({
             </output>
             <button
               className="secondary-button"
-              aria-label="Stop and record progress"
+              aria-label="Stop session"
               onClick={onStop}
             >
               Stop
@@ -839,18 +813,6 @@ function FocusPanel({
               onChange={(e) => setMinutes(e.target.value)}
             />
           </label>
-          {linkable && (
-            <label className="focus-link">
-              <input
-                type="checkbox"
-                checked={link}
-                onChange={(e) => setLink(e.target.checked)}
-              />
-              <span>
-                Link to <q>{linkable.text}</q>
-              </span>
-            </label>
-          )}
           <button className="primary-button" disabled={!validMinutes}>
             Begin session
           </button>
@@ -867,23 +829,12 @@ function FocusPanel({
           className="focus-review"
           onSubmit={(e) => {
             e.preventDefault();
-            if (progress.trim()) onFinish(progress, completed, nextStep);
+            onFinish('', completed, nextStep);
           }}
         >
           <p className="visually-hidden" role="status">
-            Session finished. Record what moved forward.
+            Session finished. Notes stay on the task.
           </p>
-          <label className="focus-field focus-progress">
-            What moved forward?
-            <textarea
-              ref={progressRef}
-              required
-              maxLength={2000}
-              rows={2}
-              value={progress}
-              onChange={(e) => setProgress(e.target.value)}
-            />
-          </label>
           <div className="focus-after">
             <label className="focus-complete">
               <input
@@ -911,8 +862,8 @@ function FocusPanel({
               </label>
             )}
           </div>
-          <button className="primary-button" disabled={!progress.trim()}>
-            Save progress
+          <button ref={finishRef} className="primary-button">
+            Finish session
           </button>
         </form>
       )}
@@ -922,6 +873,7 @@ function FocusPanel({
 
 export default function App() {
   const [initial] = useState(initialData);
+  const [now, setNow] = useState(Date.now());
   const [state, setState] = useState<PlannerState>(initial.state);
   const [readError, setReadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(false);
@@ -960,7 +912,21 @@ export default function App() {
   const focusTask = state.tasks.find(
     (task) => task.id === (state.focus?.taskId ?? focusTaskId),
   );
-  const weekOutcome = (state.outcomes?.[dateKey(week)] ?? '').trim();
+  const sessionRunning =
+    !!state.focus &&
+    state.focus.stoppedAt === undefined &&
+    remainingSeconds(state.focus, now) > 0;
+  useEffect(() => {
+    if (!sessionRunning) return;
+    const update = () => setNow(Date.now());
+    update();
+    const timer = window.setInterval(update, 1000);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, [state.focus, sessionRunning]);
   const announce = (text: string, visible = false) =>
     setNotice({ text, visible });
 
@@ -1142,14 +1108,25 @@ export default function App() {
           }
           focus={
             state.focus?.taskId === task.id
-              ? 'active'
+              ? state.focus.stoppedAt !== undefined ||
+                remainingSeconds(state.focus, now) === 0
+                ? 'finished'
+                : 'active'
               : state.focus || readError || task.completed
                 ? 'none'
                 : 'available'
           }
+          seconds={
+            state.focus?.taskId === task.id
+              ? remainingSeconds(state.focus, now)
+              : 0
+          }
           onToggle={() => editTask(task.id, { completed: !task.completed })}
           onEdit={() => setEditingId(task.id)}
-          onFocus={() => setFocusTaskId(task.id)}
+          onFocus={() => {
+            if (!state.focus) setFocusTaskId(task.id);
+            setEditingId(task.id);
+          }}
           onMoveKey={(key) => onMoveKey(task, key)}
           onDrop={(event) => onDrop(event, task.date, task.id)}
           onDragOver={(event) => overTarget(event, task.date, task.id)}
@@ -1217,6 +1194,60 @@ export default function App() {
     }
     if (importRef.current) importRef.current.value = '';
   };
+
+  const focusContent: ReactNode = !readError && focusTask && (
+    <FocusPanel
+      key={focusTask.id}
+      task={focusTask}
+      session={state.focus}
+      outcome={
+        focusTask.outcomeWeek
+          ? (state.outcomes?.[focusTask.outcomeWeek] ?? '').trim()
+          : ''
+      }
+      onStart={(duration, patch) => {
+        setState((current) => ({
+          ...current,
+          tasks: updateTask(current.tasks, focusTask.id, patch),
+          focus: {
+            taskId: focusTask.id,
+            startedAt: Date.now(),
+            duration,
+          },
+        }));
+        setFocusTaskId(null);
+        announce(`Focus started for ${duration} minutes.`);
+      }}
+      onStop={() =>
+        setState((current) =>
+          current.focus
+            ? {
+                ...current,
+                focus: {
+                  ...current.focus,
+                  stoppedAt: Math.min(
+                    Date.now(),
+                    current.focus.startedAt + current.focus.duration * 60000,
+                  ),
+                },
+              }
+            : current,
+        )
+      }
+      onCancel={() => {
+        setFocusTaskId(null);
+      }}
+      onFinish={(progress, completed, nextStep) => {
+        setFocusTaskId(null);
+        setState((current) =>
+          finishFocus(current, progress, completed, nextStep, Date.now()),
+        );
+        // Return to the task so the next step is one keypress away.
+        reveal(focusTask.date);
+        announce('Session saved.');
+      }}
+    />
+  );
 
   const inbox: ReactNode = (
     <aside
@@ -1389,78 +1420,6 @@ export default function App() {
         </div>
       )}
       <main>
-        <WeeklyOutcome
-          key={dateKey(week)}
-          value={state.outcomes?.[dateKey(week)] ?? ''}
-          disabled={readError}
-          onSave={(value) =>
-            setState((current) => ({
-              ...current,
-              outcomes: { ...current.outcomes, [dateKey(week)]: value },
-            }))
-          }
-        />
-        {!readError && focusTask && (
-          <FocusPanel
-            key={focusTask.id}
-            task={focusTask}
-            session={state.focus}
-            outcome={
-              focusTask.outcomeWeek
-                ? (state.outcomes?.[focusTask.outcomeWeek] ?? '').trim()
-                : ''
-            }
-            linkable={
-              !focusTask.outcomeWeek && weekOutcome
-                ? { week: dateKey(week), text: weekOutcome }
-                : null
-            }
-            onStart={(duration, patch) => {
-              setState((current) => ({
-                ...current,
-                tasks: updateTask(current.tasks, focusTask.id, patch),
-                focus: {
-                  taskId: focusTask.id,
-                  startedAt: Date.now(),
-                  duration,
-                },
-              }));
-              setFocusTaskId(null);
-              announce(`Focus started for ${duration} minutes.`);
-            }}
-            onStop={() =>
-              setState((current) =>
-                current.focus
-                  ? {
-                      ...current,
-                      focus: {
-                        ...current.focus,
-                        stoppedAt: Math.min(
-                          Date.now(),
-                          current.focus.startedAt +
-                            current.focus.duration * 60000,
-                        ),
-                      },
-                    }
-                  : current,
-              )
-            }
-            onCancel={() => {
-              setFocusTaskId(null);
-              setFocusRequest({ id: focusTask.id, onlyIfLost: false });
-            }}
-            onFinish={(progress, completed, nextStep) => {
-              setState((current) =>
-                finishFocus(current, progress, completed, nextStep, Date.now()),
-              );
-              // Return to the task so the next step is one keypress away.
-              reveal(focusTask.date);
-              setFocusRequest({ id: focusTask.id, onlyIfLost: false });
-              announce('Progress saved.');
-            }}
-          />
-        )}
-
         <span id="move-hint" hidden>
           Alt with arrow keys moves this task.
         </span>
@@ -1593,15 +1552,13 @@ export default function App() {
           task={currentTask}
           tasks={state.tasks}
           today={today}
-          outcomes={state.outcomes ?? {}}
-          currentWeek={dateKey(week)}
+          focusContent={focusTask?.id === currentTask.id ? focusContent : null}
           focusActive={!!state.focus}
           onFocus={(patch) => {
             if (patch) {
               editTask(currentTask.id, patch);
               if (patch.date !== currentTask.date) reveal(patch.date ?? null);
             }
-            setEditingId(null);
             setFocusTaskId(currentTask.id);
           }}
           onClose={() => {
@@ -1630,7 +1587,7 @@ export default function App() {
           onDelete={() => {
             if (state.focus?.taskId === currentTask.id) {
               announce(
-                'Record progress for this task before deleting it.',
+                'Finish the session for this task before deleting it.',
                 true,
               );
               return;
@@ -1647,7 +1604,6 @@ export default function App() {
             );
             setEditingId(null);
           }}
-          onReorder={(direction) => reorder(currentTask.id, direction)}
         />
       )}
       {helpOpen && <Help onClose={() => setHelpOpen(false)} />}

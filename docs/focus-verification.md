@@ -17,3 +17,21 @@ Browser permission was then explicitly declined for the local preview. No workar
 ## Limits
 
 Data remains local to the browser and origin. Concurrent tabs use the existing last-write-wins model. The timer measures elapsed time, not attention or work quality. Progress entry is self-reported. No background alerts or sounds are included. Unsaved form drafts are not guaranteed across reloads.
+
+## Task progress notes refinement
+
+The end-of-session question was removed at the user's request. Finish session requires no written update. Optional progress notes are edited on the task itself, and existing session history remains intact. New blank session records show "Focus session".
+
+Final checks: 11 model and 28 UI tests pass, including task-note save/reload, blank session completion, legacy history preservation, backup round trips, and invalid note rejection. Build, formatting and interface detector pass. Independent code review: Approve. Browser access remains blocked by a saved permission preference, so this refinement has not been visually rechecked.
+
+## Calendar cleanup
+
+The weekly outcome editor and focus strip were removed from above the calendar. Session controls now live in task details only. Reloads stay on the calendar; opening the active task resumes its controls. Cancel and Finish keep unsaved task edits intact. Saved outcomes and history remain in backups.
+
+Checks: 11 model and 29 UI tests pass, including no top-level focus/outcome panel, session reload access through the task, and preserving unsaved notes plus focus setup edits. Final code review follows the fixes. Browser access is still blocked by a saved permission preference.
+
+## Timer states and task-detail polish
+
+Task details no longer show a weekly outcome selector, setup link checkbox, or position buttons. Existing values are preserved; Alt+arrow reordering remains available. The active row timer shows a live countdown and becomes Done after stopping or expiry. Either state opens the appropriate session controls with focus. Finishing a restored session does not reopen setup. Narrow columns wrap the badge below the title.
+
+Checks: 11 model and 32 UI tests pass. TypeScript/build and formatting pass. Browser visual verification remains blocked by the saved permission preference.

@@ -172,3 +172,34 @@ test('invalid new data is rejected while old backups remain valid', () => {
   );
   assert.deepEqual(decodeState(JSON.stringify(state)), state);
 });
+
+test('blank session updates and task progress notes round-trip in backups', () => {
+  const state = {
+    version: 1 as const,
+    tasks: [{ ...task('a'), progressNotes: 'Reviewed draft' }],
+    focus: { taskId: 'a', startedAt: 100000, duration: 60 },
+  };
+  const finished = finishFocus(state, '', false, 'Send draft', 160000);
+  assert.equal(finished.focus, null);
+  assert.equal(finished.tasks[0].sessions?.[0].progress, '');
+  assert.deepEqual(decodeState(JSON.stringify(finished)), finished);
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({
+        ...state,
+        tasks: [{ ...task('a'), progressNotes: 123 }],
+      }),
+    ),
+  );
+});
+
+test('overlong task progress notes are rejected', () => {
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({
+        version: 1,
+        tasks: [{ ...task('a'), progressNotes: 'x'.repeat(10001) }],
+      }),
+    ),
+  );
+});

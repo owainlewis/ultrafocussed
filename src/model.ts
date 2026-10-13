@@ -6,6 +6,7 @@ export type Task = {
   notes: string;
   main: boolean;
   nextStep?: string;
+  progressNotes?: string;
   outcomeWeek?: string | null;
   sessions?: FocusRecord[];
 };
@@ -66,6 +67,13 @@ export function decodeState(raw: string | null): PlannerState {
   const mainDates = new Set<string>();
   for (const task of value.tasks) {
     if (
+      task &&
+      task.progressNotes !== undefined &&
+      (typeof task.progressNotes !== 'string' ||
+        task.progressNotes.length > 10000)
+    )
+      throw new Error('Invalid progress notes');
+    if (
       !task ||
       typeof task.id !== 'string' ||
       !task.id ||
@@ -120,7 +128,6 @@ export function decodeState(raw: string | null): PlannerState {
             !Number.isFinite(entry.minutes) ||
             entry.minutes < 0 ||
             typeof entry.progress !== 'string' ||
-            !entry.progress.trim() ||
             entry.progress.length > 2000,
         ))
     )
@@ -212,7 +219,7 @@ export function finishFocus(
   now: number,
 ): PlannerState {
   const focus = state.focus;
-  if (!focus || !progress.trim()) return state;
+  if (!focus) return state;
   const endedAt = Math.min(
     focus.stoppedAt ?? now,
     focus.startedAt + focus.duration * 60000,
