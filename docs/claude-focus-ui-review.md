@@ -51,10 +51,10 @@ Reviewed on 12 October 2026 from the source, tests, PRODUCT.md, DESIGN.md, and `
 - Muted text is at least 5.9:1 on every surface it sits on. The `--control` border colour (`#858585`) is at least 3.6:1 on white; subtle dividers use lighter grays.
 
 Opinion [high]: focus belongs on the task row, not in task details, because the task is already where the user's attention is.
-This changes if if users mostly start focus right after editing a task's next step, the details button would matter more than the row button. Both stay.
+This changes if users mostly start focus right after editing a task's next step, the details button would matter more than the row button. Both stay.
 
 Opinion [medium]: an always-visible gray timer on every open row is worth its noise, because a hover-only control repeats the discoverability problem and does not work on touch.
-This changes if if weeks with many tasks per day look busy in real use, show the button only on hover and keyboard focus for desktop pointers, and always on touch.
+This changes if weeks with many tasks per day look busy in real use, show the button only on hover and keyboard focus for desktop pointers, and always on touch.
 
 ## Unchanged
 

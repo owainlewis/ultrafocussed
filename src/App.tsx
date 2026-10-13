@@ -698,7 +698,7 @@ function FocusPanel({
   onFinish: (progress: string, completed: boolean, nextStep: string) => void;
 }) {
   const [now, setNow] = useState(Date.now());
-  const [minutes, setMinutes] = useState('25');
+  const [minutes, setMinutes] = useState('60');
   const [nextStep, setNextStep] = useState(task.nextStep ?? '');
   const [link, setLink] = useState(false);
   const [progress, setProgress] = useState('');

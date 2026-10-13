@@ -5,7 +5,7 @@ The planner is an Operate surface: a quiet ledger of one week. Everything that i
 ## Layout
 
 - One slim top bar holds all global controls: wordmark, previous and next week, the visible date range as the page heading, Today, Weekends, save status, Export, Import, and Help.
-- Under it, a 44 px weekly outcome line holds one editable sentence for the viewed week. Enter saves, Escape discards the draft.
+- Under it, a 48 px weekly outcome line holds one editable sentence for the viewed week. Enter saves, Escape discards the draft.
 - A focus strip appears under the outcome line only while a session is being set up, running, or reviewed. On desktop it takes at most half the window (60% below 640 px tall) and scrolls on its own, so the board stays usable and the review form stays reachable.
 - Below them, the board fills the viewport. A gray rail on the left holds From earlier and Unscheduled. Day columns sit on white with fine rules and scroll on their own, so the week stays in view.
 - Desktop shows five days. Weekends expand on request, and the toggle shows how many weekend tasks are hidden.
@@ -24,7 +24,7 @@ The planner is an Operate surface: a quiet ledger of one week. Everything that i
 
 ## Focus loop
 
-1. **Set up.** The timer button opens the strip with the task title, the linked outcome, a one-line Next step field (prefilled, optional), Minutes (default 25, whole numbers 1 to 180, Begin is disabled otherwise), and, when the viewed week has an outcome and the task has no link, a "Link to <outcome>" checkbox. Focus goes to Next step, so Enter begins at once. Cancel closes the strip and returns focus to the task.
+1. **Set up.** The timer button opens the strip with the task title, the linked outcome, a one-line Next step field (prefilled, optional), Minutes (default 60, whole numbers 1 to 180, Begin is disabled otherwise), and, when the viewed week has an outcome and the task has no link, a "Link to <outcome>" checkbox. Focus goes to Next step, so Enter begins at once. Cancel closes the strip and returns focus to the task.
 2. **Run.** The strip collapses to one line: "Focusing on", title, next step, outcome, the remaining time, and Stop. Focus moves to the strip itself. The session is stored, so a reload resumes the same timer.
 3. **Review.** Stop, or the end of the time, opens "What moved forward?" (required), Task complete, Next step, and Save progress. After Stop, focus goes to the progress field. If time runs out while the user works elsewhere, focus stays where it is. Next step and Task complete follow edits made in task details or on the board until the user changes them in the review form. After saving, the strip closes, the view follows the task, and focus returns to its title.
 
@@ -49,8 +49,8 @@ Nothing rolls forward automatically. Unfinished tasks from past days appear unde
 
 ## Visual system
 
-- System sans type. Body 14 px. No text below 12 px. The timer uses tabular numerals.
-- Neutral only. Ink `#1c1c1c`, muted text `#5c5c5c` (at least 5.9:1 on every surface it sits on), rules `#e2e2e2`, white columns, gray rail and focus strip `#f5f5f5`, light tint `#f7f7f7` for today and the main outcome.
+- System sans type with restrained tracking and a 1.5 body line height. Body 14 px. Task titles use medium weight, 12 px vertical row padding, and clearer separation from note previews. The desktop toolbar is 64 px tall with 24 px horizontal padding. No text below 12 px. The timer uses tabular numerals.
+- Neutral only. Ink `#1c1c1c`, muted text `#5c5c5c` (at least 5.9:1 on every surface it sits on), rules `#e6e6e6`, white columns, gray rail and focus strip `#f8f8f8`, light tint `#f7f7f7` for today and the main outcome.
 - Charcoal `#2b2b2b` fills primary buttons, the Today tag, selected chips, completed checkboxes, and the selected mobile Unscheduled button. Emphasis without fill uses weight, a charcoal rule, or an underline.
 - Keyboard focus is a 2 px blue ring (`#2563eb`). Blue is used for nothing else.
 - The only other colour is the warm red of errors and the storage banner.

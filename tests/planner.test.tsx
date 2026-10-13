@@ -464,7 +464,7 @@ describe('meaningful focus loop', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Start focus' }));
     await user.click(screen.getByRole('button', { name: 'Begin session' }));
-    expect(saved().focus?.duration).toBe(25);
+    expect(saved().focus?.duration).toBe(60);
     app.unmount();
     render(<App />);
     expect(screen.getByLabelText('Time remaining')).toBeTruthy();
