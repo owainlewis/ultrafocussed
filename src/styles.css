@@ -97,43 +97,51 @@ p {
   height: 100dvh;
   min-height: 560px;
 }
+/* Three zones: period on the left, scale in the centre, file actions right. */
 .topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
-  gap: 20px;
-  min-height: 64px;
-  padding: 0 24px;
+  gap: 16px;
+  min-height: 56px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--rule);
   background: var(--paper);
+}
+.topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
 }
 .brand {
   font-size: 15px;
   font-weight: 650;
   letter-spacing: -0.035em;
+  white-space: nowrap;
 }
 .week-nav {
   display: flex;
   align-items: center;
-  gap: 2px;
-  flex: 1;
+  gap: 8px;
   min-width: 0;
 }
+.period-arrows {
+  display: flex;
+}
 .week-nav h1 {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.025em;
-  margin: 0 12px 0 8px;
+  margin: 0 0 0 4px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.view-controls,
 .top-actions {
   display: flex;
   align-items: center;
+  justify-self: end;
   gap: 4px;
-}
-.view-controls {
-  gap: 12px;
 }
 .icon-button {
   display: inline-flex;
@@ -165,21 +173,6 @@ p {
 }
 .text-button:hover {
   background: var(--hover);
-}
-.weekend-control {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.weekend-control input {
-  accent-color: var(--accent);
-  width: 15px;
-  height: 15px;
-  margin: 0;
 }
 .save-status {
   font-size: 12px;
@@ -256,20 +249,10 @@ main {
   display: grid;
   grid-template-columns: 272px minmax(0, 1fr);
 }
-.days-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  min-width: 0;
-  min-height: 0;
-  background: var(--paper);
-}
-.with-weekends .days-grid {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-}
 .inbox {
   min-width: 0;
   overflow-y: auto;
-  padding: 16px 16px 24px;
+  padding: 20px 16px 32px;
   border-right: 1px solid var(--rule);
   background: var(--rail);
 }
@@ -325,11 +308,9 @@ main {
   color: var(--muted);
 }
 .earlier {
-  margin-bottom: 20px;
-  padding: 12px;
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  background: var(--paper);
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rule);
 }
 .earlier > p {
   margin: 4px 0 6px;
@@ -386,77 +367,8 @@ main {
   color: #fff;
   font-weight: 600;
 }
-.day-column {
-  min-width: 0;
-  overflow-y: auto;
-  padding: 0 8px 24px;
-  border-right: 1px solid var(--rule);
-}
-.day-column:last-child {
-  border-right: 0;
-}
-.today-column {
-  background: var(--tint);
-}
-.day-heading {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 2px 8px;
-  margin-bottom: 4px;
-  padding: 18px 6px 14px;
-  border-bottom: 1px solid var(--rule-soft);
-  background: inherit;
-}
-.day-column .day-heading {
-  background: var(--paper);
-}
-.today-column .day-heading {
-  background: var(--tint);
-}
-.day-heading h2 {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-weight: 500;
-}
-.day-name {
-  font-size: 13px;
-  color: var(--muted);
-}
-.day-number {
-  font-size: 20px;
-  line-height: 1;
-  letter-spacing: -0.4px;
-  font-variant-numeric: tabular-nums;
-}
-.past-column .day-number {
-  color: var(--muted);
-}
-.today-column .day-name,
-.today-column .day-number {
-  color: var(--ink);
-  font-weight: 650;
-}
-.today-tag {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-}
-.day-count {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--muted);
-}
-.drop-active,
-.today-column.drop-active,
-.drop-active .day-heading {
+
+.drop-active {
   background: var(--hover);
 }
 
@@ -702,7 +614,6 @@ main {
 .secondary-button:hover:not(:disabled) {
   background: var(--hover);
 }
-.mobile-days,
 .mobile-inbox-button,
 .inbox-close {
   display: none;
@@ -807,25 +718,11 @@ dialog::backdrop {
   font-size: 14px;
   font-weight: 600;
 }
-.main-option small,
-.order-controls small {
+.main-option small {
   display: block;
   margin-top: 4px;
   font-size: 12px;
   color: var(--muted);
-}
-.order-controls {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.order-controls > span {
-  flex: 1;
-}
-.order-controls small {
-  font-weight: 400;
 }
 /* The footer stays in reach while long notes or history scroll. */
 .panel-footer {
@@ -940,9 +837,6 @@ dialog::backdrop {
   .board {
     grid-template-columns: 236px minmax(0, 1fr);
   }
-  .with-weekends .day-column {
-    padding: 0 4px 24px;
-  }
 }
 @media (max-width: 1100px) {
   .icon-button.labelled {
@@ -951,8 +845,13 @@ dialog::backdrop {
   .icon-button.labelled span {
     display: none;
   }
+  /* Too narrow to centre the switch exactly; it centres in the space left. */
   .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 12px;
+  }
+  .topbar > .view-switch {
+    justify-self: center;
   }
 }
 @media (max-width: 900px) and (min-width: 761px) {
@@ -976,6 +875,9 @@ dialog::backdrop {
     gap: 4px 8px;
     padding: 8px 12px 10px;
   }
+  .topbar-start {
+    display: contents;
+  }
   .brand {
     grid-area: brand;
     padding-left: 4px;
@@ -992,11 +894,6 @@ dialog::backdrop {
     margin: 0 4px;
     font-size: 15px;
     white-space: normal;
-  }
-  .view-controls {
-    grid-area: view;
-    justify-content: space-between;
-    padding: 0 4px;
   }
   .save-status:not(.save-failed) {
     display: none;
@@ -1027,75 +924,11 @@ dialog::backdrop {
   .storage-error {
     margin: 10px 12px 0;
   }
-  .mobile-days {
-    display: flex;
-    gap: 2px;
-    padding: 8px 8px 0;
-  }
-  .mobile-days button {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    min-width: 0;
-    padding: 6px 0 5px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--muted);
-  }
-  .mobile-days button > span:first-child {
-    font-size: 12px;
-  }
-  .mobile-days strong {
-    font-size: 18px;
-    font-weight: 500;
-    color: var(--ink);
-  }
-  .mobile-days .is-today span,
-  .mobile-days .is-today strong {
-    color: var(--ink);
-    font-weight: 700;
-  }
-  .mobile-days .is-today > span:first-child {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
-  }
-  .mobile-days .selected {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-  }
-  .day-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--muted);
-  }
   .planner-content {
     flex: none;
   }
-  .board,
-  .days-grid,
-  .with-weekends .days-grid {
+  .board {
     display: block;
-    background: transparent;
-  }
-  .day-column,
-  .with-weekends .day-column {
-    display: none;
-    overflow: visible;
-    padding: 0 12px 96px;
-    border-right: 0;
-    background: transparent;
-  }
-  .day-column.mobile-selected {
-    display: block;
-  }
-  .day-column .day-heading,
-  .today-column .day-heading {
-    position: static;
     background: transparent;
   }
   .inbox {
@@ -1107,9 +940,6 @@ dialog::backdrop {
   }
   .inbox.mobile-open {
     display: block;
-  }
-  .inbox.mobile-open + .days-grid {
-    display: none;
   }
   .inbox-close {
     display: inline-flex;
@@ -1149,11 +979,6 @@ dialog::backdrop {
     bottom: 16px;
   }
 }
-@media (max-width: 360px) {
-  .weekend-control {
-    font-size: 12px;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
@@ -1161,7 +986,7 @@ dialog::backdrop {
   }
 }
 
-/* Weekly outcome and focus loop */
+/* Focus loop */
 /* The panel never takes more than half the window, so the board stays
    usable and the review form scrolls into reach on short screens. */
 .focus-panel {
@@ -1287,24 +1112,6 @@ dialog::backdrop {
 .focus-minutes input[aria-invalid='true'] {
   border-color: var(--danger);
 }
-.focus-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 37px;
-  max-width: 320px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-}
-.focus-link span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.focus-link q {
-  color: var(--ink);
-}
 .focus-start .primary-button,
 .focus-review .primary-button {
   padding: 9px 16px;
@@ -1359,23 +1166,8 @@ dialog::backdrop {
   .focus-panel {
     max-height: 60dvh;
   }
-  .focus-progress textarea {
-    min-height: 40px;
-  }
 }
 @media (max-width: 760px) {
-  .weekly-outcome {
-    flex-wrap: wrap;
-    gap: 2px 8px;
-    padding: 8px 12px;
-  }
-  .weekly-outcome label {
-    width: 100%;
-    padding-left: 9px;
-  }
-  .weekly-outcome input {
-    font-size: 16px;
-  }
   .focus-panel {
     max-height: none;
     overflow: visible;
@@ -1399,7 +1191,6 @@ dialog::backdrop {
     font-size: 16px;
   }
   .focus-step,
-  .focus-progress,
   .focus-after {
     flex-basis: 100%;
     max-width: none;
@@ -1472,5 +1263,667 @@ dialog::backdrop {
   .task-focus.timer-active,
   .task-focus.timer-finished {
     margin-left: auto;
+  }
+}
+
+/* War map: one task list, three planning scales. */
+.view-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--hover);
+}
+.view-switch button {
+  min-width: 64px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.view-switch button:hover {
+  color: var(--ink);
+}
+.view-switch button[aria-pressed='true'] {
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+.war-map-content {
+  overflow: auto;
+}
+.view-year,
+.view-goals {
+  background: var(--paper);
+}
+
+/* Month: the grid fills the window; rows share the height evenly. */
+.month-board {
+  min-height: 100%;
+}
+.month-board .inbox {
+  max-height: 100%;
+}
+.month-calendar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: auto;
+  background: var(--paper);
+}
+.month-view {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.month-weekdays {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.month-weekdays span {
+  padding-left: 14px;
+}
+.month-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(120px, 1fr);
+}
+.month-day {
+  min-width: 0;
+  padding: 4px 6px 8px;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.month-day:nth-child(7n) {
+  border-right: 0;
+}
+.month-day.outside-month {
+  background: var(--tint);
+}
+.outside-month .month-date {
+  color: var(--muted);
+}
+.month-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.month-date > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+.month-date:hover > span:first-child {
+  background: var(--hover);
+}
+.month-today .month-date > span:first-child {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.month-date small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.month-day .task-list {
+  margin-top: 2px;
+}
+.month-day .task {
+  padding: 3px 4px;
+  border-top: 0;
+  border-radius: 5px;
+}
+.month-day .task-labels,
+.month-day .task-note,
+.month-day .task-goal {
+  display: none;
+}
+.month-day .task-row {
+  gap: 4px;
+}
+/* A 14 px box inside a 24 px hit target. */
+.month-day .task-checkbox {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  margin: -3px 0 -3px -4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+}
+.month-day .task-checkbox::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid var(--control);
+  border-radius: 3px;
+  background: var(--paper);
+}
+.month-day .task-checkbox:hover::before {
+  border-color: var(--ink);
+}
+.month-day .completed .task-checkbox::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.month-day .task-checkbox svg {
+  position: relative;
+  width: 10px;
+  height: 10px;
+}
+.month-day .task-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.month-day .task-focus {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  margin: -3px -4px -3px 0;
+}
+.month-day .task-focus > svg {
+  width: 13px;
+  height: 13px;
+}
+.month-day .task-focus.timer-active,
+.month-day .task-focus.timer-finished {
+  width: auto;
+  min-width: 0;
+  height: 22px;
+  padding: 2px 6px;
+  margin: -2px -2px 0 2px;
+}
+.month-day .in-focus,
+.month-day .main-task {
+  padding-left: 6px;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.month-day .add-task {
+  gap: 4px;
+  margin-top: 2px;
+  padding: 4px;
+  font-size: 12px;
+}
+.month-day .add-task svg {
+  width: 14px;
+  height: 14px;
+}
+.month-day .composer {
+  padding: 6px;
+}
+.month-day .composer input {
+  max-width: 100%;
+  font-size: 13px;
+}
+.month-day .composer-actions > span {
+  display: none;
+}
+.month-day .composer-actions {
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+/* With a precise pointer, quiet controls wait for the cell or row. Keyboard
+   focus reveals them; touch keeps them visible. */
+@media (hover: hover) and (pointer: fine) {
+  .month-day .add-task,
+  .month-day .task-focus:not(.timer-active):not(.timer-finished),
+  .goal-action .task-focus:not(.timer-active):not(.timer-finished),
+  .goal-controls {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .month-day:hover .add-task,
+  .month-day:focus-within .add-task,
+  .month-today .add-task,
+  .month-day .task:hover .task-focus,
+  .month-day .task:focus-within .task-focus,
+  .goal-action:hover .task-focus,
+  .goal-action:focus-within .task-focus,
+  .goal-column:hover .goal-controls,
+  .goal-column:focus-within .goal-controls {
+    opacity: 1;
+  }
+}
+
+.task-plan-date {
+  padding: 0;
+  margin-top: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.task-plan-date:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.task-goal {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Year: twelve quiet calendars on one page. */
+.year-view {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-content: start;
+  gap: 48px 56px;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 40px clamp(24px, 4vw, 64px) 64px;
+}
+.year-month {
+  min-width: 0;
+}
+.year-month header {
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.year-month header button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.year-month header button:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.year-current header button {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+.mini-weekdays,
+.mini-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+}
+.mini-weekdays {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.mini-days {
+  grid-template-rows: repeat(6, 30px);
+  align-content: start;
+}
+.mini-days button {
+  position: relative;
+  min-width: 0;
+  height: 30px;
+  padding: 0 0 3px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.mini-days button:hover {
+  background: var(--hover);
+}
+.mini-days .has-actions {
+  font-weight: 650;
+}
+.mini-days .mini-today {
+  border-color: var(--ink);
+}
+.mini-dot {
+  position: absolute;
+  bottom: 3px;
+  left: calc(50% - 1.5px);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.actions-done .mini-dot {
+  background: var(--control);
+}
+
+/* Goals: a plain sheet. A title over a ruled checklist, per column. */
+.goals-view {
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 40px clamp(24px, 4vw, 64px) 64px;
+}
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 56px 48px;
+}
+.goal-column {
+  min-width: 0;
+}
+.goal-column > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ink);
+}
+.goal-column > header > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.goal-column h2 {
+  padding-top: 4px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+.goal-column header form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.goal-column header input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--control);
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.goal-controls {
+  display: flex;
+  flex-shrink: 0;
+  margin-right: -6px;
+}
+.goal-controls .icon-button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px;
+}
+.goal-action.task {
+  margin: 0 -6px;
+  padding: 9px 6px;
+  border-left-color: transparent;
+}
+.goal-action .task-labels {
+  display: none;
+}
+.goal-action .task-text {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.goal-action .task-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 400;
+}
+.goal-action .task-plan-date {
+  flex-shrink: 0;
+  margin: 0;
+}
+.goal-action-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -6px;
+  padding: 6px 6px;
+  border-top: 1px solid var(--rule-soft);
+  color: var(--muted);
+}
+.goal-column .task-list:empty + .goal-action-composer {
+  border-top-color: transparent;
+}
+.goal-action-composer svg {
+  margin: 0 1.5px;
+}
+.goal-action-composer input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+}
+.goal-action-composer input:focus-visible {
+  outline: 0;
+}
+.goal-action-composer:focus-within {
+  border-radius: 6px;
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.goal-action-composer button {
+  flex-shrink: 0;
+}
+.goal-action-composer .small-primary:disabled {
+  display: none;
+}
+.new-goal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  max-width: 480px;
+  margin-top: 56px;
+}
+.goals-grid:empty + .new-goal {
+  margin-top: 0;
+}
+.new-goal label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.new-goal input {
+  flex: 1;
+  min-width: 160px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--control);
+  background: transparent;
+  font-size: 15px;
+}
+.new-goal input:focus-visible {
+  outline: 0;
+  border-bottom-color: var(--focus);
+  box-shadow: 0 1px 0 var(--focus);
+}
+.new-goal .primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+@media (max-width: 1200px) and (min-width: 761px) {
+  .year-view {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px 40px;
+  }
+  .goals-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .month-board {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .month-grid {
+    grid-auto-rows: minmax(108px, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .topbar {
+    grid-template-areas: 'brand actions' 'week week' 'view inbox';
+  }
+  .view-switch {
+    grid-area: view;
+    justify-self: start;
+  }
+  .view-switch button {
+    min-width: 0;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .topbar > .mobile-inbox-button {
+    grid-area: inbox;
+    justify-self: end;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .topbar > .mobile-inbox-button .earlier-flag {
+    display: none;
+  }
+  .war-map-content {
+    overflow: visible;
+  }
+  .month-board {
+    display: block;
+  }
+  .month-board .inbox {
+    display: none;
+  }
+  .month-board .inbox.mobile-open {
+    display: block;
+  }
+  .month-calendar.mobile-hidden {
+    display: none;
+  }
+  .month-weekdays {
+    position: static;
+    padding: 10px 8px;
+    border-bottom: 0;
+    text-align: center;
+  }
+  .month-weekdays span {
+    padding: 0;
+  }
+  .month-grid {
+    flex: none;
+    grid-auto-rows: auto;
+    gap: 3px;
+    padding: 0 8px 12px;
+  }
+  .month-day,
+  .month-day:nth-child(7n) {
+    min-height: 48px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+  }
+  .month-day.month-selected {
+    border-color: var(--ink);
+    background: var(--accent-soft);
+  }
+  .month-date {
+    flex-direction: column;
+    gap: 1px;
+    min-height: 44px;
+    padding: 4px 0;
+    text-align: center;
+  }
+  .month-date:hover > span:first-child {
+    background: none;
+  }
+  .month-count {
+    font-size: 12px;
+    line-height: 1;
+    color: var(--muted);
+  }
+  .selected-date-tasks {
+    padding: 20px 16px 96px;
+    border-top: 1px solid var(--rule);
+  }
+  .selected-date-tasks h2 {
+    margin-bottom: 12px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .year-view {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 32px 20px;
+    padding: 24px 16px 48px;
+  }
+  .goals-view {
+    padding: 24px 16px 48px;
+  }
+  .goals-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .goal-column h2 {
+    font-size: 18px;
+  }
+  .goal-action-composer input,
+  .new-goal input,
+  .goal-column header input {
+    font-size: 16px;
+  }
+  .new-goal {
+    margin-top: 40px;
+  }
+}
+@media (max-width: 480px) {
+  .year-view {
+    grid-template-columns: 1fr;
+  }
+  .mini-days {
+    grid-template-rows: repeat(6, 36px);
+  }
+  .mini-days button {
+    height: 36px;
+  }
+}
+@media (max-width: 360px) {
+  .year-view {
+    padding: 20px 12px 40px;
   }
 }

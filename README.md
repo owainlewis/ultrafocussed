@@ -1,6 +1,6 @@
 # Ultrafocussed
 
-A minimalist weekly planner for personal work. Capture tasks, give them a day, and focus on what matters.
+A personal War Map: see the year, plan the month, and turn a few clear goals into scheduled actions.
 
 ## Run locally
 
@@ -11,31 +11,26 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite. For a production build:
+Open the local URL printed by Vite. The dev server polls file changes every 500 ms so edits from external tools reliably refresh the preview. For a production build:
 
 ```sh
 npm run build
 npm run preview
 ```
 
-## Planner
+## Year, Month, Goals
 
-- Type in Unscheduled and press Enter to capture a task, or use Add task on any day.
-- Drag tasks between days and into a different order. A line shows where the task will land.
-- Keyboard alternative to dragging: focus a task and press Alt (Option) with Up or Down to reorder, or Left or Right to move it one day.
-- Open a task to edit its title, notes, and planning date. Quick dates offer Unscheduled, Today, Tomorrow, and Next Monday.
-- Choose one main outcome per day. Moving an outcome into a day that already has one preserves that day's existing choice.
-- Complete and reopen tasks. Delete with Undo.
-- Browse weeks and reveal weekends. On mobile, choose a day from the week strip and open Unscheduled separately.
-- Unfinished tasks stay on their original date and appear under From earlier, with a one-click move to today. Nothing automatically rolls forward.
+Month is the default view. Desktop shows a Monday-to-Sunday month with tasks in each date cell and an Unscheduled rail. On mobile, select a date in the compact grid to see that day's tasks below it. All weekends stay visible.
 
-## Plan and focus
+Year shows twelve months with markers for planned and completed actions. Choose a month or date to open Month. Navigation arrows step through months in Month and years in Year/Goals. Today returns to the current period.
 
-The calendar follows the toolbar directly. Choose the timer on an open task to focus on it inside task details: set a next step and pick 1 to 180 minutes. Existing weekly outcome links remain saved, but their selector is hidden. Stop early whenever you like. When the session ends, optionally complete the task, set the next step, and finish. No written update is required. Optional progress notes live in task details. Task details can also start focus and keep notes and session history. An active task’s timer shows a live countdown; an ended session shows Done. Either timer opens its session controls.
+Goals supports up to four goals per year. Add a goal, list its actions, then choose Schedule on an action to give it a date in task details. It is the same task in Goals and Month: notes, completion, dates and timer history stay in sync. Rename a goal without changing its action links. Removing a goal asks for confirmation and keeps all actions and dates.
 
-An active session survives reloads and uses elapsed wall-clock time. Returning after its end opens the finish controls. Recorded time is capped at the planned duration; leaving the tab open overnight does not add extra hours. Only one session can be active in this planner at a time. No four-hour target, scores, streaks, sounds, or notifications are required.
+Task details can assign or clear a goal, set a planning date, choose the daily main outcome, and keep notes and progress notes. Capture tasks in Unscheduled or directly on a day. Drag between days in Month, or use Alt (Option) with Left/Right to move a date and Up/Down to reorder. In Goals, Up/Down reorders that goal's actions across dates; dragging is disabled there.
 
-Outcomes, next steps, progress history, and the active session are included in JSON backups. Older version 1 backups remain readable. Deleting a task removes its history too; Undo restores it. Finish the session before deleting the task with the active session.
+Focus sessions default to 60 minutes and accept 1 to 180 minutes. Timers show a live countdown on active tasks and Done after stopping or expiry. Session controls stay in task details. Reloads preserve active sessions without opening extra panels. Finish requires no written update and preserves task drafts. Recorded time is capped at the planned duration. No scores, streaks, sounds or daily-hour target.
+
+Unfinished tasks stay on their date and appear in From earlier. Nothing automatically rolls forward. Complete and reopen tasks; Delete offers Undo.
 
 ## Data and backups
 

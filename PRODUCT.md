@@ -12,15 +12,15 @@ React, TypeScript, and Vite. Implementation default recommended in conversation;
 
 ## Users
 
-Solo users planning work across several days. Personal use is the v1 assumption accepted in the proposed design.
+Solo users connecting annual goals to scheduled actions. Personal use is the v1 assumption accepted in the proposed design.
 
 ## Product Purpose
 
-A minimalist weekly planner with a focus loop. Capture tasks, assign a planning date, choose a main outcome per day, focus on a task for a chosen time, and keep optional progress notes on the task.
+A personal War Map with Year, Month, and Goals views. Set up to four annual goals, list their actions, and schedule those actions in the month. Keep task notes and optional focus sessions close to the work.
 
 ## Capabilities and Constraints
 
-Only the planner is in scope. Browser-local persistence, unscheduled tasks, dated tasks, completion, notes, reordering, one main outcome per day, and saved legacy weekly outcomes. The calendar begins immediately below the toolbar; no planning or session panels sit above it.
+Year provides a twelve-month overview. Month is the default calendar, with all seven days visible. Goals groups actions under up to four goals per year. Actions share task identity across every view. Removing a goal preserves its tasks and dates. Browser-local persistence, unscheduled tasks, completion, notes, reordering, daily main outcomes and legacy metadata remain supported. The calendar begins immediately below the toolbar; no planning or session panels sit above it.
 
 The focus loop: a task with an optional concrete next step, then a timed session of 1 to 180 minutes, then finish the session with optional task completion. Progress notes are edited on the task, not requested after sessions. Sessions start inside task details, opened through a timer action on a task row or the task itself. The active session survives reloads, can be stopped early, and records only the time actually spent. Progress history stays on the task.
 

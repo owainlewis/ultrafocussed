@@ -5,6 +5,7 @@ export type Task = {
   completed: boolean;
   notes: string;
   main: boolean;
+  goalId?: string | null;
   nextStep?: string;
   progressNotes?: string;
   outcomeWeek?: string | null;
@@ -23,9 +24,11 @@ export type FocusSession = {
   duration: number;
   stoppedAt?: number;
 };
+export type Goal = { id: string; title: string; year: number };
 export type PlannerState = {
   version: 1;
   tasks: Task[];
+  goals?: Goal[];
   outcomes?: Record<string, string>;
   focus?: FocusSession | null;
 };
@@ -63,6 +66,29 @@ export function decodeState(raw: string | null): PlannerState {
   const value = JSON.parse(raw);
   if (value?.version !== 1 || !Array.isArray(value.tasks))
     throw new Error('Unsupported planner data');
+  const goalIds = new Set<string>();
+  const goalCounts = new Map<number, number>();
+  if (value.goals !== undefined && !Array.isArray(value.goals))
+    throw new Error('Invalid goals');
+  for (const goal of value.goals ?? []) {
+    if (
+      !goal ||
+      typeof goal.id !== 'string' ||
+      !goal.id ||
+      goalIds.has(goal.id) ||
+      typeof goal.title !== 'string' ||
+      !goal.title.trim() ||
+      goal.title.length > 200 ||
+      !Number.isInteger(goal.year) ||
+      goal.year < 1 ||
+      goal.year > 9999
+    )
+      throw new Error('Invalid goal');
+    goalIds.add(goal.id);
+    const count = (goalCounts.get(goal.year) ?? 0) + 1;
+    if (count > 4) throw new Error('At most four goals per year');
+    goalCounts.set(goal.year, count);
+  }
   const ids = new Set<string>();
   const mainDates = new Set<string>();
   for (const task of value.tasks) {
@@ -75,6 +101,8 @@ export function decodeState(raw: string | null): PlannerState {
       throw new Error('Invalid progress notes');
     if (
       !task ||
+      (task.goalId != null &&
+        (typeof task.goalId !== 'string' || !goalIds.has(task.goalId))) ||
       typeof task.id !== 'string' ||
       !task.id ||
       ids.has(task.id) ||
@@ -245,6 +273,34 @@ export function finishFocus(
               },
             ],
           },
+    ),
+  };
+}
+
+export function monthStart(date: Date): Date {
+  const next = new Date(date);
+  next.setDate(1);
+  next.setHours(12, 0, 0, 0);
+  return next;
+}
+export function addMonths(date: Date, count: number): Date {
+  const next = monthStart(date);
+  next.setMonth(next.getMonth() + count);
+  return next;
+}
+export function monthDays(date: Date): Date[] {
+  const first = monthStart(date);
+  const end = addDays(addMonths(first, 1), -1);
+  const start = weekStart(first);
+  const count = Math.ceil((((first.getDay() + 6) % 7) + end.getDate()) / 7) * 7;
+  return Array.from({ length: count }, (_, index) => addDays(start, index));
+}
+export function removeGoal(state: PlannerState, id: string): PlannerState {
+  return {
+    ...state,
+    goals: (state.goals ?? []).filter((goal) => goal.id !== id),
+    tasks: state.tasks.map((task) =>
+      task.goalId === id ? { ...task, goalId: null } : task,
     ),
   };
 }

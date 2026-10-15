@@ -10,6 +10,10 @@ import {
   updateTask,
   validDate,
   weekStart,
+  monthDays,
+  monthStart,
+  addMonths,
+  removeGoal,
   remainingSeconds,
   finishFocus,
   type Task,
@@ -201,5 +205,63 @@ test('overlong task progress notes are rejected', () => {
         tasks: [{ ...task('a'), progressNotes: 'x'.repeat(10001) }],
       }),
     ),
+  );
+});
+
+test('month grids align to Monday and handle leap years and year boundaries', () => {
+  const leap = monthDays(parseDate('2024-02-15'));
+  assert.equal(leap.length % 7, 0);
+  assert.equal(leap[0].getDay(), 1);
+  assert.equal(leap.filter((day) => day.getMonth() === 1).length, 29);
+  assert.equal(monthDays(parseDate('2021-02-15')).length, 28);
+  assert.equal(dateKey(monthStart(parseDate('2026-10-31'))), '2026-10-01');
+  assert.equal(dateKey(addMonths(parseDate('2026-12-31'), 1)), '2027-01-01');
+});
+
+test('goals share task identity, round-trip, and unlink without deleting actions', () => {
+  const state = {
+    version: 1 as const,
+    goals: [{ id: 'goal', title: 'Publish course', year: 2026 }],
+    tasks: [{ ...task('action'), goalId: 'goal' }],
+  };
+  assert.deepEqual(decodeState(JSON.stringify(state)), state);
+  const removed = removeGoal(state, 'goal');
+  assert.equal(removed.tasks[0].id, 'action');
+  assert.equal(removed.tasks[0].date, state.tasks[0].date);
+  assert.equal(removed.tasks[0].goalId, null);
+  assert.deepEqual(decodeState(JSON.stringify(removed)), removed);
+  assert.throws(() => decodeState(JSON.stringify({ ...state, goals: [] })));
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({
+        ...state,
+        goals: Array.from({ length: 5 }, (_, i) => ({
+          id: `g${i}`,
+          title: `Goal ${i}`,
+          year: 2026,
+        })),
+        tasks: [],
+      }),
+    ),
+  );
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({
+        ...state,
+        goals: [{ id: 'goal', title: '', year: 2026 }],
+      }),
+    ),
+  );
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({
+        ...state,
+        goals: [{ id: 'goal', title: 'Goal', year: '2026' }],
+      }),
+    ),
+  );
+  assert.deepEqual(
+    decodeState(JSON.stringify({ version: 1, tasks: [task('old')] })).tasks,
+    [task('old')],
   );
 });
