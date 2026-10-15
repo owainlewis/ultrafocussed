@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite. For a production build:
+Open the local URL printed by Vite. The dev server polls file changes every 500 ms so edits from external tools reliably refresh the preview. For a production build:
 
 ```sh
 npm run build

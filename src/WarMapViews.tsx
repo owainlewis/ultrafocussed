@@ -113,9 +113,11 @@ export function YearView({
         month.setFullYear(year, index, 1);
         const key = dateKey(month).slice(0, 7);
         const scheduled = tasks.filter((task) => task.date?.startsWith(key));
-        const open = scheduled.filter((task) => !task.completed).length;
         return (
-          <section className="year-month" key={key}>
+          <section
+            className={`year-month ${today.startsWith(key) ? 'year-current' : ''}`}
+            key={key}
+          >
             <header>
               <button
                 aria-label={`Open ${monthLabel.format(month)} ${year}`}
@@ -123,7 +125,6 @@ export function YearView({
               >
                 {monthLabel.format(month)}
               </button>
-              {scheduled.length > 0 && <span>{open} open</span>}
             </header>
             <div className="mini-weekdays" aria-hidden="true">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
@@ -154,11 +155,6 @@ export function YearView({
           </section>
         );
       })}
-      <p className="year-key">
-        <span className="legend-dot" /> Planned actions{' '}
-        <span className="legend-dot done" /> Completed actions. Choose a month
-        to plan the details.
-      </p>
     </div>
   );
 }
@@ -214,7 +210,6 @@ function GoalColumn({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(goal.title);
   useEffect(() => setTitle(goal.title), [goal.title]);
-  const done = tasks.filter((task) => task.completed).length;
   return (
     <section className="goal-column" aria-label={`Goal: ${goal.title}`}>
       <header>
@@ -253,11 +248,6 @@ function GoalColumn({
           ) : (
             <h2>{goal.title}</h2>
           )}
-          <p>
-            {tasks.length
-              ? `${done} of ${tasks.length} actions complete`
-              : 'List the actions that will get you there.'}
-          </p>
         </div>
         <div className="goal-controls">
           <button
@@ -305,10 +295,6 @@ export function GoalsView({
   const visible = goals.filter((goal) => goal.year === year);
   return (
     <div className="goals-view">
-      <div className="goals-intro">
-        <p>A few clear goals. The actions that move them forward.</p>
-        <span>{visible.length} of 4 goals</span>
-      </div>
       <div className="goals-grid">
         {visible.map((goal) => (
           <GoalColumn
@@ -321,35 +307,31 @@ export function GoalsView({
             onDelete={onDelete}
           />
         ))}
-        {visible.length < 4 && (
-          <form
-            className="new-goal"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!title.trim()) return;
-              onAddGoal(title.trim());
-              setTitle('');
-            }}
-          >
-            <label htmlFor="new-goal">
-              {visible.length
-                ? 'Another goal'
-                : `What do you want to achieve in ${year}?`}
-            </label>
-            <input
-              id="new-goal"
-              placeholder="Write a clear outcome"
-              value={title}
-              maxLength={200}
-              required
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <button className="primary-button" disabled={!title.trim()}>
-              <Plus size={15} /> Add goal
-            </button>
-          </form>
-        )}
       </div>
+      {visible.length < 4 && (
+        <form
+          className="new-goal"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!title.trim()) return;
+            onAddGoal(title.trim());
+            setTitle('');
+          }}
+        >
+          <label htmlFor="new-goal">Add a goal</label>
+          <input
+            id="new-goal"
+            placeholder="Goal title"
+            value={title}
+            maxLength={200}
+            required
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <button className="primary-button" disabled={!title.trim()}>
+            <Plus size={15} /> Add goal
+          </button>
+        </form>
+      )}
     </div>
   );
 }

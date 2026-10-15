@@ -243,7 +243,7 @@ function TaskRow({
   const note = (task.nextStep || task.notes).trim().split('\n')[0];
   return (
     <li
-      className={`task ${task.completed ? 'completed' : ''} ${task.main ? 'main-task' : ''} ${focus === 'active' ? 'in-focus' : ''} ${dropBefore ? 'drop-before' : ''}`}
+      className={`task ${task.completed ? 'completed' : ''} ${task.main ? 'main-task' : ''} ${focus === 'active' ? 'in-focus' : ''} ${dropBefore ? 'drop-before' : ''} ${showPlanningDate ? 'goal-action' : ''}`}
       draggable={!showPlanningDate}
       onDragStart={showPlanningDate ? undefined : onDragStart}
       onDragEnd={onDragEnd}
@@ -277,6 +277,7 @@ function TaskRow({
         <div className="task-text">
           <button
             className="task-title"
+            title={task.title}
             data-task-id={task.id}
             aria-keyshortcuts={MOVE_KEYS}
             aria-describedby="move-hint"
@@ -289,7 +290,7 @@ function TaskRow({
           >
             {task.title}
           </button>
-          {showPlanningDate && (
+          {showPlanningDate && task.date && (
             <button
               className="task-plan-date"
               onClick={onEdit}
@@ -301,7 +302,7 @@ function TaskRow({
           {!showPlanningDate && goalTitle && (
             <span className="task-goal">{goalTitle}</span>
           )}
-          {note && (
+          {note && !showPlanningDate && (
             <p className="task-note">
               <span>{note}</span>
             </p>
@@ -1351,33 +1352,40 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <span className="brand">ultrafocussed</span>
-        <div className="week-nav">
-          <button
-            className="icon-button"
-            aria-label={view === 'month' ? 'Previous month' : 'Previous year'}
-            onClick={() => goPeriod(-1)}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            className="icon-button"
-            aria-label={view === 'month' ? 'Next month' : 'Next year'}
-            onClick={() => goPeriod(1)}
-          >
-            <ChevronRight size={18} />
-          </button>
-          <h1>
-            {view === 'month'
-              ? new Intl.DateTimeFormat(undefined, {
-                  month: 'long',
-                  year: 'numeric',
-                }).format(month)
-              : month.getFullYear()}
-          </h1>
-          <button className="text-button" onClick={goToday}>
-            Today
-          </button>
+        {/* Today and the arrows lead, so they stay put while the title changes width. */}
+        <div className="topbar-start">
+          <span className="brand">ultrafocussed</span>
+          <div className="week-nav">
+            <button className="text-button" onClick={goToday}>
+              Today
+            </button>
+            <div className="period-arrows">
+              <button
+                className="icon-button"
+                aria-label={
+                  view === 'month' ? 'Previous month' : 'Previous year'
+                }
+                onClick={() => goPeriod(-1)}
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                className="icon-button"
+                aria-label={view === 'month' ? 'Next month' : 'Next year'}
+                onClick={() => goPeriod(1)}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+            <h1>
+              {view === 'month'
+                ? new Intl.DateTimeFormat(undefined, {
+                    month: 'long',
+                    year: 'numeric',
+                  }).format(month)
+                : month.getFullYear()}
+            </h1>
+          </div>
         </div>
         <nav className="view-switch" aria-label="Planner view">
           {(['year', 'month', 'goals'] as const).map((mode) => (

@@ -932,9 +932,7 @@ describe('year, month, and goal planning', () => {
       screen.getByRole('button', { name: 'Goals', exact: true }),
     );
     await user.type(
-      screen.getByLabelText(
-        `What do you want to achieve in ${new Date().getFullYear()}?`,
-      ),
+      screen.getByLabelText('Add a goal'),
       'Launch a course{Enter}',
     );
     const goal = saved().goals![0];
@@ -945,7 +943,7 @@ describe('year, month, and goal planning', () => {
     const action = saved().tasks[0];
     expect(action).toMatchObject({ goalId: goal.id, date: null });
     await user.click(
-      screen.getByRole('button', { name: 'Schedule Write first lesson' }),
+      screen.getByRole('button', { name: 'Write first lesson', exact: true }),
     );
     expect(screen.getByLabelText('Goal')).toHaveProperty('value', goal.id);
     fireEvent.input(screen.getByLabelText(/Plan for/), {
@@ -963,7 +961,12 @@ describe('year, month, and goal planning', () => {
     await user.click(
       screen.getByRole('button', { name: 'Goals', exact: true }),
     );
-    expect(screen.getByText('1 of 1 actions complete')).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: 'Reopen Write first lesson' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(screen.queryByText('1 of 1 actions complete')).toBeNull();
     app.unmount();
     render(<App />);
     await user.click(
@@ -995,10 +998,7 @@ describe('year, month, and goal planning', () => {
     for (let i = 1; i <= 4; i++) {
       await user.type(
         screen.getByRole('textbox', {
-          name:
-            i === 1
-              ? `What do you want to achieve in ${new Date().getFullYear()}?`
-              : 'Another goal',
+          name: 'Add a goal',
         }),
         `Goal ${i}{Enter}`,
       );

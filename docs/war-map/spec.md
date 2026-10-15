@@ -1,6 +1,6 @@
 # War Map
 
-Decision status: accepted through the user's request for Year, Month and a planner for 3–4 goals. Delivery status: implemented locally; verification in progress.
+Decision status: accepted through the user's request for Year, Month and a planner for 3–4 goals. Delivery status: implemented in [PR #3](https://github.com/owainlewis/ultrafocussed/pull/3), open for review. Automated behavior checks and independent code review pass; native visual verification remains blocked.
 
 ## Outcome and scope
 
@@ -38,3 +38,14 @@ App owns state and persistence; WarMapViews receives values and callbacks. Views
 ## Open decisions
 
 None for this version. Native visual proof remains unavailable until the saved browser permission block is removed.
+
+## Delivery evidence
+
+- `npm test`: 13 model and 37 UI tests pass, covering AC-1 through AC-7 and existing planner/timer/recovery behavior.
+- TypeScript/production build, formatting, diff check and interface detector pass.
+- Independent code review: Approve after fixing goal ordering and disabling ambiguous goal dragging.
+- AC-8 remains unverified: the saved browser permission setting blocks native browser checks. No workaround was attempted.
+
+## Preview freshness fix
+
+The supplied screenshot still showed the previous task styling. Runtime diagnosis confirmed the Vite dev server served an older stylesheet than the file on disk. Restarting restored equality; polling file changes every 500 ms prevents missed external-editor writes. A temporary CSS comment was detected in the served stylesheet without restarting, then removed; the restored served stylesheet exactly matched the original file. This verifies asset freshness, not native browser layout.
