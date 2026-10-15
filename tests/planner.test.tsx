@@ -318,41 +318,35 @@ describe('closing task details after a date change', () => {
       { name },
     );
 
-  it('follows a task saved into another week and focuses it there', async () => {
+  it('follows a task saved into another month and focuses it there', async () => {
     const user = await openFridayTask();
-    await user.click(quickDate('Next Monday'));
+    fireEvent.input(screen.getByLabelText(/Plan for/), {
+      target: { value: '2026-11-02' },
+    });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect(saved().tasks[0].date).toBe('2026-10-05');
-    const monday = screen.getByRole('region', { name: label(5) });
-    expect(screen.queryByRole('region', { name: label(2) })).toBeNull();
-    expect(
-      within(screen.getByRole('navigation', { name: 'Choose day' }))
-        .getByRole('button', { name: label(5) })
-        .getAttribute('aria-pressed'),
-    ).toBe('true');
+    expect(saved().tasks[0].date).toBe('2026-11-02');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain(
+      'November',
+    );
+    const monday = screen.getByRole('region', { name: label(2, 10) });
     expect(monday.contains(document.activeElement)).toBe(true);
     expect(focusedTitle()).toBe('Friday task');
   });
-  it('reveals a hidden weekend when a task is saved to Saturday', async () => {
+  it('keeps weekends visible when a task is saved to Saturday', async () => {
     const user = await openFridayTask();
-    expect(screen.queryByRole('region', { name: label(3) })).toBeNull();
+    expect(screen.getByRole('region', { name: label(3) })).toBeTruthy();
     fireEvent.input(screen.getByLabelText(/Plan for/), {
       target: { value: '2026-10-03' },
     });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saved().tasks[0].date).toBe('2026-10-03');
-    expect(
-      (screen.getByRole('checkbox', { name: /Weekends/ }) as HTMLInputElement)
-        .checked,
-    ).toBe(true);
     const saturday = screen.getByRole('region', { name: label(3) });
     expect(
-      within(screen.getByRole('navigation', { name: 'Choose day' }))
-        .getByRole('button', { name: label(3) })
+      screen
+        .getByRole('button', { name: `Select ${label(3)}` })
         .getAttribute('aria-pressed'),
     ).toBe('true');
     expect(saturday.contains(document.activeElement)).toBe(true);
-    expect(focusedTitle()).toBe('Friday task');
   });
   it('opens Unscheduled when a task is saved without a date', async () => {
     const user = await openFridayTask();
@@ -550,7 +544,6 @@ describe('focus from the board', () => {
       outcomeWeek: Object.keys(saved().outcomes!)[0],
     });
     expect(document.activeElement).toBe(panel());
-    expect(panel().textContent).toContain('Launch pricing');
     expect(screen.getByText('In focus')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Focus on/ })).toBeNull();
 
@@ -898,4 +891,230 @@ it('opens active timer controls with focus and does not reopen setup after finis
   );
   expect(screen.queryByRole('region', { name: 'Focus session' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Begin session' })).toBeNull();
+});
+
+describe('year, month, and goal planning', () => {
+  it('defaults to month and drills from the year overview into a month', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const current = new Intl.DateTimeFormat(undefined, {
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date());
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(current);
+    expect(
+      screen
+        .getByRole('button', { name: 'Month', exact: true })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    await user.click(screen.getByRole('button', { name: 'Year', exact: true }));
+    expect(
+      screen.getAllByRole('button', { name: /^Open .* \d{4}$/ }),
+    ).toHaveLength(12);
+    await user.click(
+      screen.getByRole('button', {
+        name: `Open March ${new Date().getFullYear()}`,
+      }),
+    );
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain(
+      'March',
+    );
+    await user.click(screen.getByRole('button', { name: 'Next month' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain(
+      'April',
+    );
+  });
+
+  it('shares an action between its goal and month, and preserves it when removing the goal', async () => {
+    const app = render(<App />);
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', { name: 'Goals', exact: true }),
+    );
+    await user.type(
+      screen.getByLabelText(
+        `What do you want to achieve in ${new Date().getFullYear()}?`,
+      ),
+      'Launch a course{Enter}',
+    );
+    const goal = saved().goals![0];
+    await user.type(
+      screen.getByLabelText('New action for Launch a course'),
+      'Write first lesson{Enter}',
+    );
+    const action = saved().tasks[0];
+    expect(action).toMatchObject({ goalId: goal.id, date: null });
+    await user.click(
+      screen.getByRole('button', { name: 'Schedule Write first lesson' }),
+    );
+    expect(screen.getByLabelText('Goal')).toHaveProperty('value', goal.id);
+    fireEvent.input(screen.getByLabelText(/Plan for/), {
+      target: { value: dateKey(new Date()) },
+    });
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(
+      screen
+        .getByRole('button', { name: 'Month', exact: true })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    await user.click(
+      screen.getByRole('button', { name: 'Complete Write first lesson' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Goals', exact: true }),
+    );
+    expect(screen.getByText('1 of 1 actions complete')).toBeTruthy();
+    app.unmount();
+    render(<App />);
+    await user.click(
+      screen.getByRole('button', { name: 'Goals', exact: true }),
+    );
+    expect(
+      screen.getByRole('region', { name: 'Goal: Launch a course' }),
+    ).toBeTruthy();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await user.click(
+      screen.getByRole('button', { name: 'Remove goal Launch a course' }),
+    );
+    expect(saved().goals).toEqual([]);
+    expect(saved().tasks).toHaveLength(1);
+    expect(saved().tasks[0]).toMatchObject({
+      id: action.id,
+      goalId: null,
+      date: dateKey(new Date()),
+      completed: true,
+    });
+  });
+
+  it('limits each year to four goals and can rename a goal without losing actions', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', { name: 'Goals', exact: true }),
+    );
+    for (let i = 1; i <= 4; i++) {
+      await user.type(
+        screen.getByRole('textbox', {
+          name:
+            i === 1
+              ? `What do you want to achieve in ${new Date().getFullYear()}?`
+              : 'Another goal',
+        }),
+        `Goal ${i}{Enter}`,
+      );
+    }
+    expect(saved().goals).toHaveLength(4);
+    expect(
+      screen.queryByRole('button', { name: 'Add goal', exact: true }),
+    ).toBeNull();
+    const id = saved().goals![0].id;
+    await user.type(
+      screen.getByLabelText('New action for Goal 1'),
+      'First action{Enter}',
+    );
+    await user.click(screen.getByRole('button', { name: 'Edit goal Goal 1' }));
+    await user.clear(screen.getByLabelText('Goal name'));
+    await user.type(screen.getByLabelText('Goal name'), 'Renamed goal');
+    await user.click(screen.getByRole('button', { name: 'Save goal' }));
+    expect(saved().goals![0]).toMatchObject({ id, title: 'Renamed goal' });
+    expect(saved().tasks[0].goalId).toBe(id);
+    await user.click(screen.getByRole('button', { name: 'Next year' }));
+    expect(
+      screen.getByRole('button', { name: 'Add goal', exact: true }),
+    ).toBeTruthy();
+  });
+
+  it('shows the selected day once on mobile and keeps date selection working', async () => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    });
+    try {
+      stored([
+        {
+          id: 'mobile-date',
+          title: 'Mobile action',
+          date: dateKey(new Date()),
+        },
+      ]);
+      render(<App />);
+      expect(
+        screen.getAllByRole('button', { name: 'Mobile action', exact: true }),
+      ).toHaveLength(1);
+      const user = userEvent.setup();
+      const date = new Date();
+      date.setDate(date.getDate() + 1);
+      const label = `${new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(date)} ${new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(date)}`;
+      await user.click(screen.getByRole('button', { name: `Select ${label}` }));
+      expect(
+        screen.queryByRole('button', { name: 'Mobile action', exact: true }),
+      ).toBeNull();
+      expect(
+        screen.getByRole('region', { name: `Tasks for ${label}` }),
+      ).toBeTruthy();
+    } finally {
+      delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+    }
+  });
+});
+
+it('reorders goal actions across dates without changing other goals or enabling drag', async () => {
+  const year = new Date().getFullYear();
+  const base = {
+    version: 1,
+    goals: [
+      { id: 'a', title: 'Goal A', year },
+      { id: 'b', title: 'Goal B', year },
+    ],
+    tasks: [
+      {
+        id: 'a1',
+        title: 'Action A1',
+        date: `${year}-01-01`,
+        completed: false,
+        notes: '',
+        main: false,
+        goalId: 'a',
+      },
+      {
+        id: 'b1',
+        title: 'Action B1',
+        date: `${year}-01-01`,
+        completed: false,
+        notes: '',
+        main: false,
+        goalId: 'b',
+      },
+      {
+        id: 'a2',
+        title: 'Action A2',
+        date: `${year}-02-01`,
+        completed: false,
+        notes: '',
+        main: false,
+        goalId: 'a',
+      },
+    ],
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(base));
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Goals', exact: true }));
+  const action = screen.getByRole('button', { name: 'Action A1', exact: true });
+  expect(action.closest('li')?.getAttribute('draggable')).toBe('false');
+  action.focus();
+  await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
+  expect(
+    saved()
+      .tasks.filter((task) => task.goalId === 'a')
+      .map((task) => task.id),
+  ).toEqual(['a2', 'a1']);
+  expect(saved().tasks.find((task) => task.id === 'b1')).toMatchObject(
+    base.tasks[1],
+  );
+  expect(document.activeElement?.textContent).toBe('Action A1');
 });

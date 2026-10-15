@@ -4,17 +4,16 @@ The planner is an Operate surface: a quiet ledger of one week. Everything that i
 
 ## Layout
 
-- One slim top bar holds all global controls: wordmark, previous and next week, the visible date range as the page heading, Today, Weekends, save status, Export, Import, and Help.
-- The calendar follows the toolbar directly. No weekly outcome editor or focus strip appears above it. Saved outcomes remain in backups.
-- Focus controls appear only inside task details when the task’s timer action is selected. Closing task details hides the controls without stopping a running timer.
-- Below them, the board fills the viewport. A gray rail on the left holds From earlier and Unscheduled. Day columns sit on white with fine rules and scroll on their own, so the week stays in view.
-- Desktop shows five days. Weekends expand on request, and the toggle shows how many weekend tasks are hidden.
-- Mobile (760 px and below) stacks the top bar into three short rows, adds a day strip, and shows one selected day. An Unscheduled button switches to the rail and shows the From earlier count. Focus stays inside task details on mobile too.
+- A slim toolbar contains navigation arrows, the current month/year, Today, Year/Month/Goals, save status, backup controls and Help. No goal or session banners sit above the calendar.
+- Month is the main surface. Desktop keeps Unscheduled in the left rail and shows seven day columns in a month grid. Every date cell shares the existing quiet task-row styling. Spillover dates are tinted. Month scrolling keeps weekday headings visible.
+- Mobile uses a compact month grid, then the selected day's tasks. Unscheduled toggles separately. Task content is rendered once rather than duplicated in a hidden desktop layout.
+- Year uses twelve small calendars, four across on wide screens and three on medium screens. Mobile uses two columns, then one on narrow phones so date buttons remain usable. Task markers distinguish planned from completed work. Month titles and dates drill into Month.
+- Goals shows up to four annual goals, with action lists below their titles. The wide layout uses four columns, medium two, mobile one. A quiet inline form creates another goal until the four-goal limit. Goal edits and action capture stay inline; scheduling opens task details.
 
 ## Tasks
 
 - Tasks are rows, not cards: an 18 px checkbox, a 14 px title (15 px on mobile), a one-line preview, and a timer button at the right. Hairlines separate rows.
-- The preview shows the next step, or else the first line of notes. A small target icon marks a task linked to a weekly outcome.
+- The preview shows the next step, or else the first line of notes. An optional goal label shows which goal a dated action belongs to. Goal action rows show a Schedule link or their planning date.
 - The timer button ("Focus on <task>") is on every open task. It is gray at rest and darkens on hover. Idle timer actions are hidden on completed tasks and while another session exists. The active task keeps a charcoal timer button with a live countdown. After stopping or expiring it becomes a neutral Done button. Both states open the task’s session controls and focus them. Narrow columns wrap these buttons below the title. Touch targets grow to 36 px on mobile.
 - The main outcome has a light gray background, a 2 px charcoal rule on the left, and a "Main outcome" label.
 - The task in the current session has a gray background, a charcoal rule, and an "In focus" label.
@@ -34,7 +33,7 @@ Task details also offer Start focus in the footer. With unsaved edits it reads "
 
 - Unscheduled has an always-visible capture field. Type and press Enter.
 - Each day has a quiet "Add task" row. It opens an inline field that stays open after Enter. Escape closes it and returns focus.
-- Task details open in a native modal dialog styled as a right side panel. It offers the title, Next step, quick dates (Unscheduled, Today, Tomorrow, Next Monday), the date field, Main outcome, notes, optional Progress notes, progress history, Delete, Start focus, and Save. The footer sticks to the bottom of the panel, so actions stay in reach with long notes or history. Escape or a backdrop click asks before discarding edits. Saving a new date follows the task: the view moves to its week, reveals weekends, selects the day on mobile, or opens Unscheduled, and focus goes to the task. Closing without a date change returns focus to the control that opened the dialog. Cancelling or deleting never moves the view.
+- Task details open in a native modal dialog styled as a right side panel. It offers the title, Next step, Goal, quick dates (Unscheduled, Today, Tomorrow, Next Monday), the date field, Main outcome, notes, optional Progress notes, progress history, Delete, Start focus, and Save. The footer sticks to the bottom of the panel, so actions stay in reach with long notes or history. Escape or a backdrop click asks before discarding edits. Saving a new date follows the task: the view moves to its week, reveals weekends, selects the day on mobile, or opens Unscheduled, and focus goes to the task. Closing without a date change returns focus to the control that opened the dialog. Cancelling or deleting never moves the view.
 
 ## Unfinished work
 

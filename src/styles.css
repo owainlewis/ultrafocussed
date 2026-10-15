@@ -1474,3 +1474,491 @@ dialog::backdrop {
     margin-left: auto;
   }
 }
+
+/* War map: one task list, three planning scales. */
+.view-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--tint);
+}
+.view-switch button {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  color: var(--muted);
+  border-radius: 5px;
+  font-size: 13px;
+}
+.view-switch button[aria-pressed='true'] {
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+.war-map-content {
+  overflow: auto;
+}
+.month-board {
+  min-height: 100%;
+}
+.month-board .inbox {
+  max-height: 100%;
+}
+.month-calendar {
+  min-width: 0;
+  overflow: auto;
+  background: var(--paper);
+}
+.month-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 10px 0;
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 12px;
+}
+.month-weekdays span {
+  padding-left: 12px;
+}
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.month-day {
+  min-width: 0;
+  min-height: 140px;
+  padding: 6px;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.month-day:nth-child(7n) {
+  border-right: 0;
+}
+.month-day.outside-month {
+  background: var(--tint);
+}
+.outside-month .month-date {
+  color: var(--muted);
+}
+.month-today {
+  background: var(--tint);
+}
+.month-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px 8px;
+  background: none;
+  border: 0;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.month-date > span:first-child {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+.month-today .month-date > span:first-child {
+  color: white;
+  background: var(--ink);
+}
+.month-date small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.month-day .task {
+  padding: 8px 4px;
+}
+.month-day .task-row {
+  gap: 7px;
+}
+.month-day .task-title {
+  font-size: 13px;
+}
+.month-day .add-task {
+  font-size: 12px;
+  padding: 8px 4px;
+}
+.month-day .composer input {
+  max-width: 100%;
+}
+.task-plan-date {
+  padding: 0;
+  margin-top: 4px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+}
+.task-plan-date:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.year-view {
+  padding: 28px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 32px;
+  background: var(--paper);
+}
+.year-month {
+  min-width: 0;
+}
+.year-month header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.year-month header button {
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.year-month header button:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.year-month header > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.mini-weekdays,
+.mini-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  text-align: center;
+}
+.mini-weekdays {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.mini-days button {
+  position: relative;
+  min-width: 0;
+  height: 29px;
+  padding: 0 0 3px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.mini-days button:hover {
+  background: var(--hover);
+}
+.mini-days .has-actions {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.mini-days .mini-today {
+  border-color: var(--ink);
+}
+.mini-dot {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  bottom: 3px;
+  left: calc(50% - 1.5px);
+  border-radius: 50%;
+  background: var(--ink);
+}
+.actions-done .mini-dot {
+  background: var(--control);
+}
+.year-key {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.legend-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink);
+  display: inline-block;
+}
+.legend-dot.done {
+  background: var(--control);
+  margin-left: 12px;
+}
+.goals-view {
+  padding: 28px;
+  background: var(--paper);
+  min-height: 100%;
+}
+.goals-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.goals-intro > span {
+  white-space: nowrap;
+}
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: 24px;
+}
+.goal-column {
+  min-width: 0;
+}
+.goal-column > header {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 18px;
+  margin-bottom: 8px;
+}
+.goal-column h2 {
+  font-size: 18px;
+  line-height: 1.4;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+.goal-column header p {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.goal-column header form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.goal-column header input {
+  min-width: 0;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--control);
+  border-radius: 6px;
+}
+.goal-controls {
+  display: flex;
+  flex-shrink: 0;
+}
+.goal-controls .icon-button {
+  min-width: 26px;
+  min-height: 28px;
+  padding: 4px;
+}
+.goal-action-composer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px;
+  color: var(--muted);
+}
+.goal-action-composer input {
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.goal-action-composer button {
+  flex-shrink: 0;
+}
+.new-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--tint);
+  border: 1px dashed var(--control);
+  border-radius: 8px;
+}
+.new-goal label {
+  font-weight: 600;
+  font-size: 15px;
+}
+.new-goal input {
+  min-width: 0;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--control);
+  border-radius: 6px;
+  background: var(--paper);
+}
+.new-goal button {
+  align-self: start;
+}
+@media (max-width: 1200px) and (min-width: 761px) {
+  .year-view {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .goals-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .month-board {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .topbar {
+    grid-template-areas: 'brand actions' 'week week' 'view inbox';
+  }
+  .view-switch {
+    grid-area: view;
+    justify-self: start;
+  }
+  .view-switch button {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+  .topbar > .mobile-inbox-button {
+    grid-area: inbox;
+    justify-self: end;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .topbar > .mobile-inbox-button .earlier-flag {
+    display: none;
+  }
+  .month-board {
+    display: block;
+  }
+  .month-board .inbox {
+    display: none;
+  }
+  .month-board .inbox.mobile-open {
+    display: block;
+  }
+  .month-calendar.mobile-hidden {
+    display: none;
+  }
+  .war-map-content {
+    overflow: visible;
+  }
+  .month-weekdays {
+    position: static;
+    padding: 10px 8px;
+    text-align: center;
+  }
+  .month-weekdays span {
+    padding: 0;
+  }
+  .month-grid {
+    padding: 0 8px 12px;
+    gap: 3px;
+  }
+  .month-day {
+    min-height: 48px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+  }
+  .month-day.month-selected {
+    border-color: var(--ink);
+    background: var(--accent-soft);
+  }
+  .month-date {
+    padding: 4px 0;
+    min-height: 44px;
+    flex-direction: column;
+    gap: 1px;
+    text-align: center;
+  }
+  .month-count {
+    font-size: 12px;
+    line-height: 1;
+    color: var(--muted);
+  }
+  .selected-date-tasks {
+    padding: 20px 16px;
+    border-top: 1px solid var(--rule);
+  }
+  .selected-date-tasks h2 {
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+  .year-view {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 20px 16px;
+    gap: 28px 20px;
+  }
+  .mini-days button {
+    height: 30px;
+  }
+  .goals-view {
+    padding: 20px 16px;
+  }
+  .goals-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .goals-intro {
+    align-items: start;
+    font-size: 12px;
+  }
+  .goal-column h2 {
+    font-size: 19px;
+  }
+  .goal-action-composer input {
+    font-size: 16px;
+  }
+  .new-goal input,
+  .goal-column header input {
+    font-size: 16px;
+  }
+}
+@media (max-width: 360px) {
+  .year-view {
+    gap: 24px 12px;
+    padding: 16px 12px;
+  }
+  .mini-days {
+    gap: 1px;
+  }
+}
+
+.task-goal {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 480px) {
+  .year-view {
+    grid-template-columns: 1fr;
+  }
+  .mini-days button {
+    height: 36px;
+  }
+}
