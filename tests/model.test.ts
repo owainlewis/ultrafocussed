@@ -265,3 +265,10 @@ test('goals share task identity, round-trip, and unlink without deleting actions
     [task('old')],
   );
 });
+
+test('a stale setup clock or a backwards clock change cannot extend the countdown', () => {
+  const session = { taskId: 'a', startedAt: 120000, duration: 60 };
+  assert.equal(remainingSeconds(session, 115000), 3600);
+  assert.equal(remainingSeconds(session, 121500), 3599);
+  assert.equal(remainingSeconds(session, 3720000), 0);
+});

@@ -9,19 +9,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  CircleHelp,
-  Download,
-  Plus,
-  Star,
-  Target,
-  Timer,
-  Upload,
-  X,
-} from 'lucide-react';
+import { Check, Plus, Star, Target, Timer, X } from 'lucide-react';
 import {
   addDays,
   createTask,
@@ -44,6 +32,10 @@ import {
   type Goal,
 } from './model';
 import { MonthView, YearView, GoalsView } from './WarMapViews';
+import { Modal } from './Modal';
+import { PlannerHeader, PlannerToolbar } from './PlannerChrome';
+import { useTheme } from './useTheme';
+import { useToday } from './useToday';
 
 const dayName = new Intl.DateTimeFormat(undefined, { weekday: 'long' });
 const readableDate = new Intl.DateTimeFormat(undefined, {
@@ -156,13 +148,14 @@ function DayComposer({
     if (!title.trim()) return;
     onAdd(title.trim(), date);
     setTitle('');
-    input.current?.focus();
+    close(true);
   };
   if (!open)
     return (
       <button
         ref={opener}
         className="add-task"
+        title="Add task"
         aria-label={`Add task to ${dayName.format(day)} ${readableDate.format(day)}`}
         onClick={() => setOpen(true)}
       >
@@ -171,40 +164,38 @@ function DayComposer({
       </button>
     );
   return (
-    <form
-      className="composer"
-      onSubmit={submit}
-      onBlur={(e) => {
-        if (!title.trim() && !e.currentTarget.contains(e.relatedTarget))
-          close(false);
-      }}
+    <Modal
+      title="Add a task"
+      description={`${dayName.format(day)}, ${readableDate.format(day)}`}
+      onClose={() => close(true)}
     >
-      <input
-        ref={input}
-        aria-label={`New task for ${readableDate.format(day)}`}
-        placeholder="New task"
-        value={title}
-        maxLength={300}
-        onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            e.preventDefault();
-            close(true);
-          }
-        }}
-      />
-      <div className="composer-actions">
-        <span>Enter to add, Esc to close</span>
-        <button
-          type="button"
-          className="icon-button"
-          aria-label="Close task entry"
-          onClick={() => close(true)}
-        >
-          <X size={15} />
-        </button>
-      </div>
-    </form>
+      <form onSubmit={submit}>
+        <label className="field">
+          Task
+          <input
+            ref={input}
+            autoFocus
+            aria-label={`New task for ${readableDate.format(day)}`}
+            placeholder="What needs to get done?"
+            value={title}
+            maxLength={300}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </label>
+        <footer className="modal-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => close(true)}
+          >
+            Cancel
+          </button>
+          <button className="primary-button" disabled={!title.trim()}>
+            Add task
+          </button>
+        </footer>
+      </form>
+    </Modal>
   );
 }
 
@@ -212,7 +203,7 @@ function TaskRow({
   task,
   dropBefore,
   focus,
-  showPlanningDate,
+  goalAction,
   goalTitle,
   seconds,
   onToggle,
@@ -229,7 +220,7 @@ function TaskRow({
   // 'active' marks the task in the running session; 'none' hides the action.
   focus: 'available' | 'active' | 'finished' | 'none';
   seconds: number;
-  showPlanningDate: boolean;
+  goalAction: boolean;
   goalTitle: string;
   onToggle: () => void;
   onEdit: () => void;
@@ -243,12 +234,12 @@ function TaskRow({
   const note = (task.nextStep || task.notes).trim().split('\n')[0];
   return (
     <li
-      className={`task ${task.completed ? 'completed' : ''} ${task.main ? 'main-task' : ''} ${focus === 'active' ? 'in-focus' : ''} ${dropBefore ? 'drop-before' : ''} ${showPlanningDate ? 'goal-action' : ''}`}
-      draggable={!showPlanningDate}
-      onDragStart={showPlanningDate ? undefined : onDragStart}
+      className={`task ${task.completed ? 'completed' : ''} ${task.main ? 'main-task' : ''} ${focus === 'active' ? 'in-focus' : ''} ${dropBefore ? 'drop-before' : ''} ${goalAction ? 'goal-action' : ''}`}
+      draggable={!goalAction}
+      onDragStart={goalAction ? undefined : onDragStart}
       onDragEnd={onDragEnd}
-      onDragOver={showPlanningDate ? undefined : onDragOver}
-      onDrop={showPlanningDate ? undefined : onDrop}
+      onDragOver={goalAction ? undefined : onDragOver}
+      onDrop={goalAction ? undefined : onDrop}
     >
       {(task.main || focus === 'active') && (
         <span className="task-labels">
@@ -290,25 +281,16 @@ function TaskRow({
           >
             {task.title}
           </button>
-          {showPlanningDate && task.date && (
-            <button
-              className="task-plan-date"
-              onClick={onEdit}
-              aria-label={`Schedule ${task.title}`}
-            >
-              {task.date ? shortDate.format(parseDate(task.date)) : 'Schedule'}
-            </button>
-          )}
-          {!showPlanningDate && goalTitle && (
+          {!goalAction && goalTitle && (
             <span className="task-goal">{goalTitle}</span>
           )}
-          {note && !showPlanningDate && (
+          {note && !goalAction && (
             <p className="task-note">
               <span>{note}</span>
             </p>
           )}
         </div>
-        {focus !== 'none' && (
+        {!goalAction && focus !== 'none' && (
           <button
             className={`task-focus ${focus === 'active' ? 'timer-active' : focus === 'finished' ? 'timer-finished' : ''}`}
             aria-label={
@@ -370,6 +352,7 @@ function DetailPanel({
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const dateId = useId();
   const [title, setTitle] = useState(task.title);
+  const [discarding, setDiscarding] = useState(false);
   const [notes, setNotes] = useState(task.notes);
   const [progressNotes, setProgressNotes] = useState(task.progressNotes ?? '');
   const [nextStep, setNextStep] = useState(task.nextStep ?? '');
@@ -431,8 +414,8 @@ function DetailPanel({
     else titleRef.current?.focus();
   });
   const close = () => {
-    if (dirty && !window.confirm('Discard your unsaved task changes?')) return;
-    onClose();
+    if (dirty) setDiscarding(true);
+    else onClose();
   };
   const choose = (value: string) => {
     setDate(value);
@@ -498,7 +481,9 @@ function DetailPanel({
             />
           </label>
           <label className="field">
-            Next step <span className="optional">Optional</span>
+            <span>
+              Next step <span className="optional">Optional</span>
+            </span>
             <textarea
               rows={2}
               maxLength={500}
@@ -570,7 +555,9 @@ function DetailPanel({
             />
           </label>
           <label className="field">
-            Progress notes <span className="optional">Optional</span>
+            <span>
+              Progress notes <span className="optional">Optional</span>
+            </span>
             <textarea
               rows={3}
               maxLength={10000}
@@ -625,6 +612,25 @@ function DetailPanel({
         </form>
         {focusContent}
       </div>
+      {discarding && (
+        <Modal
+          title="Discard changes?"
+          description="Your unsaved task edits will be lost."
+          onClose={() => setDiscarding(false)}
+        >
+          <footer className="modal-actions">
+            <button
+              className="secondary-button"
+              onClick={() => setDiscarding(false)}
+            >
+              Keep editing
+            </button>
+            <button className="danger-button" onClick={onClose}>
+              Discard changes
+            </button>
+          </footer>
+        </Modal>
+      )}
     </dialog>
   );
 }
@@ -728,6 +734,7 @@ function FocusPanel({
   useEffect(() => {
     if (mode !== 'running') return;
     const update = () => setNow(Date.now());
+    update();
     const timer = window.setInterval(update, 1000);
     document.addEventListener('visibilitychange', update);
     return () => {
@@ -821,7 +828,9 @@ function FocusPanel({
         <form className="focus-start" onSubmit={begin}>
           <label className="focus-field focus-step">
             <span>
-              Next step <span className="optional">Optional</span>
+              <span>
+                Next step <span className="optional">Optional</span>
+              </span>
             </span>
             <input
               ref={stepRef}
@@ -905,6 +914,8 @@ function FocusPanel({
 }
 
 export default function App() {
+  const { theme, toggle: toggleTheme } = useTheme();
+  const [creatingGoal, setCreatingGoal] = useState(false);
   const [initial] = useState(initialData);
   const [now, setNow] = useState(Date.now());
   const [state, setState] = useState<PlannerState>(initial.state);
@@ -927,7 +938,7 @@ export default function App() {
   const [deleted, setDeleted] = useState<{ task: Task; index: number } | null>(
     null,
   );
-  const today = dateKey(new Date());
+  const today = useToday();
   const days = monthDays(month);
   const currentTask = state.tasks.find((task) => task.id === editingId);
   const unscheduled = state.tasks.filter((task) => task.date === null);
@@ -1126,7 +1137,7 @@ export default function App() {
   const renderList = (
     tasks: Task[],
     date: string | null,
-    showPlanningDate = false,
+    goalAction = false,
   ) => (
     <ul
       className={`task-list ${draggingId && dropTarget?.date === date && !dropTarget.beforeId ? 'drop-end' : ''}`}
@@ -1139,7 +1150,7 @@ export default function App() {
             (state.goals ?? []).find((goal) => goal.id === task.goalId)
               ?.title ?? ''
           }
-          showPlanningDate={showPlanningDate}
+          goalAction={goalAction}
           dropBefore={
             !!draggingId &&
             draggingId !== task.id &&
@@ -1351,56 +1362,42 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        {/* Today and the arrows lead, so they stay put while the title changes width. */}
-        <div className="topbar-start">
-          <span className="brand">ultrafocussed</span>
-          <div className="week-nav">
-            <button className="text-button" onClick={goToday}>
-              Today
-            </button>
-            <div className="period-arrows">
-              <button
-                className="icon-button"
-                aria-label={
-                  view === 'month' ? 'Previous month' : 'Previous year'
-                }
-                onClick={() => goPeriod(-1)}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                className="icon-button"
-                aria-label={view === 'month' ? 'Next month' : 'Next year'}
-                onClick={() => goPeriod(1)}
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-            <h1>
-              {view === 'month'
-                ? new Intl.DateTimeFormat(undefined, {
-                    month: 'long',
-                    year: 'numeric',
-                  }).format(month)
-                : month.getFullYear()}
-            </h1>
-          </div>
-        </div>
-        <nav className="view-switch" aria-label="Planner view">
-          {(['year', 'month', 'goals'] as const).map((mode) => (
-            <button
-              key={mode}
-              aria-pressed={view === mode}
-              onClick={() => {
-                setView(mode);
-                setInboxOpen(false);
-              }}
-            >
-              {mode === 'year' ? 'Year' : mode === 'month' ? 'Month' : 'Goals'}
-            </button>
-          ))}
-        </nav>
+      <PlannerHeader
+        view={view}
+        onView={(mode) => {
+          setView(mode);
+          setInboxOpen(false);
+        }}
+        theme={theme}
+        onTheme={toggleTheme}
+        onExport={exportBackup}
+        onImport={() => importRef.current?.click()}
+        onHelp={() => setHelpOpen(true)}
+        readError={readError}
+        saveError={saveError}
+      />
+      <PlannerToolbar
+        view={view}
+        title={
+          view === 'month'
+            ? new Intl.DateTimeFormat(undefined, {
+                month: 'long',
+                year: 'numeric',
+              }).format(month)
+            : month.getFullYear()
+        }
+        onToday={goToday}
+        onPeriod={goPeriod}
+        onAddGoal={
+          view === 'goals' &&
+          !readError &&
+          (state.goals ?? []).filter(
+            (goal) => goal.year === month.getFullYear(),
+          ).length < 4
+            ? () => setCreatingGoal(true)
+            : undefined
+        }
+      >
         {view === 'month' && (
           <button
             className="mobile-inbox-button"
@@ -1413,38 +1410,7 @@ export default function App() {
             )}
           </button>
         )}
-        <div className="top-actions">
-          <span
-            className={`save-status ${saveError || readError ? 'save-failed' : ''}`}
-          >
-            {saveError || readError ? 'Not saved' : 'Saved locally'}
-          </span>
-          <button
-            className="icon-button labelled"
-            aria-label="Export backup"
-            disabled={readError}
-            onClick={exportBackup}
-          >
-            <Download size={16} />
-            <span>Export</span>
-          </button>
-          <button
-            className="icon-button labelled"
-            aria-label="Import backup"
-            onClick={() => importRef.current?.click()}
-          >
-            <Upload size={16} />
-            <span>Import</span>
-          </button>
-          <button
-            className="icon-button"
-            aria-label="Planner help"
-            onClick={() => setHelpOpen(true)}
-          >
-            <CircleHelp size={18} />
-          </button>
-        </div>
-      </header>
+      </PlannerToolbar>
       {(readError || saveError) && (
         <div className="storage-error" role="alert">
           <span>
@@ -1515,6 +1481,8 @@ export default function App() {
             />
           ) : (
             <GoalsView
+              creating={creatingGoal}
+              onCreationClose={() => setCreatingGoal(false)}
               year={month.getFullYear()}
               goals={state.goals ?? []}
               tasks={state.tasks}
@@ -1548,14 +1516,7 @@ export default function App() {
                   ),
                 }))
               }
-              onDelete={(id) => {
-                if (
-                  window.confirm(
-                    'Remove this goal? Its actions and dates will be kept.',
-                  )
-                )
-                  setState((current) => removeGoal(current, id));
-              }}
+              onDelete={(id) => setState((current) => removeGoal(current, id))}
               onAddAction={(title, goalId) =>
                 setTasks((tasks) => [
                   ...tasks,

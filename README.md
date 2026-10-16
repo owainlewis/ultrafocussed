@@ -24,13 +24,17 @@ Month is the default view. Desktop shows a Monday-to-Sunday month with tasks in 
 
 Year shows twelve months with markers for planned and completed actions. Choose a month or date to open Month. Navigation arrows step through months in Month and years in Year/Goals. Today returns to the current period.
 
-Goals supports up to four goals per year. Add a goal, list its actions, then choose Schedule on an action to give it a date in task details. It is the same task in Goals and Month: notes, completion, dates and timer history stay in sync. Rename a goal without changing its action links. Removing a goal asks for confirmation and keeps all actions and dates.
+Goals supports up to four goals per year. Choose Add goal to name an outcome in a dialog, list its actions, then open an action to give it a date in task details. It is the same task in Goals and Month: notes, completion, dates and timer history stay in sync. Rename a goal without changing its action links. Removing a goal asks for confirmation and keeps all actions and dates.
 
-Task details can assign or clear a goal, set a planning date, choose the daily main outcome, and keep notes and progress notes. Capture tasks in Unscheduled or directly on a day. Drag between days in Month, or use Alt (Option) with Left/Right to move a date and Up/Down to reorder. In Goals, Up/Down reorders that goal's actions across dates; dragging is disabled there.
+Task details can assign or clear a goal, set a planning date, choose the daily main outcome, and keep notes and progress notes. Capture tasks in Unscheduled or use a day’s plus button to add one in a dialog. Drag between days in Month, or use Alt (Option) with Left/Right to move a date and Up/Down to reorder. In Goals, Up/Down reorders that goal's actions across dates; dragging is disabled there.
 
 Focus sessions default to 60 minutes and accept 1 to 180 minutes. Timers show a live countdown on active tasks and Done after stopping or expiry. Session controls stay in task details. Reloads preserve active sessions without opening extra panels. Finish requires no written update and preserves task drafts. Recorded time is capped at the planned duration. No scores, streaks, sounds or daily-hour target.
 
 Unfinished tasks stay on their date and appear in From earlier. Nothing automatically rolls forward. Complete and reopen tasks; Delete offers Undo.
+
+## Appearance
+
+Use the sun or moon in the header to switch between light and dark mode. The first visit follows the system preference; an explicit choice is remembered in this browser separately from planner data.
 
 ## Data and backups
 

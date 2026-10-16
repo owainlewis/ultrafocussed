@@ -1,5 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Modal } from './Modal';
+import { useToday } from './useToday';
 import { dateKey, monthDays, monthStart, type Goal, type Task } from './model';
 
 const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long' });
@@ -42,7 +44,7 @@ export function MonthView({
 }) {
   const days = monthDays(month);
   const narrow = useNarrow();
-  const today = dateKey(new Date());
+  const today = useToday();
   return (
     <div className="month-view">
       <div className="month-weekdays" aria-hidden="true">
@@ -59,7 +61,7 @@ export function MonthView({
           return (
             <section
               key={key}
-              className={`month-day ${day.getMonth() !== month.getMonth() ? 'outside-month' : ''} ${key === today ? 'month-today' : ''} ${key === selected ? 'month-selected' : ''}`}
+              className={`month-day ${key < today ? 'past-day' : ''} ${day.getMonth() !== month.getMonth() ? 'outside-month' : ''} ${key === today ? 'month-today' : ''} ${key === selected ? 'month-selected' : ''}`}
               aria-label={fullDate.format(day)}
               {...dropProps(key)}
             >
@@ -105,13 +107,14 @@ export function YearView({
   onMonth: (month: Date) => void;
   onDay: (date: string) => void;
 }) {
-  const today = dateKey(new Date());
+  const today = useToday();
   return (
     <div className="year-view" aria-label={`${year} year overview`}>
       {Array.from({ length: 12 }, (_, index) => {
         const month = monthStart(new Date());
         month.setFullYear(year, index, 1);
         const key = dateKey(month).slice(0, 7);
+        const calendarDays = monthDays(month);
         const scheduled = tasks.filter((task) => task.date?.startsWith(key));
         return (
           <section
@@ -132,7 +135,9 @@ export function YearView({
               ))}
             </div>
             <div className="mini-days">
-              {monthDays(month).map((day) => {
+              {Array.from({ length: 42 }, (_, i) => {
+                const day = calendarDays[i];
+                if (!day) return <span key={`empty-${i}`} />;
                 const date = dateKey(day);
                 if (day.getMonth() !== index) return <span key={date} />;
                 const items = scheduled.filter((task) => task.date === date);
@@ -140,7 +145,7 @@ export function YearView({
                 return (
                   <button
                     key={date}
-                    className={`${date === today ? 'mini-today' : ''} ${pending ? 'has-actions' : items.length ? 'actions-done' : ''}`}
+                    className={`${date < today ? 'past-day' : ''} ${date === today ? 'mini-today' : ''} ${pending ? 'has-actions' : items.length ? 'actions-done' : ''}`}
                     aria-label={`${fullDate.format(day)}, ${items.length} action${items.length === 1 ? '' : 's'}`}
                     onClick={() => onDay(date)}
                   >
@@ -207,53 +212,15 @@ function GoalColumn({
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(goal.title);
-  useEffect(() => setTitle(goal.title), [goal.title]);
   return (
     <section className="goal-column" aria-label={`Goal: ${goal.title}`}>
       <header>
-        <div>
-          {editing ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!title.trim()) return;
-                onRename(goal.id, title.trim());
-                setEditing(false);
-              }}
-            >
-              <input
-                aria-label="Goal name"
-                autoFocus
-                maxLength={200}
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-              <button className="small-primary" disabled={!title.trim()}>
-                Save goal
-              </button>
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => {
-                  setTitle(goal.title);
-                  setEditing(false);
-                }}
-              >
-                Cancel
-              </button>
-            </form>
-          ) : (
-            <h2>{goal.title}</h2>
-          )}
-        </div>
+        <h2>{goal.title}</h2>
         <div className="goal-controls">
           <button
             className="icon-button"
             aria-label={`Edit goal ${goal.title}`}
-            onClick={() => setEditing(true)}
+            onClick={() => onRename(goal.id, goal.title)}
           >
             <Pencil size={15} />
           </button>
@@ -272,8 +239,52 @@ function GoalColumn({
   );
 }
 
+function GoalDialog({
+  goal,
+  onSave,
+  onClose,
+}: {
+  goal: Goal | null;
+  onSave: (title: string) => void;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(goal?.title ?? '');
+  return (
+    <Modal title={goal ? 'Edit goal' : 'Add a goal'} onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (title.trim()) onSave(title.trim());
+        }}
+      >
+        <label className="field">
+          Goal name
+          <input
+            autoFocus
+            required
+            maxLength={200}
+            placeholder="What do you want to achieve?"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </label>
+        <footer className="modal-actions">
+          <button type="button" className="secondary-button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="primary-button" disabled={!title.trim()}>
+            {goal ? 'Save goal' : 'Add goal'}
+          </button>
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
 export function GoalsView({
   year,
+  creating,
+  onCreationClose,
   goals,
   tasks,
   renderActions,
@@ -283,6 +294,8 @@ export function GoalsView({
   onAddAction,
 }: {
   year: number;
+  creating: boolean;
+  onCreationClose: () => void;
   goals: Goal[];
   tasks: Task[];
   renderActions: (tasks: Task[]) => ReactNode;
@@ -291,10 +304,22 @@ export function GoalsView({
   onDelete: (id: string) => void;
   onAddAction: (title: string, goalId: string) => void;
 }) {
-  const [title, setTitle] = useState('');
+  const [editor, setEditor] = useState<Goal | null>(null);
+  const [removing, setRemoving] = useState<Goal | null>(null);
   const visible = goals.filter((goal) => goal.year === year);
+  const root = useRef<HTMLDivElement>(null);
+  const focusNewGoal = useRef(false);
+  useEffect(() => {
+    if (!focusNewGoal.current) return;
+    root.current
+      ?.querySelector<HTMLInputElement>(
+        '.goal-column:last-child .goal-action-composer input',
+      )
+      ?.focus();
+    focusNewGoal.current = false;
+  }, [visible.length]);
   return (
-    <div className="goals-view">
+    <div className="goals-view" ref={root}>
       <div className="goals-grid">
         {visible.map((goal) => (
           <GoalColumn
@@ -303,34 +328,54 @@ export function GoalsView({
             tasks={tasks.filter((task) => task.goalId === goal.id)}
             renderActions={renderActions}
             onAdd={onAddAction}
-            onRename={onRename}
-            onDelete={onDelete}
+            onRename={() => setEditor(goal)}
+            onDelete={() => setRemoving(goal)}
           />
         ))}
       </div>
-      {visible.length < 4 && (
-        <form
-          className="new-goal"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!title.trim()) return;
-            onAddGoal(title.trim());
-            setTitle('');
+      {(editor || creating) && (
+        <GoalDialog
+          goal={editor}
+          onClose={() => {
+            setEditor(null);
+            onCreationClose();
           }}
+          onSave={(title) => {
+            if (editor) onRename(editor.id, title);
+            else {
+              focusNewGoal.current = true;
+              onAddGoal(title);
+            }
+            setEditor(null);
+            onCreationClose();
+          }}
+        />
+      )}
+      {removing && (
+        <Modal
+          title="Remove goal"
+          description={`Remove “${removing.title}”? Its tasks and scheduled dates will be kept in your planner.`}
+          onClose={() => setRemoving(null)}
         >
-          <label htmlFor="new-goal">Add a goal</label>
-          <input
-            id="new-goal"
-            placeholder="Goal title"
-            value={title}
-            maxLength={200}
-            required
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <button className="primary-button" disabled={!title.trim()}>
-            <Plus size={15} /> Add goal
-          </button>
-        </form>
+          <footer className="modal-actions">
+            <button
+              className="secondary-button"
+              autoFocus
+              onClick={() => setRemoving(null)}
+            >
+              Keep goal
+            </button>
+            <button
+              className="danger-button"
+              onClick={() => {
+                onDelete(removing.id);
+                setRemoving(null);
+              }}
+            >
+              Remove goal
+            </button>
+          </footer>
+        </Modal>
       )}
     </div>
   );

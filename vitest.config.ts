@@ -4,7 +4,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
-    include: ['tests/planner.test.tsx'],
+    include: ['tests/**/*.test.tsx'],
     restoreMocks: true,
   },
 });

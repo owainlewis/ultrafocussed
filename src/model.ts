@@ -229,16 +229,11 @@ export function moveTask(
 }
 
 export function remainingSeconds(session: FocusSession, now: number): number {
-  return Math.max(
-    0,
-    Math.ceil(
-      (session.startedAt +
-        session.duration * 60000 -
-        (session.stoppedAt ?? now)) /
-        1000,
-    ),
-  );
+  const planned = session.duration * 60;
+  const elapsed = ((session.stoppedAt ?? now) - session.startedAt) / 1000;
+  return Math.max(0, Math.min(planned, Math.ceil(planned - elapsed)));
 }
+
 export function finishFocus(
   state: PlannerState,
   progress: string,

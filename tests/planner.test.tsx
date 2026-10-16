@@ -159,11 +159,17 @@ describe('planner user flows', () => {
       screen.getByRole('textbox', { name: 'Task', exact: true }),
       ' changed',
     );
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
     await user.click(
       screen.getByRole('button', { name: 'Close task details' }),
     );
-    expect(confirm).toHaveBeenCalled();
+    expect(
+      screen.getByRole('dialog', { name: 'Discard changes?' }),
+    ).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(
+      screen.queryByRole('dialog', { name: 'Discard changes?' }),
+    ).toBeNull();
     expect(screen.getByRole('dialog', { name: 'Task details' })).toBeTruthy();
     expect(saved().tasks[0].title).toBe('Original title');
   });
@@ -274,15 +280,21 @@ describe('planner user flows', () => {
     expect(saved().tasks.find((task) => task.id === 'old')?.date).toBe(today);
     expect(screen.queryByRole('region', { name: /From earlier/ })).toBeNull();
   });
-  it('closes a day composer with Escape and returns focus to Add task', async () => {
+  it('adds calendar tasks in a dialog and cancels drafts with focus restored', async () => {
     render(<App />);
     const user = userEvent.setup();
     const add = screen.getAllByRole('button', { name: /^Add task to / })[0];
     const name = add.getAttribute('aria-label');
     await user.click(add);
+    expect(screen.getByRole('dialog', { name: 'Add a task' })).toBeTruthy();
+    await user.keyboard('Unfinished draft{Escape}');
+    expect(saved().tasks).toHaveLength(0);
+    expect(screen.queryByRole('dialog', { name: 'Add a task' })).toBeNull();
+    expect(document.activeElement?.getAttribute('aria-label')).toBe(name);
+    await user.click(screen.getByRole('button', { name: name! }));
     await user.keyboard('Draft{Enter}');
     expect(saved().tasks[0].title).toBe('Draft');
-    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Add a task' })).toBeNull();
     expect(document.activeElement?.getAttribute('aria-label')).toBe(name);
   });
 });
@@ -370,6 +382,9 @@ describe('closing task details after a date change', () => {
     await user.click(quickDate('Next Monday'));
     await user.click(
       screen.getByRole('button', { name: 'Close task details' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Discard changes', exact: true }),
     );
     expect(saved().tasks[0].date).toBe('2026-10-02');
     expect(screen.getByRole('region', { name: label(2) })).toBeTruthy();
@@ -931,8 +946,11 @@ describe('year, month, and goal planning', () => {
     await user.click(
       screen.getByRole('button', { name: 'Goals', exact: true }),
     );
+    await user.click(
+      screen.getByRole('button', { name: 'Add goal', exact: true }),
+    );
     await user.type(
-      screen.getByLabelText('Add a goal'),
+      screen.getByLabelText('Goal name'),
       'Launch a course{Enter}',
     );
     const goal = saved().goals![0];
@@ -979,6 +997,12 @@ describe('year, month, and goal planning', () => {
     await user.click(
       screen.getByRole('button', { name: 'Remove goal Launch a course' }),
     );
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Remove goal' })).getByRole(
+        'button',
+        { name: 'Remove goal', exact: true },
+      ),
+    );
     expect(saved().goals).toEqual([]);
     expect(saved().tasks).toHaveLength(1);
     expect(saved().tasks[0]).toMatchObject({
@@ -996,14 +1020,15 @@ describe('year, month, and goal planning', () => {
       screen.getByRole('button', { name: 'Goals', exact: true }),
     );
     for (let i = 1; i <= 4; i++) {
-      await user.type(
-        screen.getByRole('textbox', {
-          name: 'Add a goal',
-        }),
-        `Goal ${i}{Enter}`,
+      await user.click(
+        screen.getByRole('button', { name: 'Add goal', exact: true }),
       );
+      await user.type(screen.getByLabelText('Goal name'), `Goal ${i}{Enter}`);
     }
     expect(saved().goals).toHaveLength(4);
+    expect(document.activeElement).toBe(
+      screen.getByLabelText('New action for Goal 4'),
+    );
     expect(
       screen.queryByRole('button', { name: 'Add goal', exact: true }),
     ).toBeNull();
@@ -1117,4 +1142,37 @@ it('reorders goal actions across dates without changing other goals or enabling 
     base.tasks[1],
   );
   expect(document.activeElement?.textContent).toBe('Action A1');
+});
+
+it('cancels goal creation without saving and returns focus to Add goal', async () => {
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Goals', exact: true }));
+  const add = screen.getByRole('button', { name: 'Add goal', exact: true });
+  await user.click(add);
+  expect(document.activeElement).toBe(screen.getByLabelText('Goal name'));
+  await user.keyboard('A draft goal{Escape}');
+  expect(saved().goals ?? []).toEqual([]);
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(add);
+});
+
+it('persists light and dark mode without changing planner data', async () => {
+  localStorage.setItem('ultrafocussed.theme', 'dark');
+  stored([{ id: 'theme-task', title: 'Keep this task' }]);
+  const app = render(<App />);
+  const user = userEvent.setup();
+  expect(document.documentElement.dataset.theme).toBe('dark');
+  await user.click(
+    screen.getByRole('button', { name: 'Switch to light mode' }),
+  );
+  expect(document.documentElement.dataset.theme).toBe('light');
+  expect(localStorage.getItem('ultrafocussed.theme')).toBe('light');
+  expect(saved().tasks[0].title).toBe('Keep this task');
+  app.unmount();
+  render(<App />);
+  expect(document.documentElement.dataset.theme).toBe('light');
+  await user.click(screen.getByRole('button', { name: 'Switch to dark mode' }));
+  expect(document.documentElement.dataset.theme).toBe('dark');
+  expect(localStorage.getItem('ultrafocussed.theme')).toBe('dark');
 });
