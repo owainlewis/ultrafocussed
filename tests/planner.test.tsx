@@ -79,34 +79,64 @@ describe('planner user flows', () => {
       completed: false,
     });
   });
-  it('edits a planning date and notes, then restores a deleted task', async () => {
+  it('edits only title and date and preserves notes through saving, deletion and undo', async () => {
+    stored([
+      {
+        id: 'outline',
+        title: 'Write outline',
+        notes: 'Start with the core idea',
+        nextStep: 'Legacy step',
+        progressNotes: 'Legacy progress',
+        sessions: [
+          {
+            id: 'old-session',
+            startedAt: 1000,
+            endedAt: 61000,
+            minutes: 1,
+            progress: 'Old session notes',
+          },
+        ],
+      },
+    ]);
+    const originalTask = saved().tasks[0];
     render(<App />);
-    const user = await capture('Write outline');
+    const user = userEvent.setup();
     await user.click(
       screen.getByRole('button', { name: 'Write outline', exact: true }),
     );
-    fireEvent.input(screen.getByLabelText(/Plan for/), {
+    fireEvent.input(screen.getByLabelText('Date (optional)'), {
       target: { value: dateKey(new Date()) },
     });
-    await user.click(screen.getByRole('checkbox', { name: /Main outcome/ }));
+    const editor = screen.getByRole('dialog', { name: 'Task details' });
+    await user.clear(within(editor).getByLabelText('Task', { exact: true }));
     await user.type(
-      screen.getByRole('textbox', { name: 'Notes Optional' }),
-      'Start with the core idea',
+      within(editor).getByLabelText('Task', { exact: true }),
+      'Updated outline',
     );
+    expect(editor.querySelectorAll('input, textarea, select')).toHaveLength(2);
+    expect(within(editor).queryByText('Notes')).toBeNull();
+    expect(within(editor).queryByLabelText('Goal')).toBeNull();
+    expect(within(editor).queryByRole('checkbox')).toBeNull();
+    expect(within(editor).queryByRole('button', { name: /focus/i })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saved().tasks[0]).toMatchObject({
       date: dateKey(new Date()),
-      main: true,
+      nextStep: 'Legacy step',
+      progressNotes: 'Legacy progress',
       notes: 'Start with the core idea',
     });
     await user.click(
-      screen.getByRole('button', { name: 'Write outline', exact: true }),
+      screen.getByRole('button', { name: 'Updated outline', exact: true }),
     );
     await user.click(screen.getByRole('button', { name: 'Delete task' }));
     expect(saved().tasks).toHaveLength(0);
     await user.click(screen.getByRole('button', { name: 'Undo' }));
     expect(saved().tasks).toHaveLength(1);
-    expect(saved().tasks[0].notes).toBe('Start with the core idea');
+    expect(saved().tasks[0]).toEqual({
+      ...originalTask,
+      title: 'Updated outline',
+      date: dateKey(new Date()),
+    });
   });
   it('warns when saving fails, keeps the task, and retries the latest state', async () => {
     const setItem = vi
@@ -249,18 +279,15 @@ describe('planner user flows', () => {
     );
     expect(document.activeElement?.textContent).toBe('Second');
   });
-  it('plans a task with a quick date in task details', async () => {
+  it('plans a task with the optional date field', async () => {
     render(<App />);
     const user = await capture('Book a call');
     await user.click(
       screen.getByRole('button', { name: 'Book a call', exact: true }),
     );
-    await user.click(
-      within(screen.getByRole('group', { name: 'Quick dates' })).getByRole(
-        'button',
-        { name: 'Tomorrow' },
-      ),
-    );
+    fireEvent.input(screen.getByLabelText('Date (optional)'), {
+      target: { value: tomorrow() },
+    });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saved().tasks[0].date).toBe(tomorrow());
   });
@@ -324,15 +351,9 @@ describe('closing task details after a date change', () => {
     await user.click(title);
     return user;
   }
-  const quickDate = (name: string) =>
-    within(screen.getByRole('group', { name: 'Quick dates' })).getByRole(
-      'button',
-      { name },
-    );
-
   it('follows a task saved into another month and focuses it there', async () => {
     const user = await openFridayTask();
-    fireEvent.input(screen.getByLabelText(/Plan for/), {
+    fireEvent.input(screen.getByLabelText('Date (optional)'), {
       target: { value: '2026-11-02' },
     });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -347,7 +368,7 @@ describe('closing task details after a date change', () => {
   it('keeps weekends visible when a task is saved to Saturday', async () => {
     const user = await openFridayTask();
     expect(screen.getByRole('region', { name: label(3) })).toBeTruthy();
-    fireEvent.input(screen.getByLabelText(/Plan for/), {
+    fireEvent.input(screen.getByLabelText('Date (optional)'), {
       target: { value: '2026-10-03' },
     });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -362,7 +383,7 @@ describe('closing task details after a date change', () => {
   });
   it('opens Unscheduled when a task is saved without a date', async () => {
     const user = await openFridayTask();
-    await user.click(quickDate('Unscheduled'));
+    await user.click(screen.getByRole('button', { name: 'Clear date' }));
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saved().tasks[0]).toMatchObject({ date: null, main: false });
     expect(
@@ -379,7 +400,9 @@ describe('closing task details after a date change', () => {
   it('keeps the view and opener when details close without a date change', async () => {
     const user = await openFridayTask();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    await user.click(quickDate('Next Monday'));
+    fireEvent.input(screen.getByLabelText('Date (optional)'), {
+      target: { value: '2026-10-05' },
+    });
     await user.click(
       screen.getByRole('button', { name: 'Close task details' }),
     );
@@ -390,7 +413,7 @@ describe('closing task details after a date change', () => {
     expect(screen.getByRole('region', { name: label(2) })).toBeTruthy();
     expect(focusedTitle()).toBe('Friday task');
   });
-  it('returns focus to the From earlier opener after saving notes', async () => {
+  it('returns focus to the From earlier opener after saving a title', async () => {
     stored([{ id: 'o', title: 'Old task', date: '2026-09-01' }]);
     render(<App />);
     const user = userEvent.setup();
@@ -400,13 +423,13 @@ describe('closing task details after a date change', () => {
     opener.focus();
     await user.click(opener);
     await user.type(
-      screen.getByRole('textbox', { name: 'Notes Optional' }),
-      'Still relevant',
+      screen.getByRole('textbox', { name: 'Task', exact: true }),
+      ' updated',
     );
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saved().tasks[0]).toMatchObject({
       date: '2026-09-01',
-      notes: 'Still relevant',
+      title: 'Old task updated',
     });
     expect(document.activeElement).toBe(
       within(screen.getByRole('region', { name: /From earlier/ })).getByRole(
@@ -418,494 +441,129 @@ describe('closing task details after a date change', () => {
   });
 });
 
-describe('meaningful focus loop', () => {
-  it('keeps all extra panels off the calendar, including restored sessions', async () => {
-    stored([{ id: 'hidden-focus', title: 'Existing task' }]);
-    const original = saved();
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        ...original,
-        outcomes: { '2026-10-12': 'Legacy weekly outcome' },
-      }),
-    );
+describe('separate focus action', () => {
+  it('opens focus without task fields and validates the duration', async () => {
     render(<App />);
-    expect(screen.queryByLabelText("This week's outcome")).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Focus session' })).toBeNull();
-    expect(document.querySelector('main > .focus-panel')).toBeNull();
-    expect(saved().outcomes).toEqual({ '2026-10-12': 'Legacy weekly outcome' });
-  });
-  it('links a task, reloads an active session, stops early and records useful progress', async () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        version: 1,
-        tasks: [],
-        outcomes: { [dateKey(weekStart(new Date()))]: 'Launch pricing' },
-      }),
-    );
-    const app = render(<App />);
-    const user = await capture('Write pricing');
+    const user = await capture('Deep work');
     await user.click(
-      screen.getByRole('button', { name: 'Write pricing', exact: true }),
+      screen.getByRole('button', { name: 'Focus on Deep work' }),
     );
-    await user.type(
-      screen.getByRole('textbox', { name: 'Next step Optional' }),
-      'Draft three options',
-    );
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    await user.click(
-      screen.getByRole('button', { name: 'Write pricing', exact: true }),
-    );
-    await user.click(screen.getByRole('button', { name: 'Start focus' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Focus', exact: true }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Task details' })).toBeNull();
+    expect(screen.queryByLabelText('Task', { exact: true })).toBeNull();
+    await user.clear(screen.getByRole('spinbutton', { name: 'Minutes' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'Minutes' }), '181');
+    expect(
+      screen
+        .getByRole('button', { name: 'Begin session' })
+        .hasAttribute('disabled'),
+    ).toBe(true);
+    expect(saved().focus ?? null).toBeNull();
+    await user.clear(screen.getByRole('spinbutton', { name: 'Minutes' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'Minutes' }), '25');
     await user.click(screen.getByRole('button', { name: 'Begin session' }));
-    expect(saved().focus?.duration).toBe(60);
-    app.unmount();
-    render(<App />);
-    await user.click(
-      screen.getByRole('button', { name: 'Write pricing', exact: true }),
-    );
-    expect(screen.getByLabelText('Time remaining')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Stop session' }));
-    expect(
-      screen.getByRole('button', { name: 'Finish session' }),
-    ).toHaveProperty('disabled', false);
-
-    await user.clear(screen.getByLabelText('Next step'));
-    await user.type(
-      screen.getByLabelText('Next step'),
-      'Validate with a customer',
-    );
-    await user.click(screen.getByRole('button', { name: 'Finish session' }));
-    expect(saved().focus).toBeNull();
-    expect(saved().tasks[0]).toMatchObject({
-      nextStep: 'Validate with a customer',
-      completed: false,
-    });
-    expect(saved().tasks[0].sessions?.[0].progress).toBe('');
-    await user.click(
-      screen.getByRole('button', { name: 'Write pricing', exact: true }),
-    );
-    expect(
-      screen.getByRole('region', { name: 'Progress history' }).textContent,
-    ).toContain('Focus session');
+    expect(saved().focus?.duration).toBe(25);
+    expect(screen.getByLabelText('Time remaining').textContent).toBe('25:00');
   });
-  it('recovers an elapsed timer and records completion without inflating time', async () => {
-    stored([{ id: 'focus-task', title: 'Finish proposal' }]);
-    const state = saved();
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        ...state,
-        focus: {
-          taskId: 'focus-task',
-          startedAt: Date.now() - 3600000,
-          duration: 25,
-        },
-      }),
-    );
-    render(<App />);
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole('button', { name: 'Finish proposal', exact: true }),
-    );
 
-    await user.click(screen.getByLabelText('Task complete'));
-    await user.click(screen.getByRole('button', { name: 'Finish session' }));
-    expect(saved().tasks[0].completed).toBe(true);
-    expect(saved().tasks[0].sessions?.[0].minutes).toBe(25);
-  });
-});
-
-describe('focus from the board', () => {
-  const panel = () => screen.getByRole('region', { name: 'Focus session' });
-  const title = (name: string) =>
-    screen.getByRole('button', { name, exact: true });
-
-  it('runs the whole loop from a task row and moves keyboard focus with it', async () => {
+  it('keeps a session across reloads, reopens its timer and preserves legacy metadata when finishing', async () => {
     stored([
       {
-        id: 'p',
-        title: 'Draft pricing',
-        outcomeWeek: dateKey(weekStart(new Date())),
+        id: 'work',
+        title: 'Work',
+        notes: 'Keep my notes',
+        nextStep: 'Legacy next step',
+        progressNotes: 'Legacy progress',
       },
-      { id: 'q', title: 'Other task' },
     ]);
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        ...saved(),
-        outcomes: { [dateKey(weekStart(new Date()))]: 'Launch pricing' },
-      }),
-    );
-    render(<App />);
+    const app = render(<App />);
     const user = userEvent.setup();
-    await user.click(
-      screen.getByRole('button', { name: 'Focus on Draft pricing' }),
-    );
-    expect(document.activeElement).toBe(
-      within(panel()).getByRole('textbox', { name: 'Next step Optional' }),
-    );
-    await user.keyboard('Write three options');
-    const minutes = within(panel()).getByRole('spinbutton', {
-      name: 'Minutes',
-    });
-    await user.clear(minutes);
-    await user.type(minutes, '40');
+    await user.click(screen.getByRole('button', { name: 'Focus on Work' }));
     await user.click(screen.getByRole('button', { name: 'Begin session' }));
-    expect(saved().focus).toMatchObject({ taskId: 'p', duration: 40 });
-    expect(saved().tasks[0]).toMatchObject({
-      nextStep: 'Write three options',
-      outcomeWeek: Object.keys(saved().outcomes!)[0],
-    });
-    expect(document.activeElement).toBe(panel());
-    expect(screen.getByText('In focus')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /^Focus on/ })).toBeNull();
-
+    await user.click(
+      screen.getByRole('button', { name: 'Close focus', exact: true }),
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(saved().focus?.taskId).toBe('work');
+    app.unmount();
+    render(<App />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(
+      screen.getByRole('button', { name: 'Open active timer for Work' }),
+    );
     await user.click(screen.getByRole('button', { name: 'Stop session' }));
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: 'Finish session' }),
     );
+    expect(
+      screen.queryByRole('checkbox', { name: 'Task complete' }),
+    ).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Finish session' }));
     expect(saved().focus).toBeNull();
-    expect(saved().tasks[0].sessions?.[0].progress).toBe('');
-    expect(screen.queryByRole('region', { name: 'Focus session' })).toBeNull();
+    expect(saved().tasks[0]).toMatchObject({
+      notes: 'Keep my notes',
+      nextStep: 'Legacy next step',
+      progressNotes: 'Legacy progress',
+      completed: false,
+    });
+    expect(saved().tasks[0].sessions).toHaveLength(1);
     expect(document.activeElement).toBe(
-      screen.getByRole('textbox', { name: 'Task', exact: true }),
+      screen.getByRole('button', { name: 'Work', exact: true }),
     );
   });
 
-  it('keeps minutes between 1 and 180 and cancels back to the task', async () => {
-    stored([{ id: 'p', title: 'Plan sprint' }]);
+  it('keeps completion on the row even while a session is active', async () => {
     render(<App />);
-    const user = userEvent.setup();
+    const user = await capture('Finish work');
     await user.click(
-      screen.getByRole('button', { name: 'Focus on Plan sprint' }),
+      screen.getByRole('button', { name: 'Focus on Finish work' }),
     );
-    const minutes = screen.getByRole('spinbutton', { name: 'Minutes' });
-    const begin = screen.getByRole('button', { name: 'Begin session' });
-    for (const [value, valid] of [
-      ['0', false],
-      ['181', false],
-      ['2.5', false],
-      ['180', true],
-      ['1', true],
-    ] as const) {
-      await user.clear(minutes);
-      await user.type(minutes, value);
-      expect((begin as HTMLButtonElement).disabled).toBe(!valid);
-    }
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('region', { name: 'Focus session' })).toBeNull();
-    expect(saved().focus ?? null).toBeNull();
-    expect(document.activeElement).toBe(
-      screen.getByRole('textbox', { name: 'Task', exact: true }),
-    );
-  });
-
-  it('saves pending detail edits when starting focus from task details', async () => {
-    stored([{ id: 'p', title: 'Old name' }]);
-    render(<App />);
-    const user = userEvent.setup();
-    await user.click(title('Old name'));
-    const name = screen.getByRole('textbox', { name: 'Task', exact: true });
-    await user.clear(name);
-    await user.type(name, 'New name');
+    await user.click(screen.getByRole('button', { name: 'Begin session' }));
     await user.click(
-      screen.getByRole('button', { name: 'Save and start focus' }),
+      screen.getByRole('button', { name: 'Close focus', exact: true }),
     );
-    expect(saved().tasks[0].title).toBe('New name');
-    expect(screen.getByRole('dialog')).toBeTruthy();
-    expect(panel().textContent).toContain('New name');
-    expect(document.activeElement).toBe(
-      within(panel()).getByRole('textbox', { name: 'Next step Optional' }),
-    );
-  });
-
-  it('does not pull focus away when a timer ends on its own', () => {
-    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
-    try {
-      stored([{ id: 'p', title: 'Short task' }]);
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          ...saved(),
-          focus: { taskId: 'p', startedAt: Date.now() - 59000, duration: 1 },
-        }),
-      );
-      render(<App />);
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Short task', exact: true }),
-      );
-      const capture = screen.getByRole('textbox', {
-        name: 'New task for unscheduled',
-      });
-      capture.focus();
-      act(() => {
-        vi.advanceTimersByTime(3000);
-      });
-      expect(
-        screen.getByRole('button', { name: 'Finish session' }),
-      ).toBeTruthy();
-      expect(document.activeElement).toBe(capture);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-});
-
-it('keeps next-step edits made while a focus session is running', async () => {
-  stored([
-    { id: 'edit-running', title: 'Draft offer', nextStep: 'Write outline' },
-  ]);
-  render(<App />);
-  const user = userEvent.setup();
-  await user.click(
-    screen.getByRole('button', { name: 'Focus on Draft offer' }),
-  );
-  await user.click(screen.getByRole('button', { name: 'Begin session' }));
-  await user.click(
-    screen.getByRole('button', { name: 'Draft offer', exact: true }),
-  );
-  await user.clear(screen.getByRole('textbox', { name: 'Next step Optional' }));
-  await user.type(
-    screen.getByRole('textbox', { name: 'Next step Optional' }),
-    'Review new outline',
-  );
-  await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  await user.click(screen.getByRole('button', { name: 'Stop session' }));
-  expect(screen.getByRole('textbox', { name: 'Next step' })).toHaveProperty(
-    'value',
-    'Review new outline',
-  );
-
-  await user.click(screen.getByRole('button', { name: 'Finish session' }));
-  expect(saved().tasks[0].nextStep).toBe('Review new outline');
-});
-
-it('keeps board completion made while reviewing a focus session', async () => {
-  stored([{ id: 'review-complete', title: 'Send offer' }]);
-  render(<App />);
-  const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Focus on Send offer' }));
-  await user.click(screen.getByRole('button', { name: 'Begin session' }));
-  await user.click(screen.getByRole('button', { name: 'Stop session' }));
-  await user.click(screen.getByRole('button', { name: 'Complete Send offer' }));
-  expect(screen.getByLabelText('Task complete')).toHaveProperty(
-    'checked',
-    true,
-  );
-
-  await user.click(screen.getByRole('button', { name: 'Finish session' }));
-  expect(saved().tasks[0].completed).toBe(true);
-});
-
-it('syncs untouched review steps and preserves explicit review edits', async () => {
-  stored([
-    { id: 'review-step', title: 'Refine offer', nextStep: 'First step' },
-  ]);
-  render(<App />);
-  const user = userEvent.setup();
-  await user.click(
-    screen.getByRole('button', { name: 'Focus on Refine offer' }),
-  );
-  await user.click(screen.getByRole('button', { name: 'Begin session' }));
-  await user.click(screen.getByRole('button', { name: 'Stop session' }));
-  const changeDetail = async (value: string) => {
     await user.click(
-      screen.getByRole('button', { name: 'Refine offer', exact: true }),
+      screen.getByRole('button', { name: 'Complete Finish work' }),
     );
-    await user.clear(
-      screen.getByRole('textbox', { name: 'Next step Optional' }),
+    await user.click(
+      screen.getByRole('button', { name: 'Open active timer for Finish work' }),
     );
-    await user.type(
-      screen.getByRole('textbox', { name: 'Next step Optional' }),
-      value,
-    );
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  };
-  await changeDetail('New saved step');
-  expect(
-    screen.getByRole('textbox', { name: 'Next step', exact: true }),
-  ).toHaveProperty('value', 'New saved step');
-  await user.clear(
-    screen.getByRole('textbox', { name: 'Next step', exact: true }),
-  );
-  await user.type(
-    screen.getByRole('textbox', { name: 'Next step', exact: true }),
-    'Explicit review step',
-  );
-  await changeDetail('Another saved step');
-  expect(
-    screen.getByRole('textbox', { name: 'Next step', exact: true }),
-  ).toHaveProperty('value', 'Explicit review step');
-
-  await user.click(screen.getByRole('button', { name: 'Finish session' }));
-  expect(saved().tasks[0].nextStep).toBe('Explicit review step');
-});
-
-it('keeps optional progress notes on the task across reloads without a session question', async () => {
-  stored([
-    {
-      id: 'legacy',
-      title: 'Plan launch',
-      sessions: [
-        {
-          id: 'session-old',
-          startedAt: 100000,
-          endedAt: 160000,
-          minutes: 1,
-          progress: 'Legacy session note',
-        },
-      ],
-    },
-  ]);
-  const app = render(<App />);
-  const user = userEvent.setup();
-  await user.click(
-    screen.getByRole('button', { name: 'Plan launch', exact: true }),
-  );
-  expect(screen.getByText('Legacy session note')).toBeTruthy();
-  await user.type(
-    screen.getByRole('textbox', { name: 'Progress notes Optional' }),
-    'Pricing draft reviewed',
-  );
-  await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  expect(saved().tasks[0].progressNotes).toBe('Pricing draft reviewed');
-  app.unmount();
-  render(<App />);
-  await user.click(
-    screen.getByRole('button', { name: 'Plan launch', exact: true }),
-  );
-  expect(
-    screen.getByRole('textbox', { name: 'Progress notes Optional' }),
-  ).toHaveProperty('value', 'Pricing draft reviewed');
-  await user.click(screen.getByRole('button', { name: 'Close task details' }));
-  await user.click(
-    screen.getByRole('button', { name: 'Focus on Plan launch' }),
-  );
-  await user.click(screen.getByRole('button', { name: 'Begin session' }));
-  await user.click(screen.getByRole('button', { name: 'Stop session' }));
-  expect(screen.queryByLabelText('What moved forward?')).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Finish session' }));
-  expect(saved().focus).toBeNull();
-  expect(saved().tasks[0].progressNotes).toBe('Pricing draft reviewed');
-  expect(saved().tasks[0].sessions?.at(-1)?.progress).toBe('');
-  expect(saved().tasks[0].sessions?.[0].progress).toBe('Legacy session note');
-});
-
-it('finishing focus keeps unsaved task notes and saving details preserves the focus next step', async () => {
-  stored([{ id: 'draft-focus', title: 'Keep drafts' }]);
-  render(<App />);
-  const user = userEvent.setup();
-  await user.click(
-    screen.getByRole('button', { name: 'Focus on Keep drafts' }),
-  );
-  const focus = screen.getByRole('region', { name: 'Focus session' });
-  await user.type(
-    within(focus).getByRole('textbox', { name: 'Next step Optional' }),
-    'Draft options',
-  );
-  await user.click(screen.getByRole('button', { name: 'Begin session' }));
-  await user.type(
-    screen.getByRole('textbox', { name: 'Progress notes Optional' }),
-    'Unsaved progress draft',
-  );
-  await user.click(screen.getByRole('button', { name: 'Stop session' }));
-  await user.click(screen.getByRole('button', { name: 'Finish session' }));
-  expect(
-    screen.getByRole('textbox', { name: 'Progress notes Optional' }),
-  ).toHaveProperty('value', 'Unsaved progress draft');
-  await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  expect(saved().tasks[0]).toMatchObject({
-    nextStep: 'Draft options',
-    progressNotes: 'Unsaved progress draft',
+    await user.click(screen.getByRole('button', { name: 'Stop session' }));
+    await user.click(screen.getByRole('button', { name: 'Finish session' }));
+    expect(saved().tasks[0].completed).toBe(true);
+    expect(
+      screen.getByRole('button', { name: 'Reopen Finish work' }),
+    ).toBeTruthy();
   });
-});
 
-it('shows live active and ended timer states on the task and opens the session', () => {
-  vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
-  try {
-    stored([{ id: 'live', title: 'Live timer' }]);
+  it('reopens expired sessions for finishing without showing task editing', async () => {
+    stored([{ id: 'expired', title: 'Expired session' }]);
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         ...saved(),
-        focus: { taskId: 'live', startedAt: Date.now() - 59000, duration: 1 },
+        focus: {
+          taskId: 'expired',
+          startedAt: Date.now() - 120000,
+          duration: 1,
+        },
       }),
     );
     render(<App />);
-    const timer = screen.getByRole('button', {
-      name: 'Open active timer for Live timer',
-    });
-    expect(timer.textContent).toContain('00:01');
-    expect(screen.queryByRole('dialog')).toBeNull();
-    act(() => {
-      vi.advanceTimersByTime(3000);
-    });
-    const ended = screen.getByRole('button', {
-      name: 'Finish session for Live timer',
-    });
-    expect(ended.textContent).toContain('Done');
-    fireEvent.click(ended);
-    expect(screen.getByRole('dialog')).toBeTruthy();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Finish session', exact: true }),
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Finish session for Expired session',
+      }),
     );
-    expect(saved().focus).toBeNull();
     expect(
-      screen.getByRole('button', { name: 'Focus on Live timer' }),
+      screen.getByRole('dialog', { name: 'Focus', exact: true }),
     ).toBeTruthy();
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-it('hides unwanted task fields while preserving their saved values', async () => {
-  stored([
-    { id: 'legacy-fields', title: 'Simple details', outcomeWeek: '2026-10-12' },
-  ]);
-  render(<App />);
-  const user = userEvent.setup();
-  await user.click(
-    screen.getByRole('button', { name: 'Simple details', exact: true }),
-  );
-  expect(screen.queryByLabelText('Weekly outcome')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Up', exact: true })).toBeNull();
-  expect(
-    screen.queryByRole('button', { name: 'Down', exact: true }),
-  ).toBeNull();
-  await user.type(
-    screen.getByRole('textbox', { name: 'Notes Optional' }),
-    'Keep this note',
-  );
-  await user.click(screen.getByRole('button', { name: 'Save changes' }));
-  expect(saved().tasks[0].outcomeWeek).toBe('2026-10-12');
-});
-
-it('opens active timer controls with focus and does not reopen setup after finishing', async () => {
-  stored([{ id: 'resume', title: 'Resume work' }]);
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      ...saved(),
-      focus: { taskId: 'resume', startedAt: Date.now(), duration: 60 },
-    }),
-  );
-  render(<App />);
-  const user = userEvent.setup();
-  await user.click(
-    screen.getByRole('button', { name: 'Open active timer for Resume work' }),
-  );
-  expect(document.activeElement).toBe(
-    screen.getByRole('region', { name: 'Focus session' }),
-  );
-  await user.click(screen.getByRole('button', { name: 'Stop session' }));
-  await user.click(
-    screen.getByRole('button', { name: 'Finish session', exact: true }),
-  );
-  expect(screen.queryByRole('region', { name: 'Focus session' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Begin session' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Finish session' }));
+    expect(saved().tasks[0].sessions?.[0].minutes).toBe(1);
+  });
 });
 
 describe('year, month, and goal planning', () => {
@@ -963,8 +621,8 @@ describe('year, month, and goal planning', () => {
     await user.click(
       screen.getByRole('button', { name: 'Write first lesson', exact: true }),
     );
-    expect(screen.getByLabelText('Goal')).toHaveProperty('value', goal.id);
-    fireEvent.input(screen.getByLabelText(/Plan for/), {
+    expect(screen.queryByLabelText('Goal')).toBeNull();
+    fireEvent.input(screen.getByLabelText('Date (optional)'), {
       target: { value: dateKey(new Date()) },
     });
     await user.click(screen.getByRole('button', { name: 'Save changes' }));

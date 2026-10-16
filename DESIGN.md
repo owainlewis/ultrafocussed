@@ -16,15 +16,15 @@ On mobile, select a date in the compact month grid to see its tasks below. Tasks
 
 Year uses twelve aligned six-row calendars, four columns on wide screens, three at intermediate widths, two on tablets, and one on narrow phones. Month titles and dates open Month. Planned and completed task markers remain distinct.
 
-Goals has up to four title-and-checklist sections for the year. Each section has a contained header with edit/remove controls, ruled task rows, and inline action capture. Rows show only checkbox and title. Open a task for scheduling, notes, or focus. Adding a goal opens a dialog and then focuses the new goal's action field, including after creating the fourth goal. Removing a goal confirms that tasks and dates will be kept.
+Goals has up to four title-and-checklist sections for the year. Each section has a contained header with edit/remove controls, ruled task rows, and inline action capture. Rows show a checkbox, title, and separate timer action. Open a task to edit its title or date. Adding a goal opens a dialog and then focuses the new goal's action field, including after creating the fourth goal. Removing a goal confirms that tasks and dates will be kept.
 
 ## Components and interaction
 
 PlannerHeader owns application navigation and utilities. PlannerToolbar owns period navigation and view actions. Modal provides native focus trapping, labelled headings, Escape handling, and focus restoration. Goal creation/rename and calendar task creation use this shared component.
 
-Task details use a centered, scrollable native dialog with a sticky action footer. Title, next step, goal, date, main outcome, notes, progress notes, and history remain editable. Unsaved edits require an explicit Keep editing or Discard changes decision. Saving a changed date follows the task and returns focus to it.
+Task editing uses the shared Modal and contains only a title and optional date, with Clear date when scheduled. Delete and Save share a footer. Saving patches only title and date; existing notes, progress notes, goal links, main outcomes and session history remain in saved data and backups. Unsaved edits require an explicit Keep editing or Discard changes decision. Saving a changed date follows the task and returns focus to it. Task rows omit old note previews and main-outcome labels.
 
-Focus setup, countdown, and finish controls stay inside task details. Sessions survive reloads. Finish requires no written update. Completion, keyboard reordering and date moves, backup recovery, cross-tab updates, and Undo remain supported. No automatic rollover, scores, sounds, or streaks.
+Focus is a separate timer action on every eligible task row, including Goals. It opens its own Modal with only Minutes and Begin. A running timer offers Stop, and an ended timer offers Finish session. Closing the modal does not stop the session; the task row reopens it. Reloads never open a focus dialog automatically. Completion stays on the row and is preserved when finishing. No next-step or notes fields appear in focus. Keyboard moves, backup recovery, cross-tab updates and Undo remain supported. No automatic rollover, scores, sounds or streaks.
 
 ## Light and dark themes
 

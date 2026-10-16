@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useId,
   useRef,
   useState,
   type DragEvent,
@@ -9,7 +8,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { Check, Plus, Star, Target, Timer, X } from 'lucide-react';
+import { Check, Plus, Timer, X } from 'lucide-react';
 import {
   addDays,
   createTask,
@@ -20,7 +19,6 @@ import {
   parseDate,
   STORAGE_KEY,
   updateTask,
-  weekStart,
   finishFocus,
   remainingSeconds,
   type PlannerState,
@@ -29,7 +27,6 @@ import {
   addMonths,
   monthDays,
   removeGoal,
-  type Goal,
 } from './model';
 import { MonthView, YearView, GoalsView } from './WarMapViews';
 import { Modal } from './Modal';
@@ -204,7 +201,6 @@ function TaskRow({
   dropBefore,
   focus,
   goalAction,
-  goalTitle,
   seconds,
   onToggle,
   onEdit,
@@ -221,7 +217,6 @@ function TaskRow({
   focus: 'available' | 'active' | 'finished' | 'none';
   seconds: number;
   goalAction: boolean;
-  goalTitle: string;
   onToggle: () => void;
   onEdit: () => void;
   onFocus: () => void;
@@ -231,31 +226,15 @@ function TaskRow({
   onDragStart: (event: DragEvent) => void;
   onDragEnd: () => void;
 }) {
-  const note = (task.nextStep || task.notes).trim().split('\n')[0];
   return (
     <li
-      className={`task ${task.completed ? 'completed' : ''} ${task.main ? 'main-task' : ''} ${focus === 'active' ? 'in-focus' : ''} ${dropBefore ? 'drop-before' : ''} ${goalAction ? 'goal-action' : ''}`}
+      className={`task ${task.completed ? 'completed' : ''} ${focus === 'active' ? 'in-focus' : ''} ${dropBefore ? 'drop-before' : ''} ${goalAction ? 'goal-action' : ''}`}
       draggable={!goalAction}
       onDragStart={goalAction ? undefined : onDragStart}
       onDragEnd={onDragEnd}
       onDragOver={goalAction ? undefined : onDragOver}
       onDrop={goalAction ? undefined : onDrop}
     >
-      {(task.main || focus === 'active') && (
-        <span className="task-labels">
-          {task.main && (
-            <span className="outcome-label">
-              <Star size={12} fill="currentColor" aria-hidden="true" /> Main
-              outcome
-            </span>
-          )}
-          {focus === 'active' && (
-            <span className="focus-tag">
-              <Timer size={12} aria-hidden="true" /> In focus
-            </span>
-          )}
-        </span>
-      )}
       <div className="task-row">
         <button
           className="task-checkbox"
@@ -281,16 +260,8 @@ function TaskRow({
           >
             {task.title}
           </button>
-          {!goalAction && goalTitle && (
-            <span className="task-goal">{goalTitle}</span>
-          )}
-          {note && !goalAction && (
-            <p className="task-note">
-              <span>{note}</span>
-            </p>
-          )}
         </div>
-        {!goalAction && focus !== 'none' && (
+        {focus !== 'none' && (
           <button
             className={`task-focus ${focus === 'active' ? 'timer-active' : focus === 'finished' ? 'timer-finished' : ''}`}
             aria-label={
@@ -327,291 +298,81 @@ function TaskRow({
 
 function DetailPanel({
   task,
-  tasks,
-  today,
   onChange,
   onClose,
   onDelete,
-  focusContent,
-  goals,
-  onFocus,
-  focusActive,
 }: {
   task: Task;
-  tasks: Task[];
-  focusContent: ReactNode;
-  goals: Goal[];
-  onFocus: (patch: Patch | null) => void;
-  focusActive: boolean;
-  today: string;
   onChange: (patch: Patch) => void;
   onClose: () => void;
   onDelete: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleRef = useRef<HTMLTextAreaElement>(null);
-  const dateId = useId();
   const [title, setTitle] = useState(task.title);
-  const [discarding, setDiscarding] = useState(false);
-  const [notes, setNotes] = useState(task.notes);
-  const [progressNotes, setProgressNotes] = useState(task.progressNotes ?? '');
-  const [nextStep, setNextStep] = useState(task.nextStep ?? '');
-  const [outcomeWeek, setOutcomeWeek] = useState(task.outcomeWeek ?? '');
-  const [goalId, setGoalId] = useState(task.goalId ?? '');
   const [date, setDate] = useState(task.date ?? '');
-  const [main, setMain] = useState(task.main);
-  const dirty =
-    title !== task.title ||
-    notes !== task.notes ||
-    progressNotes !== (task.progressNotes ?? '') ||
-    nextStep !== (task.nextStep ?? '') ||
-    outcomeWeek !== (task.outcomeWeek ?? '') ||
-    goalId !== (task.goalId ?? '') ||
-    date !== (task.date ?? '') ||
-    main !== task.main;
+  const [discarding, setDiscarding] = useState(false);
   const previousTask = useRef(task);
-  const hadFocus = useRef(!!focusContent);
   useEffect(() => {
     const before = previousTask.current;
     setTitle((current) => (current === before.title ? task.title : current));
-    setNotes((current) => (current === before.notes ? task.notes : current));
-    setProgressNotes((current) =>
-      current === (before.progressNotes ?? '')
-        ? (task.progressNotes ?? '')
-        : current,
-    );
-    setNextStep((current) =>
-      current === (before.nextStep ?? '') ? (task.nextStep ?? '') : current,
-    );
-    setOutcomeWeek((current) =>
-      current === (before.outcomeWeek ?? '')
-        ? (task.outcomeWeek ?? '')
-        : current,
-    );
-    setGoalId((current) =>
-      current === (before.goalId ?? '') ? (task.goalId ?? '') : current,
-    );
     setDate((current) =>
       current === (before.date ?? '') ? (task.date ?? '') : current,
     );
-    setMain((current) => (current === before.main ? task.main : current));
     previousTask.current = task;
   }, [task]);
-  useEffect(() => {
-    if (hadFocus.current && !focusContent) titleRef.current?.focus();
-    hadFocus.current = !!focusContent;
-  }, [!!focusContent]);
-  useModal(dialog, () => {
-    const setup =
-      dialog.current?.querySelector<HTMLInputElement>('.focus-step input');
-    const session = dialog.current?.querySelector<HTMLElement>('.focus-panel');
-    const finish = dialog.current?.querySelector<HTMLButtonElement>(
-      '.focus-review .primary-button',
-    );
-    if (setup) setup.focus();
-    else if (finish) finish.focus();
-    else if (session) session.focus();
-    else titleRef.current?.focus();
-  });
   const close = () => {
-    if (dirty) setDiscarding(true);
+    if (title !== task.title || date !== (task.date ?? '')) setDiscarding(true);
     else onClose();
   };
-  const choose = (value: string) => {
-    setDate(value);
-    if (!value) setMain(false);
-  };
-  const quickDates: [string, string][] = [
-    ['Unscheduled', ''],
-    ['Today', today],
-    ['Tomorrow', dateKey(addDays(parseDate(today), 1))],
-    ['Next Monday', dateKey(addDays(weekStart(parseDate(today)), 7))],
-  ];
-  const patch = (): Patch => ({
-    title: title.trim(),
-    notes,
-    progressNotes,
-    nextStep,
-    outcomeWeek: outcomeWeek || null,
-    goalId: goalId || null,
-    date: date || null,
-    main: date ? main : false,
-  });
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    if (!title.trim()) return;
-    onChange(patch());
-    if (!focusContent) onClose();
-  };
   return (
-    <dialog
-      ref={dialog}
-      className="detail-panel"
-      aria-labelledby="detail-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        close();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) close();
-      }}
-    >
-      <div className="detail-content">
-        <header className="panel-header">
-          <h2 id="detail-title">Task details</h2>
+    <Modal title="Task details" onClose={close}>
+      <form
+        className="task-editor"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!title.trim()) return;
+          // Send only editable fields. Legacy notes and metadata stay on the task.
+          onChange({ title: title.trim(), date: date || null });
+          onClose();
+        }}
+      >
+        <label className="field">
+          Task
+          <input
+            autoFocus
+            value={title}
+            maxLength={300}
+            required
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          Date (optional)
+          <input
+            type="date"
+            value={date}
+            min="0001-01-01"
+            max="9999-12-31"
+            onInput={(event) => setDate(event.currentTarget.value)}
+          />
+        </label>
+        {date && (
           <button
-            className="icon-button"
-            aria-label="Close task details"
-            onClick={close}
+            className="clear-date"
+            type="button"
+            onClick={() => setDate('')}
           >
-            <X size={20} />
+            Clear date
           </button>
-        </header>
-        <form onSubmit={submit} className="detail-form">
-          <label className="field">
-            Task
-            <textarea
-              ref={titleRef}
-              className="title-input"
-              value={title}
-              maxLength={300}
-              rows={2}
-              required
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span>
-              Next step <span className="optional">Optional</span>
-            </span>
-            <textarea
-              rows={2}
-              maxLength={500}
-              placeholder="What will you do first?"
-              value={nextStep}
-              onChange={(e) => setNextStep(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            Goal
-            <select
-              value={goalId}
-              onChange={(event) => setGoalId(event.target.value)}
-            >
-              <option value="">No goal</option>
-              {goals.map((goal) => (
-                <option key={goal.id} value={goal.id}>
-                  {goal.title} ({goal.year})
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="field">
-            <label htmlFor={dateId}>Plan for</label>
-            <input
-              id={dateId}
-              type="date"
-              value={date}
-              min="0001-01-01"
-              max="9999-12-31"
-              onInput={(e) => choose(e.currentTarget.value)}
-            />
-            <div className="quick-dates" role="group" aria-label="Quick dates">
-              {quickDates.map(([label, value]) => (
-                <button
-                  key={label}
-                  type="button"
-                  className="chip"
-                  aria-pressed={date === value}
-                  onClick={() => choose(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {date && (
-            <label className="main-option">
-              <input
-                type="checkbox"
-                checked={main}
-                onChange={(e) => setMain(e.target.checked)}
-              />
-              <span>
-                <strong>Main outcome</strong>
-                <small>The one thing you want to finish that day.</small>
-              </span>
-            </label>
-          )}
-          <label className="field">
-            <span>
-              Notes <span className="optional">Optional</span>
-            </span>
-            <textarea
-              rows={6}
-              maxLength={10000}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </label>
-          <label className="field">
-            <span>
-              Progress notes <span className="optional">Optional</span>
-            </span>
-            <textarea
-              rows={3}
-              maxLength={10000}
-              value={progressNotes}
-              onChange={(e) => setProgressNotes(e.target.value)}
-            />
-          </label>
-          {!!task.sessions?.length && (
-            <section className="progress-history" aria-label="Progress history">
-              <h3>Progress</h3>
-              {[...task.sessions].reverse().map((entry) => (
-                <article key={entry.id}>
-                  <p>{entry.progress || 'Focus session'}</p>
-                  <small>
-                    {new Date(entry.endedAt).toLocaleString()} ·{' '}
-                    {Math.round(entry.minutes)} min focused
-                  </small>
-                </article>
-              ))}
-            </section>
-          )}
-          <div className="panel-footer">
-            {(focusActive || task.completed) && (
-              <small className="optional footer-note">
-                {focusActive
-                  ? 'Finish the current session before starting another.'
-                  : 'Reopen this task to focus on it.'}
-              </small>
-            )}
-            <button type="button" className="delete-button" onClick={onDelete}>
-              Delete task
-            </button>
-            <span className="footer-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={!title.trim() || task.completed || focusActive}
-                onClick={() => onFocus(dirty ? patch() : null)}
-              >
-                <Timer size={14} aria-hidden="true" />
-                {dirty ? 'Save and start focus' : 'Start focus'}
-              </button>
-              <button
-                type="submit"
-                className="primary-button"
-                disabled={!title.trim()}
-              >
-                Save changes
-              </button>
-            </span>
-          </div>
-        </form>
-        {focusContent}
-      </div>
+        )}
+        <footer className="task-editor-actions">
+          <button type="button" className="delete-button" onClick={onDelete}>
+            Delete task
+          </button>
+          <button className="primary-button" disabled={!title.trim()}>
+            Save changes
+          </button>
+        </footer>
+      </form>
       {discarding && (
         <Modal
           title="Discard changes?"
@@ -631,7 +392,7 @@ function DetailPanel({
           </footer>
         </Modal>
       )}
-    </dialog>
+    </Modal>
   );
 }
 
@@ -661,10 +422,9 @@ function Help({ onClose }: { onClose: () => void }) {
       <ul>
         <li>
           Use Year for an overview, Month to schedule work, and Goals to list
-          actions under up to four goals per year. Keep your notes and focus
-          sessions in task details. Choose the timer on any open task to focus
-          on it: add a next step, set the minutes, and begin. Stop early
-          whenever you like. Keep progress notes in task details.
+          actions under up to four goals per year. Choose a task’s timer to
+          start a separate focus session. Set the minutes and begin; stop early
+          whenever you like. Completion stays on the task row.
         </li>
         <li>Type in Unscheduled and press Enter to capture a task.</li>
         <li>
@@ -673,8 +433,9 @@ function Help({ onClose }: { onClose: () => void }) {
           Right to move it a day.
         </li>
         <li>
-          Open a task to edit its notes, pick a date, link it to a goal, make it
-          the day’s main outcome, or read its progress.
+          Open a task to change its title or optional date. Create an action
+          under a goal to link it automatically. Existing notes remain in saved
+          data and exported backups.
         </li>
         <li>
           Unfinished tasks stay on their day. They are listed under From earlier
@@ -693,35 +454,25 @@ const clock = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
 type FocusMode = 'setup' | 'running' | 'review';
-
-// One strip above the board carries the whole loop: set up, run, and review.
 function FocusPanel({
   task,
   session,
-  outcome,
   onStart,
   onStop,
-  onCancel,
   onFinish,
 }: {
   task: Task;
-  session?: PlannerState['focus'];
-  // Title of this task’s goal, if any.
-  outcome: string;
-  onStart: (duration: number, patch: Patch) => void;
+  session: PlannerState['focus'];
+  onStart: (duration: number) => void;
   onStop: () => void;
-  onCancel: () => void;
-  onFinish: (progress: string, completed: boolean, nextStep: string) => void;
+  onFinish: () => void;
 }) {
   const [now, setNow] = useState(Date.now());
   const [minutes, setMinutes] = useState('60');
-  const [nextStep, setNextStep] = useState(task.nextStep ?? '');
-  const [completed, setCompleted] = useState(task.completed);
   const panel = useRef<HTMLElement>(null);
-  const stepRef = useRef<HTMLInputElement>(null);
+  const minutesRef = useRef<HTMLInputElement>(null);
   const finishRef = useRef<HTMLButtonElement>(null);
   const previous = useRef<FocusMode | null>(null);
-  const reviewEdits = useRef({ nextStep: false, completed: false });
   const seconds = session ? remainingSeconds(session, now) : 0;
   const mode: FocusMode = !session
     ? 'setup'
@@ -729,8 +480,7 @@ function FocusPanel({
       ? 'review'
       : 'running';
   const duration = Number(minutes);
-  const validMinutes =
-    Number.isInteger(duration) && duration >= 1 && duration <= 180;
+  const valid = Number.isInteger(duration) && duration >= 1 && duration <= 180;
   useEffect(() => {
     if (mode !== 'running') return;
     const update = () => setNow(Date.now());
@@ -742,36 +492,13 @@ function FocusPanel({
       document.removeEventListener('visibilitychange', update);
     };
   }, [mode]);
-  // Move focus with the loop, but never pull it out of unrelated work when
-  // a timer runs out on its own.
   useEffect(() => {
     const before = previous.current;
     previous.current = mode;
-    if (before === mode) return;
-    const active = document.activeElement;
-    const idle =
-      !active || active === document.body || !!panel.current?.contains(active);
-    if (mode === 'setup') stepRef.current?.focus();
+    if (mode === 'setup') minutesRef.current?.focus();
     else if (mode === 'running' && before === 'setup') panel.current?.focus();
-    else if (mode === 'review') {
-      setCompleted(task.completed);
-      setNextStep(task.nextStep ?? '');
-      if (idle) finishRef.current?.focus();
-    }
+    else if (mode === 'review') finishRef.current?.focus();
   }, [mode]);
-  useEffect(() => {
-    if (mode !== 'review') return;
-    if (!reviewEdits.current.nextStep) setNextStep(task.nextStep ?? '');
-    if (!reviewEdits.current.completed) setCompleted(task.completed);
-  }, [mode, task.nextStep, task.completed]);
-  const begin = (event: FormEvent) => {
-    event.preventDefault();
-    if (!validMinutes) return;
-    const patch: Patch = {};
-    if (nextStep !== (task.nextStep ?? '')) patch.nextStep = nextStep.trim();
-    onStart(duration, patch);
-  };
-  const step = (task.nextStep ?? '').trim();
   return (
     <section
       ref={panel}
@@ -779,135 +506,61 @@ function FocusPanel({
       className={`focus-panel focus-${mode}`}
       aria-label="Focus session"
     >
-      <div className="focus-bar">
-        <div className="focus-summary">
-          <span className="focus-label">
-            <Timer size={13} aria-hidden="true" />
-            {mode === 'setup'
-              ? 'Focus on'
-              : mode === 'running'
-                ? 'Focusing on'
-                : 'Session ended'}
-          </span>
-          <h2 className="focus-task" title={task.title}>
-            {task.title}
-          </h2>
-          {mode === 'running' && step && (
-            <p className="focus-next" title={step}>
-              <span>Next step:</span> {step}
-            </p>
-          )}
-          {outcome && (
-            <p className="focus-outcome" title={outcome}>
-              <Target size={12} aria-hidden="true" />
-              <span>{outcome}</span>
-            </p>
-          )}
-        </div>
-        {mode === 'running' && (
-          <div className="focus-controls">
-            <output aria-label="Time remaining" className="focus-clock">
-              {clock(seconds)}
-            </output>
-            <button
-              className="secondary-button"
-              aria-label="Stop session"
-              onClick={onStop}
-            >
-              Stop
-            </button>
-          </div>
-        )}
-        {mode === 'setup' && (
-          <button className="text-button focus-cancel" onClick={onCancel}>
-            Cancel
-          </button>
-        )}
-      </div>
-      {mode === 'setup' && (
-        <form className="focus-start" onSubmit={begin}>
-          <label className="focus-field focus-step">
-            <span>
-              <span>
-                Next step <span className="optional">Optional</span>
-              </span>
-            </span>
+      <h3 className="focus-task">{task.title}</h3>
+      {mode === 'setup' ? (
+        <form
+          className="focus-start"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (valid) onStart(duration);
+          }}
+        >
+          <label className="field">
+            Minutes
             <input
-              ref={stepRef}
-              maxLength={500}
-              placeholder="What will you do first?"
-              value={nextStep}
-              onChange={(e) => setNextStep(e.target.value)}
-            />
-          </label>
-          <label className="focus-field focus-minutes">
-            <span>Minutes</span>
-            <input
+              ref={minutesRef}
               type="number"
               inputMode="numeric"
               min={1}
               max={180}
               step={1}
               required
-              aria-invalid={!validMinutes}
+              aria-invalid={!valid}
               aria-describedby="focus-minutes-hint"
               value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
+              onChange={(event) => setMinutes(event.target.value)}
             />
           </label>
-          <button className="primary-button" disabled={!validMinutes}>
-            Begin session
-          </button>
           <small
             id="focus-minutes-hint"
-            className={validMinutes ? 'visually-hidden' : 'focus-error'}
+            className={valid ? 'visually-hidden' : 'focus-error'}
           >
             Choose 1 to 180 minutes.
           </small>
-        </form>
-      )}
-      {mode === 'review' && (
-        <form
-          className="focus-review"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onFinish('', completed, nextStep);
-          }}
-        >
-          <p className="visually-hidden" role="status">
-            Session finished. Notes stay on the task.
-          </p>
-          <div className="focus-after">
-            <label className="focus-complete">
-              <input
-                type="checkbox"
-                checked={completed}
-                onChange={(e) => {
-                  reviewEdits.current.completed = true;
-                  setCompleted(e.target.checked);
-                }}
-              />
-              Task complete
-            </label>
-            {!completed && (
-              <label className="focus-field">
-                Next step
-                <textarea
-                  rows={1}
-                  maxLength={500}
-                  value={nextStep}
-                  onChange={(e) => {
-                    reviewEdits.current.nextStep = true;
-                    setNextStep(e.target.value);
-                  }}
-                />
-              </label>
-            )}
-          </div>
-          <button ref={finishRef} className="primary-button">
-            Finish session
+          <button className="primary-button" disabled={!valid}>
+            Begin session
           </button>
         </form>
+      ) : mode === 'running' ? (
+        <div className="focus-running-controls">
+          <output aria-label="Time remaining" className="focus-clock">
+            {clock(seconds)}
+          </output>
+          <button
+            className="secondary-button"
+            aria-label="Stop session"
+            onClick={onStop}
+          >
+            Stop
+          </button>
+        </div>
+      ) : (
+        <div className="focus-review">
+          <p>Session ended.</p>
+          <button ref={finishRef} className="primary-button" onClick={onFinish}>
+            Finish session
+          </button>
+        </div>
       )}
     </section>
   );
@@ -1146,10 +799,6 @@ export default function App() {
         <TaskRow
           key={task.id}
           task={task}
-          goalTitle={
-            (state.goals ?? []).find((goal) => goal.id === task.goalId)
-              ?.title ?? ''
-          }
           goalAction={goalAction}
           dropBefore={
             !!draggingId &&
@@ -1174,8 +823,7 @@ export default function App() {
           onToggle={() => editTask(task.id, { completed: !task.completed })}
           onEdit={() => setEditingId(task.id)}
           onFocus={() => {
-            if (!state.focus) setFocusTaskId(task.id);
-            setEditingId(task.id);
+            setFocusTaskId(task.id);
           }}
           onMoveKey={(key) => onMoveKey(task, key)}
           onDrop={(event) => onDrop(event, task.date, task.id)}
@@ -1250,21 +898,11 @@ export default function App() {
       key={focusTask.id}
       task={focusTask}
       session={state.focus}
-      outcome={
-        (state.goals ?? []).find((goal) => goal.id === focusTask.goalId)
-          ?.title ?? ''
-      }
-      onStart={(duration, patch) => {
+      onStart={(duration) => {
         setState((current) => ({
           ...current,
-          tasks: updateTask(current.tasks, focusTask.id, patch),
-          focus: {
-            taskId: focusTask.id,
-            startedAt: Date.now(),
-            duration,
-          },
+          focus: { taskId: focusTask.id, startedAt: Date.now(), duration },
         }));
-        setFocusTaskId(null);
         announce(`Focus started for ${duration} minutes.`);
       }}
       onStop={() =>
@@ -1283,16 +921,20 @@ export default function App() {
             : current,
         )
       }
-      onCancel={() => {
+      onFinish={() => {
         setFocusTaskId(null);
-      }}
-      onFinish={(progress, completed, nextStep) => {
-        setFocusTaskId(null);
-        setState((current) =>
-          finishFocus(current, progress, completed, nextStep, Date.now()),
-        );
-        // Return to the task so the next step is one keypress away.
+        setState((current) => {
+          const latest = current.tasks.find((task) => task.id === focusTask.id);
+          return finishFocus(
+            current,
+            '',
+            latest?.completed ?? false,
+            latest?.nextStep ?? '',
+            Date.now(),
+          );
+        });
         reveal(focusTask.date);
+        setFocusRequest({ id: focusTask.id, onlyIfLost: false });
         announce('Session saved.');
       }}
     />
@@ -1589,18 +1231,6 @@ export default function App() {
         <DetailPanel
           key={currentTask.id}
           task={currentTask}
-          tasks={state.tasks}
-          today={today}
-          goals={state.goals ?? []}
-          focusContent={focusTask?.id === currentTask.id ? focusContent : null}
-          focusActive={!!state.focus}
-          onFocus={(patch) => {
-            if (patch) {
-              editTask(currentTask.id, patch);
-              if (patch.date !== currentTask.date) reveal(patch.date ?? null);
-            }
-            setFocusTaskId(currentTask.id);
-          }}
           onClose={() => {
             setEditingId(null);
             // A save that moved the task has already asked for focus; keep it.
@@ -1645,6 +1275,17 @@ export default function App() {
             setEditingId(null);
           }}
         />
+      )}
+      {focusTaskId && focusContent && (
+        <Modal
+          title="Focus"
+          onClose={() => {
+            setFocusRequest({ id: focusTaskId, onlyIfLost: false });
+            setFocusTaskId(null);
+          }}
+        >
+          {focusContent}
+        </Modal>
       )}
       {helpOpen && <Help onClose={() => setHelpOpen(false)} />}
     </div>

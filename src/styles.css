@@ -545,20 +545,6 @@ main {
   text-decoration-color: var(--control);
   text-underline-offset: 3px;
 }
-.task-note {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.task-note span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .task-focus {
   display: flex;
   align-items: center;
@@ -577,20 +563,6 @@ main {
   background: var(--hover);
   color: var(--ink);
 }
-.task-labels {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  margin-bottom: 4px;
-}
-.focus-tag {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink);
-}
 .in-focus,
 .in-focus:hover {
   background: var(--accent-soft);
@@ -605,20 +577,6 @@ main {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--on-accent);
-}
-.main-task,
-.main-task:hover {
-  background: var(--tint);
-  box-shadow: inset 2px 0 0 var(--accent);
-  padding-left: 10px;
-}
-.outcome-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink);
 }
 .drop-before::before,
 .drop-end::after {
@@ -698,27 +656,6 @@ dialog {
 dialog::backdrop {
   background: var(--backdrop);
 }
-.detail-panel {
-  position: fixed;
-  inset: 0;
-  width: 600px;
-  max-width: 100vw;
-  height: auto;
-  max-height: calc(100dvh - 64px);
-  margin: auto;
-  padding: 0;
-  border: 0;
-  border-radius: 14px;
-  box-shadow: var(--shadow-dialog);
-  background: var(--paper);
-  overflow-y: auto;
-}
-.detail-content {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  padding: 24px 28px 28px;
-}
 .panel-header {
   display: flex;
   align-items: center;
@@ -728,12 +665,6 @@ dialog::backdrop {
 .panel-header h2 {
   font-size: 16px;
   font-weight: 600;
-}
-.detail-form {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 22px;
 }
 .field {
   display: flex;
@@ -765,65 +696,7 @@ dialog::backdrop {
   font-weight: 400;
   color: var(--muted);
 }
-.quick-dates {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-weight: 400;
-}
-.main-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  background: var(--tint);
-  cursor: pointer;
-}
-.main-option input {
-  width: 16px;
-  height: 16px;
-  margin: 2px 0 0;
-}
-.main-option strong {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-}
-.main-option small {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--muted);
-}
 /* The footer stays in reach while long notes or history scroll. */
-.panel-footer {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-  margin: 8px -28px -28px;
-  padding: 16px 28px 20px;
-  border-top: 1px solid var(--rule);
-  background: var(--paper);
-}
-.footer-note {
-  flex-basis: 100%;
-}
-.footer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.panel-footer .secondary-button {
-  padding: 9px 14px;
-  font-size: 14px;
-}
 .delete-button {
   padding: 8px 0;
   border: 0;
@@ -983,9 +856,6 @@ dialog::backdrop {
   .earlier-open {
     font-size: 15px;
   }
-  .task-note {
-    font-size: 13px;
-  }
   .add-task {
     padding: 12px 6px;
     font-size: 14px;
@@ -994,18 +864,6 @@ dialog::backdrop {
   .field input,
   .field textarea {
     font-size: 16px;
-  }
-  .detail-panel {
-    width: calc(100vw - 24px);
-    max-height: calc(100dvh - 24px);
-    border-left: 0;
-  }
-  .detail-content {
-    padding: 16px 16px 20px;
-  }
-  .panel-footer {
-    margin: auto -16px -20px;
-    padding: 12px 16px 16px;
   }
   .toast-region {
     bottom: 16px;
@@ -1018,233 +876,85 @@ dialog::backdrop {
   }
 }
 
-/* Focus loop */
-/* The panel never takes more than half the window, so the board stays
-   usable and the review form scrolls into reach on short screens. */
-.focus-panel {
-  flex-shrink: 0;
-  max-height: 50dvh;
-  overflow-y: auto;
-  padding: 14px 24px 16px;
-  border-bottom: 1px solid var(--rule);
-  background: var(--rail);
+/* Separate, compact task and focus dialogs. */
+.task-editor {
+  display: grid;
+  gap: 20px;
 }
-.focus-panel:focus {
-  outline: 0;
+.task-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule-soft);
+}
+.clear-date {
+  justify-self: start;
+  margin-top: -12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.clear-date:hover {
+  color: var(--ink);
+}
+.focus-panel {
+  outline: none;
 }
 .focus-panel:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: -2px;
-}
-.focus-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.focus-summary {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 12px;
-  min-width: 0;
-}
-.focus-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.focus-label svg {
-  align-self: center;
-}
-.focus-task,
-.focus-next,
-.focus-outcome {
-  display: -webkit-box;
-  min-width: 0;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  outline-offset: 4px;
 }
 .focus-task {
-  max-width: 60ch;
-  font-size: 15px;
-  font-weight: 600;
+  margin: 0 0 24px;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
 }
-.focus-next,
-.focus-outcome {
-  max-width: 60ch;
-  font-size: 13px;
-  color: var(--muted);
+.focus-start {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
 }
-.focus-next span {
-  font-weight: 600;
+.focus-start .field input {
+  max-width: 120px;
 }
-.focus-outcome svg {
-  margin-right: 4px;
-  vertical-align: -1px;
+.focus-start .focus-error {
+  grid-column: 1 / -1;
+  order: 3;
+  color: var(--danger);
+  font-size: 12px;
 }
-.focus-controls {
+.focus-running-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  gap: 24px;
 }
 .focus-clock {
-  font-size: 22px;
+  font-size: 44px;
   font-weight: 500;
-  letter-spacing: -0.3px;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
-.focus-cancel {
-  flex-shrink: 0;
-}
-.focus-start,
 .focus-review {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px 16px;
-  margin-top: 12px;
-}
-.focus-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.focus-field input,
-.focus-field textarea {
-  width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--rule);
-  border-radius: 7px;
-  background: var(--paper);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.4;
-}
-.focus-field textarea {
-  resize: vertical;
-}
-.focus-step {
-  flex: 1 1 280px;
-  max-width: 520px;
-}
-.focus-minutes input {
-  width: 84px;
-  font-variant-numeric: tabular-nums;
-}
-.focus-minutes input[aria-invalid='true'] {
-  border-color: var(--danger);
-}
-.focus-start .primary-button,
-.focus-review .primary-button {
-  padding: 9px 16px;
-}
-.focus-error {
-  flex-basis: 100%;
-  font-size: 12px;
-  color: var(--danger);
-}
-.focus-after {
-  display: flex;
-  flex: 0 1 300px;
-  flex-direction: column;
-  gap: 8px;
-}
-.focus-complete {
-  display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  cursor: pointer;
+  justify-content: space-between;
+  gap: 16px;
 }
-.progress-history h3 {
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.progress-history article {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--rule-soft);
-}
-.progress-history p {
-  margin: 0 0 4px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.progress-history small {
-  font-size: 12px;
+.focus-review p {
   color: var(--muted);
 }
-.field select {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid var(--rule);
-  border-radius: 7px;
-  background: var(--paper);
-  color: inherit;
-  font: inherit;
-  font-weight: 400;
-}
-@media (max-height: 640px) and (min-width: 761px) {
-  .focus-panel {
-    max-height: 60dvh;
-  }
-}
-@media (max-width: 760px) {
-  .focus-panel {
-    max-height: none;
-    overflow: visible;
-    padding: 10px 12px 12px;
-  }
-  /* A running timer stays in view while the day list scrolls. */
-  .focus-running {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-  }
-  .focus-bar {
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .focus-clock {
-    font-size: 20px;
-  }
-  .focus-field input,
-  .focus-field textarea {
-    font-size: 16px;
-  }
-  .focus-step,
-  .focus-after {
-    flex-basis: 100%;
-    max-width: none;
-  }
-  .task-focus {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    margin: -8px -6px -8px 0;
-  }
-}
-
-/* Session controls belong to the task, never above the calendar. */
-.detail-panel .focus-panel {
-  position: static;
-  max-height: none;
-  overflow: visible;
-  margin-top: 20px;
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-}
-
 .task-focus.timer-active,
 .task-focus.timer-finished {
   width: auto;
@@ -1269,20 +979,6 @@ dialog::backdrop {
   background: var(--hover);
   color: var(--ink);
 }
-.detail-form {
-  gap: 22px;
-}
-.field {
-  gap: 8px;
-}
-.detail-content .title-input {
-  font-size: 20px;
-  line-height: 1.4;
-}
-.progress-history {
-  padding-top: 4px;
-}
-
 @container (max-width: 140px) {
   .task-row:has(.timer-active),
   .task-row:has(.timer-finished) {
@@ -1295,6 +991,14 @@ dialog::backdrop {
   .task-focus.timer-active,
   .task-focus.timer-finished {
     margin-left: auto;
+  }
+}
+@media (max-width: 760px) {
+  .task-focus {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    margin: -8px -6px -8px 0;
   }
 }
 
@@ -1414,11 +1118,6 @@ dialog::backdrop {
   border-top: 0;
   border-radius: 5px;
 }
-.month-day .task-labels,
-.month-day .task-note,
-.month-day .task-goal {
-  display: none;
-}
 .month-day .task-row {
   gap: 4px;
 }
@@ -1481,8 +1180,7 @@ dialog::backdrop {
   padding: 2px 6px;
   margin: -2px -2px 0 2px;
 }
-.month-day .in-focus,
-.month-day .main-task {
+.month-day .in-focus {
   padding-left: 6px;
   box-shadow: inset 2px 0 0 var(--accent);
 }
@@ -1504,16 +1202,6 @@ dialog::backdrop {
 .month-day .add-task:hover {
   background: var(--hover);
   color: var(--ink);
-}
-
-.task-goal {
-  display: block;
-  margin-top: 4px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 /* Year: twelve quiet calendars on one page. */
@@ -1684,9 +1372,6 @@ dialog::backdrop {
   border-bottom: 1px solid var(--rule-soft);
   border-top: 0;
   border-left-color: transparent;
-}
-.goal-action .task-labels {
-  display: none;
 }
 .goal-action .task-text {
   display: flex;
