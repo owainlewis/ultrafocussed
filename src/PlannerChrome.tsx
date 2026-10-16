@@ -39,7 +39,7 @@ export function PlannerHeader({
     <header className="app-header">
       <div className="app-identity">
         <Layers size={19} aria-hidden="true" />
-        <span>ultrafocussed</span>
+        <span>UltraFocussed</span>
       </div>
       <nav className="planner-tabs" aria-label="Planner view">
         {(['today', 'month', 'year', 'goals'] as const).map((mode) => (
