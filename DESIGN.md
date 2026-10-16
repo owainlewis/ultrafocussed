@@ -4,17 +4,15 @@ Ultrafocussed is an Operate surface. The work leads: dates, tasks, and goal chec
 
 ## Structure
 
-The app header contains the identity, Today/Month/Year/Goals tabs, backup controls, theme toggle, and help. The selected tab has a short underline. A separate, attached toolbar contains the period title, previous/next, Today, and the current view's primary action. Add goal belongs here, never in a detached content band. Only failed saves need a persistent status message.
+The app header contains the identity, Tasks/Month/Year/Goals tabs, backup controls, theme toggle, and help. The selected tab has a short underline. A separate, attached toolbar contains the period title, previous/next, Today, and the current view's primary action. Add goal belongs here, never in a detached content band. Only failed saves need a persistent status message.
 
-On phones, navigation tabs occupy a second header row. Period controls stay grouped. Unscheduled becomes an explicit full-width toggle in the toolbar. Main views have no horizontal page scrolling.
+On phones, navigation tabs occupy a second header row. Period controls stay grouped. Main views have no horizontal page scrolling.
 
 ## Views
 
-Today is a single, contained checklist with inline quick capture above the task rows. It shows only tasks dated today, including completed tasks in place, and uses the shared task row, completion, editing, focus and ordering behavior. Capture assigns the current local date. No sidebar, counters, repeated headings or new task model. The toolbar shows the current date without period navigation. The midnight hook updates both the list and capture date. Finishing focus stays in Today.
+Tasks is the default screen: one contained list with quick capture above the rows. Capture creates a task without a date. All existing tasks remain here, including dated, past and completed tasks. Each row shows completion, title, Add date or the scheduled date, and a separate focus action. Date editing uses the existing two-field modal. Scheduling, clearing dates and finishing focus keep the list in place. No counters, filters, sidebar, repeated visible heading or detached action band. The main heading is available to screen readers. Keyboard Up/Down reorders the complete list without changing dates; dragging remains limited to the calendar.
 
-Month has an Unscheduled rail on desktop and a Monday-to-Sunday calendar. Date cells have a compact plus control for task creation, visible keyboard focus, and readable task rows. Today has a filled date circle. Past dates have a distinct neutral fill in both themes, with editable tasks. The date boundary advances at local midnight and when the window regains focus. Spillover dates are quieter than the active month.
-
-On mobile, select a date in the compact month grid to see its tasks below. Tasks render once. Unscheduled opens separately.
+Month is a full-width Monday-to-Sunday calendar with no Unscheduled rail or From earlier section. Date cells have a compact plus control for task creation, visible keyboard focus, and readable task rows. Today has a filled date circle. Past dates have a distinct neutral fill in both themes, with editable tasks. The date boundary advances at local midnight and when the window regains focus. Spillover dates are quieter than the active month. On mobile, select a date in the compact month grid to see its tasks below. Tasks render once. Clearing a calendar task’s date opens Tasks.
 
 Year uses twelve aligned six-row calendars, four columns on wide screens, three at intermediate widths, two on tablets, and one on narrow phones. Month titles and dates open Month. Planned and completed task markers remain distinct.
 
@@ -24,7 +22,7 @@ Goals has up to four title-and-checklist sections for the year. Each section has
 
 PlannerHeader owns application navigation and utilities. PlannerToolbar owns period navigation and view actions. Modal provides native focus trapping, labelled headings, Escape handling, and focus restoration. Goal creation/rename and calendar task creation use this shared component.
 
-Task editing uses the shared Modal and contains only a title and optional date, with Clear date when scheduled. Delete and Save share a footer. Saving patches only title and date; existing notes, progress notes, goal links, main outcomes and session history remain in saved data and backups. Unsaved edits require an explicit Keep editing or Discard changes decision. Saving a changed date follows the task and returns focus to it. Task rows omit old note previews and main-outcome labels.
+Task editing uses the shared Modal and contains only a title and optional date, with Clear date when scheduled. Delete and Save share a footer. Saving patches only title and date; existing notes, progress notes, goal links, main outcomes and session history remain in saved data and backups. Unsaved edits require an explicit Keep editing or Discard changes decision. Saving a changed date returns focus to the task. Tasks keeps its list in place; calendar edits follow the new date or open Tasks when clearing it. Task rows omit old note previews and main-outcome labels.
 
 Focus is a separate timer action on every eligible task row, including Goals. It opens its own Modal with only Minutes and Begin. A running timer offers Stop, and an ended timer offers Finish session. Closing the modal does not stop the session; the task row reopens it. Reloads never open a focus dialog automatically. Completion stays on the row and is preserved when finishing. No next-step or notes fields appear in focus. Keyboard moves, backup recovery, cross-tab updates and Undo remain supported. No automatic rollover, scores, sounds or streaks.
 

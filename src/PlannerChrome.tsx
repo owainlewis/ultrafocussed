@@ -12,7 +12,7 @@ import {
 import type { ReactNode } from 'react';
 import type { Theme } from './useTheme';
 
-export type PlannerView = 'today' | 'year' | 'month' | 'goals';
+export type PlannerView = 'tasks' | 'year' | 'month' | 'goals';
 
 export function PlannerHeader({
   view,
@@ -42,14 +42,14 @@ export function PlannerHeader({
         <span>UltraFocussed</span>
       </div>
       <nav className="planner-tabs" aria-label="Planner view">
-        {(['today', 'month', 'year', 'goals'] as const).map((mode) => (
+        {(['tasks', 'month', 'year', 'goals'] as const).map((mode) => (
           <button
             key={mode}
             aria-pressed={view === mode}
             onClick={() => onView(mode)}
           >
-            {mode === 'today'
-              ? 'Today'
+            {mode === 'tasks'
+              ? 'Tasks'
               : mode === 'month'
                 ? 'Month'
                 : mode === 'year'
@@ -121,7 +121,7 @@ export function PlannerToolbar({
     <div className="planner-toolbar">
       <div className="period-controls">
         <h1>{title}</h1>
-        {view !== 'today' && (
+        {view !== 'tasks' && (
           <>
             <div className="period-buttons">
               <button

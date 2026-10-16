@@ -35,7 +35,7 @@ import {
   PlannerToolbar,
   type PlannerView,
 } from './PlannerChrome';
-import { TodayView } from './TodayView';
+import { TasksView } from './TasksView';
 import { useTheme } from './useTheme';
 import { useToday } from './useToday';
 
@@ -48,6 +48,11 @@ const shortDate = new Intl.DateTimeFormat(undefined, {
   weekday: 'short',
   day: 'numeric',
   month: 'short',
+});
+const plannedDate = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
 });
 const MOVE_KEYS = 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight';
 
@@ -96,7 +101,7 @@ function useModal(
 
 function CaptureField({
   onAdd,
-  label = 'New task for unscheduled',
+  label = 'New task',
   placeholder = 'Capture a task',
 }: {
   onAdd: (title: string) => void;
@@ -214,6 +219,7 @@ function TaskRow({
   dropBefore,
   focus,
   goalAction,
+  showDate,
   seconds,
   onToggle,
   onEdit,
@@ -230,8 +236,9 @@ function TaskRow({
   focus: 'available' | 'active' | 'finished' | 'none';
   seconds: number;
   goalAction: boolean;
+  showDate: boolean;
   onToggle: () => void;
-  onEdit: () => void;
+  onEdit: (dateFirst?: boolean) => void;
   onFocus: () => void;
   onMoveKey: (key: string) => void;
   onDrop: (event: DragEvent) => void;
@@ -242,11 +249,11 @@ function TaskRow({
   return (
     <li
       className={`task ${task.completed ? 'completed' : ''} ${focus === 'active' ? 'in-focus' : ''} ${dropBefore ? 'drop-before' : ''} ${goalAction ? 'goal-action' : ''}`}
-      draggable={!goalAction}
-      onDragStart={goalAction ? undefined : onDragStart}
+      draggable={!goalAction && !showDate}
+      onDragStart={goalAction || showDate ? undefined : onDragStart}
       onDragEnd={onDragEnd}
-      onDragOver={goalAction ? undefined : onDragOver}
-      onDrop={goalAction ? undefined : onDrop}
+      onDragOver={goalAction || showDate ? undefined : onDragOver}
+      onDrop={goalAction || showDate ? undefined : onDrop}
     >
       <div className="task-row">
         <button
@@ -264,7 +271,7 @@ function TaskRow({
             data-task-id={task.id}
             aria-keyshortcuts={MOVE_KEYS}
             aria-describedby="move-hint"
-            onClick={onEdit}
+            onClick={() => onEdit()}
             onKeyDown={(e: KeyboardEvent) => {
               if (!e.altKey || !e.key.startsWith('Arrow')) return;
               e.preventDefault();
@@ -274,6 +281,15 @@ function TaskRow({
             {task.title}
           </button>
         </div>
+        {showDate && (
+          <button
+            className="task-date"
+            aria-label={`Edit date for ${task.title}`}
+            onClick={() => onEdit(true)}
+          >
+            {task.date ? plannedDate.format(parseDate(task.date)) : 'Add date'}
+          </button>
+        )}
         {focus !== 'none' && (
           <button
             className={`task-focus ${focus === 'active' ? 'timer-active' : focus === 'finished' ? 'timer-finished' : ''}`}
@@ -314,8 +330,10 @@ function DetailPanel({
   onChange,
   onClose,
   onDelete,
+  dateFirst,
 }: {
   task: Task;
+  dateFirst: boolean;
   onChange: (patch: Patch) => void;
   onClose: () => void;
   onDelete: () => void;
@@ -337,7 +355,11 @@ function DetailPanel({
     else onClose();
   };
   return (
-    <Modal title="Task details" onClose={close}>
+    <Modal
+      title="Task details"
+      onClose={close}
+      initialFocus={dateFirst ? 'input[type="date"]' : undefined}
+    >
       <form
         className="task-editor"
         onSubmit={(event) => {
@@ -434,13 +456,13 @@ function Help({ onClose }: { onClose: () => void }) {
       </header>
       <ul>
         <li>
-          Use Today to work through today’s tasks, Year for an overview, Month
-          to schedule work, and Goals to list actions under up to four goals per
-          year. Choose a task’s timer to start a separate focus session. Set the
-          minutes and begin; stop early whenever you like. Completion stays on
-          the task row.
+          Use Tasks to capture work before scheduling it, Year for an overview,
+          Month to schedule work, and Goals to list actions under up to four
+          goals per year. Choose a task’s timer to start a separate focus
+          session. Set the minutes and begin; stop early whenever you like.
+          Completion stays on the task row.
         </li>
-        <li>Type in Unscheduled and press Enter to capture a task.</li>
+        <li>Type in Tasks and press Enter to capture an unscheduled task.</li>
         <li>
           Drag a task to another day or position. With the keyboard, focus a
           task and press Alt (Option) with Up or Down to reorder, or Left or
@@ -452,8 +474,9 @@ function Help({ onClose }: { onClose: () => void }) {
           data and exported backups.
         </li>
         <li>
-          Unfinished tasks stay on their day. They are listed under From earlier
-          until you move, finish, or delete them.
+          All tasks stay in Tasks, including scheduled and completed work.
+          Adding a date also puts a task on the calendar. Unfinished tasks stay
+          on their date until you change it.
         </li>
       </ul>
       <p className="help-storage">
@@ -589,10 +612,10 @@ export default function App() {
   const [readError, setReadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(false);
   const [month, setMonth] = useState(() => monthStart(new Date()));
-  const [view, setView] = useState<PlannerView>('month');
+  const [view, setView] = useState<PlannerView>('tasks');
   const [selectedDay, setSelectedDay] = useState(() => dateKey(new Date()));
-  const [inboxOpen, setInboxOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingDateFirst, setEditingDateFirst] = useState(false);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -608,11 +631,6 @@ export default function App() {
   const today = useToday();
   const days = monthDays(month);
   const currentTask = state.tasks.find((task) => task.id === editingId);
-  const unscheduled = state.tasks.filter((task) => task.date === null);
-  const openUnscheduled = unscheduled.filter((task) => !task.completed).length;
-  const earlier = state.tasks.filter(
-    (task) => task.date !== null && task.date < today && !task.completed,
-  );
   const visibleDays = days;
   const focusTask = state.tasks.find(
     (task) => task.id === (state.focus?.taskId ?? focusTaskId),
@@ -694,23 +712,18 @@ export default function App() {
   const goToday = () => {
     setMonth(monthStart(new Date()));
     setSelectedDay(today);
-    setInboxOpen(false);
   };
   const showDate = (date: string) => {
     const day = parseDate(date);
     setMonth(monthStart(day));
     setView('month');
     setSelectedDay(date);
-    setInboxOpen(false);
   };
-  // Like showDate, but also opens the Unscheduled rail on mobile.
+  // Keep the full task list in place; calendar edits follow their new date.
   const reveal = (date: string | null) => {
-    if (view === 'today' && date === today) return;
+    if (view === 'tasks') return;
     if (date) showDate(date);
-    else {
-      setView('month');
-      setInboxOpen(true);
-    }
+    else setView('tasks');
   };
   const moveTo = (task: Task, date: string | null, follow: boolean) => {
     const moved = moveTask(state.tasks, task.id, date);
@@ -724,14 +737,18 @@ export default function App() {
     if (task.main && !kept)
       announce(`Moved to ${label}. That day already has a main outcome.`, true);
     else announce(`Moved to ${label}.`, outOfView);
-    if (follow && date) showDate(date);
+    if (follow && date && view !== 'tasks') showDate(date);
     setFocusRequest({ id: task.id, onlyIfLost: !follow });
   };
   const reorder = (id: string, direction: -1 | 1) => {
     const task = state.tasks.find((item) => item.id === id);
     if (!task) return false;
     const siblings = state.tasks.filter((item) =>
-      view === 'goals' ? item.goalId === task.goalId : item.date === task.date,
+      view === 'tasks'
+        ? true
+        : view === 'goals'
+          ? item.goalId === task.goalId
+          : item.date === task.date,
     );
     const neighbour =
       siblings[siblings.findIndex((item) => item.id === id) + direction];
@@ -815,6 +832,7 @@ export default function App() {
           key={task.id}
           task={task}
           goalAction={goalAction}
+          showDate={view === 'tasks'}
           dropBefore={
             !!draggingId &&
             draggingId !== task.id &&
@@ -836,7 +854,10 @@ export default function App() {
               : 0
           }
           onToggle={() => editTask(task.id, { completed: !task.completed })}
-          onEdit={() => setEditingId(task.id)}
+          onEdit={(dateFirst = false) => {
+            setEditingDateFirst(dateFirst);
+            setEditingId(task.id);
+          }}
           onFocus={() => {
             setFocusTaskId(task.id);
           }}
@@ -955,75 +976,12 @@ export default function App() {
     />
   );
 
-  const inbox: ReactNode = (
-    <aside
-      className={`inbox ${inboxOpen ? 'mobile-open' : ''} ${draggingId && dropTarget?.date === null ? 'drop-active' : ''}`}
-      aria-label="Unscheduled tasks"
-      {...dropProps(null)}
-    >
-      {earlier.length > 0 && (
-        <section className="earlier" aria-labelledby="earlier-title">
-          <h2 id="earlier-title">
-            From earlier <span className="count">{earlier.length}</span>
-          </h2>
-          <p>Unfinished on a past day. Move, finish, or delete.</p>
-          <ul>
-            {earlier.map((task) => (
-              <li
-                key={task.id}
-                className="earlier-task"
-                draggable
-                onDragStart={(event) => dragStart(event, task.id)}
-                onDragEnd={clearDrag}
-              >
-                <button
-                  className="earlier-open"
-                  aria-label={`Open ${task.title}, from ${shortDate.format(parseDate(task.date!))}`}
-                  onClick={() => setEditingId(task.id)}
-                >
-                  {task.title}
-                  <small>{shortDate.format(parseDate(task.date!))}</small>
-                </button>
-                <button
-                  className="chip"
-                  aria-label={`Move ${task.title} to today`}
-                  onClick={() => moveTo(task, today, false)}
-                >
-                  Today
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      <div className="inbox-heading">
-        <h2>
-          Unscheduled <span className="count">{openUnscheduled}</span>
-        </h2>
-        <button
-          className="icon-button inbox-close"
-          aria-label="Close unscheduled"
-          onClick={() => setInboxOpen(false)}
-        >
-          <X size={17} />
-        </button>
-      </div>
-      <CaptureField onAdd={(title) => addTask(title, null)} />
-      {unscheduled.length > 0 ? (
-        renderList(unscheduled, null)
-      ) : (
-        <p className="empty-note">Nothing unscheduled.</p>
-      )}
-    </aside>
-  );
-
   return (
     <div className="app-shell">
       <PlannerHeader
         view={view}
         onView={(mode) => {
           setView(mode);
-          setInboxOpen(false);
         }}
         theme={theme}
         onTheme={toggleTheme}
@@ -1033,47 +991,30 @@ export default function App() {
         readError={readError}
         saveError={saveError}
       />
-      <PlannerToolbar
-        view={view}
-        title={
-          view === 'today'
-            ? new Intl.DateTimeFormat(undefined, {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-              }).format(parseDate(today))
-            : view === 'month'
+      {view !== 'tasks' && (
+        <PlannerToolbar
+          view={view}
+          title={
+            view === 'month'
               ? new Intl.DateTimeFormat(undefined, {
                   month: 'long',
                   year: 'numeric',
                 }).format(month)
               : month.getFullYear()
-        }
-        onToday={goToday}
-        onPeriod={goPeriod}
-        onAddGoal={
-          view === 'goals' &&
-          !readError &&
-          (state.goals ?? []).filter(
-            (goal) => goal.year === month.getFullYear(),
-          ).length < 4
-            ? () => setCreatingGoal(true)
-            : undefined
-        }
-      >
-        {view === 'month' && (
-          <button
-            className="mobile-inbox-button"
-            aria-expanded={inboxOpen}
-            onClick={() => setInboxOpen(!inboxOpen)}
-          >
-            Unscheduled <span className="count">{openUnscheduled}</span>
-            {earlier.length > 0 && (
-              <span className="earlier-flag">{earlier.length} earlier</span>
-            )}
-          </button>
-        )}
-      </PlannerToolbar>
+          }
+          onToday={goToday}
+          onPeriod={goPeriod}
+          onAddGoal={
+            view === 'goals' &&
+            !readError &&
+            (state.goals ?? []).filter(
+              (goal) => goal.year === month.getFullYear(),
+            ).length < 4
+              ? () => setCreatingGoal(true)
+              : undefined
+          }
+        />
+      )}
       {(readError || saveError) && (
         <div className="storage-error" role="alert">
           <span>
@@ -1102,51 +1043,34 @@ export default function App() {
           className={`planner-content war-map-content view-${view}`}
           disabled={readError}
         >
-          {view === 'today' ? (
-            <TodayView
-              capture={
-                <CaptureField
-                  label="New task for today"
-                  placeholder="Add a task for today"
-                  onAdd={(title) => addTask(title, today)}
-                />
-              }
-              empty={!state.tasks.some((task) => task.date === today)}
-              dropProps={dropProps(today)}
+          {view === 'tasks' ? (
+            <TasksView
+              capture={<CaptureField onAdd={(title) => addTask(title, null)} />}
+              empty={state.tasks.length === 0}
             >
-              {renderList(
-                state.tasks.filter((task) => task.date === today),
-                today,
-              )}
-            </TodayView>
+              {renderList(state.tasks, null)}
+            </TasksView>
           ) : view === 'month' ? (
-            <div className="board month-board">
-              {inbox}
-              <div
-                className={
-                  inboxOpen ? 'month-calendar mobile-hidden' : 'month-calendar'
-                }
-              >
-                <MonthView
-                  month={month}
-                  tasks={state.tasks}
-                  selected={selectedDay}
-                  onSelect={setSelectedDay}
-                  dropProps={dropProps}
-                  renderDay={(day) => {
-                    const key = dateKey(day);
-                    return (
-                      <>
-                        {renderList(
-                          state.tasks.filter((task) => task.date === key),
-                          key,
-                        )}
-                        <DayComposer date={key} onAdd={addTask} />
-                      </>
-                    );
-                  }}
-                />
-              </div>
+            <div className="month-calendar">
+              <MonthView
+                month={month}
+                tasks={state.tasks}
+                selected={selectedDay}
+                onSelect={setSelectedDay}
+                dropProps={dropProps}
+                renderDay={(day) => {
+                  const key = dateKey(day);
+                  return (
+                    <>
+                      {renderList(
+                        state.tasks.filter((task) => task.date === key),
+                        key,
+                      )}
+                      <DayComposer date={key} onAdd={addTask} />
+                    </>
+                  );
+                }}
+              />
             </div>
           ) : view === 'year' ? (
             <YearView
@@ -1269,6 +1193,7 @@ export default function App() {
         <DetailPanel
           key={currentTask.id}
           task={currentTask}
+          dateFirst={editingDateFirst}
           onClose={() => {
             setEditingId(null);
             // A save that moved the task has already asked for focus; keep it.

@@ -7,11 +7,13 @@ export function Modal({
   description,
   onClose,
   children,
+  initialFocus = 'input, textarea, select',
 }: {
   title: string;
   description?: string;
   onClose: () => void;
   children: ReactNode;
+  initialFocus?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef(document.activeElement);
@@ -20,7 +22,7 @@ export function Modal({
   useEffect(() => {
     const dialog = ref.current;
     dialog?.showModal();
-    dialog?.querySelector<HTMLElement>('input, textarea, select')?.focus();
+    dialog?.querySelector<HTMLElement>(initialFocus)?.focus();
     return () => {
       if (dialog?.open) dialog.close?.();
       if (opener.current instanceof HTMLElement && opener.current.isConnected)

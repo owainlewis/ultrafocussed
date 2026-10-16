@@ -18,21 +18,21 @@ npm run build
 npm run preview
 ```
 
-## Today, Year, Month, Goals
+## Tasks, Year, Month, Goals
 
-Today is a simple checklist of tasks scheduled for the current local date, including completed tasks. Capture a task and press Enter to schedule it for today. Completion, focus, edits and history use the same tasks as Month and Goals. The list and capture date update at midnight.
+Tasks is the default view for capturing work before scheduling it. Press Enter to add an unscheduled task. Every task remains in this list, including scheduled, past and completed work. Choose Add date or the displayed date to open the two-field task editor. Scheduling puts the same task on the calendar and keeps you in Tasks. Clear its date to remove it from the calendar without removing it from the list.
 
-Month is the default view. Desktop shows a Monday-to-Sunday month with tasks in each date cell and an Unscheduled rail. On mobile, select a date in the compact grid to see that day's tasks below it. All weekends stay visible.
+Month shows a full-width Monday-to-Sunday calendar. On mobile, select a date in the compact grid to see that day's tasks below it. All weekends stay visible. There is no separate Unscheduled rail.
 
 Year shows twelve months with markers for planned and completed actions. Choose a month or date to open Month. Navigation arrows step through months in Month and years in Year/Goals. Today returns to the current period.
 
 Goals supports up to four goals per year. Choose Add goal to name an outcome in a dialog, list its actions, then open an action to give it a date in task details. It is the same task in Goals and Month: completion, dates and timer history stay in sync. Existing notes are preserved in saved data and backups. Rename a goal without changing its action links. Removing a goal asks for confirmation and keeps all actions and dates.
 
-Task editing has just a title and an optional date. Clear the date to return a task to Unscheduled. Completion stays on the task row. Actions created under a goal are linked automatically. Existing notes, progress notes, goal links and session history are retained when editing. Capture tasks in Unscheduled or use a day’s plus button to add one in a dialog. Drag between days in Month, or use Alt (Option) with Left/Right to move a date and Up/Down to reorder. In Goals, Up/Down reorders that goal's actions across dates; dragging is disabled there.
+Task editing has just a title and an optional date. Clear the date to make a task unscheduled. Completion stays on the task row. Actions created under a goal are linked automatically. Existing notes, progress notes, goal links and session history are retained when editing. Capture work in Tasks or use a day’s plus button to add one in a dialog. Drag between days in Month, or use Alt (Option) with Left/Right to move a date and Up/Down to reorder. In Goals, Up/Down reorders that goal's actions across dates; dragging is disabled there.
 
 Focus is a separate timer action on the task row. Its dialog asks only for minutes, defaulting to 60 and accepting 1 to 180. Stop early or let the timer expire, then finish the session. Closing the dialog keeps an active session running; its row timer reopens it. Reloads preserve sessions without opening dialogs. Finishing records time without changing completion or asking for notes. Recorded time is capped at the planned duration. No scores, streaks, sounds or daily-hour target.
 
-Unfinished tasks stay on their date and appear in From earlier. Nothing automatically rolls forward. Complete and reopen tasks; Delete offers Undo.
+Unfinished tasks stay on their date and remain visible in Tasks. Nothing automatically rolls forward. Complete and reopen tasks; Delete offers Undo.
 
 ## Appearance
 

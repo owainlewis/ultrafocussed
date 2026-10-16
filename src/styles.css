@@ -349,37 +349,8 @@ main {
   padding: 0;
   border: 0;
 }
-.planner-content:disabled .board {
-  opacity: 0.55;
-}
 
 /* Board */
-.board {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
-}
-.inbox {
-  min-width: 0;
-  overflow-y: auto;
-  padding: 24px 18px 32px;
-  border-right: 1px solid var(--rule);
-  background: var(--rail);
-}
-.inbox-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.inbox-heading h2,
-.earlier h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-}
 .capture {
   display: flex;
   align-items: center;
@@ -415,49 +386,6 @@ main {
 .empty-note {
   padding: 6px 2px;
   font-size: 13px;
-  color: var(--muted);
-}
-.earlier {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--rule);
-}
-.earlier > p {
-  margin: 4px 0 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.earlier ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.earlier-task {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-top: 1px solid var(--rule-soft);
-  cursor: grab;
-}
-.earlier-open {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  text-align: left;
-  font-size: 14px;
-  overflow-wrap: anywhere;
-}
-.earlier-open:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.earlier-open small {
-  display: block;
-  margin-top: 1px;
-  font-size: 12px;
   color: var(--muted);
 }
 .chip {
@@ -644,10 +572,6 @@ main {
 .secondary-button:hover:not(:disabled) {
   background: var(--hover);
 }
-.mobile-inbox-button,
-.inbox-close {
-  display: none;
-}
 
 /* Dialogs */
 dialog {
@@ -781,11 +705,6 @@ dialog::backdrop {
 }
 
 /* Responsive */
-@media (max-width: 1280px) {
-  .board {
-    grid-template-columns: 236px minmax(0, 1fr);
-  }
-}
 @media (max-width: 1100px) {
   .month-date small {
     display: none;
@@ -802,58 +721,16 @@ dialog::backdrop {
     height: auto;
     min-height: 100dvh;
   }
-
-  .mobile-inbox-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
-    border: 1px solid var(--rule);
-    border-radius: 7px;
-    background: var(--paper);
-    font-size: 14px;
-  }
-  .mobile-inbox-button[aria-expanded='true'] {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--on-accent);
-  }
-  .mobile-inbox-button[aria-expanded='true'] .count {
-    background: var(--control);
-    color: var(--on-accent);
-  }
-  .earlier-flag {
-    font-size: 12px;
-    font-weight: 600;
-  }
   .storage-error {
     margin: 10px 12px 0;
   }
   .planner-content {
     flex: none;
   }
-  .board {
-    display: block;
-    background: transparent;
-  }
-  .inbox {
-    display: none;
-    overflow: visible;
-    padding: 12px 12px 96px;
-    border-right: 0;
-    background: transparent;
-  }
-  .inbox.mobile-open {
-    display: block;
-  }
-  .inbox-close {
-    display: inline-flex;
-  }
   .task {
     padding: 11px 6px;
   }
-  .task-title,
-  .earlier-open {
+  .task-title {
     font-size: 15px;
   }
   .add-task {
@@ -1013,12 +890,6 @@ dialog::backdrop {
 }
 
 /* Month: the grid fills the window; rows share the height evenly. */
-.month-board {
-  min-height: 100%;
-}
-.month-board .inbox {
-  max-height: 100%;
-}
 .month-calendar {
   display: flex;
   flex-direction: column;
@@ -1479,9 +1350,6 @@ dialog::backdrop {
   .goals-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .month-board {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
   .month-grid {
     grid-auto-rows: minmax(108px, 1fr);
   }
@@ -1489,18 +1357,6 @@ dialog::backdrop {
 @media (max-width: 760px) {
   .war-map-content {
     overflow: visible;
-  }
-  .month-board {
-    display: block;
-  }
-  .month-board .inbox {
-    display: none;
-  }
-  .month-board .inbox.mobile-open {
-    display: block;
-  }
-  .month-calendar.mobile-hidden {
-    display: none;
   }
   .month-weekdays {
     position: static;
@@ -1644,13 +1500,6 @@ dialog::backdrop {
     min-width: 28px;
     min-height: 28px;
   }
-  .view-actions:has(.mobile-inbox-button) {
-    flex-basis: 100%;
-  }
-  .view-actions .mobile-inbox-button {
-    width: 100%;
-    justify-content: space-between;
-  }
   .view-actions .primary-button {
     min-height: 34px;
   }
@@ -1662,10 +1511,10 @@ dialog::backdrop {
   }
 }
 
-.view-today {
+.view-tasks {
   background: var(--canvas);
 }
-.today-view {
+.tasks-view {
   width: calc(100% - 48px);
   max-width: 720px;
   margin: 24px auto;
@@ -1674,22 +1523,47 @@ dialog::backdrop {
   border-radius: var(--radius);
   background: var(--paper);
 }
-.today-view .capture {
+.tasks-view .capture {
   margin: 0 0 16px;
 }
-.today-view .task {
+.tasks-view .task {
   padding: 14px 4px;
 }
-.today-view .empty-note {
+.tasks-view .empty-note {
   padding: 4px 0;
 }
 @media (max-width: 760px) {
-  .today-view {
+  .tasks-view {
     width: calc(100% - 32px);
     margin: 16px auto;
     padding: 16px;
   }
-  .today-view .task {
+  .tasks-view .task {
     padding: 16px 0;
+  }
+}
+
+.view-month > .month-calendar {
+  flex: 1;
+}
+.task-date {
+  flex-shrink: 0;
+  padding: 3px 4px;
+  margin: -2px 4px 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.task-date:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .task-date {
+    min-height: 32px;
+    margin: -5px 2px 0 2px;
   }
 }
