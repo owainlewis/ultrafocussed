@@ -18,7 +18,9 @@ npm run build
 npm run preview
 ```
 
-## Year, Month, Goals
+## Today, Year, Month, Goals
+
+Today is a simple checklist of tasks scheduled for the current local date, including completed tasks. Capture a task and press Enter to schedule it for today. Completion, focus, edits and history use the same tasks as Month and Goals. The list and capture date update at midnight.
 
 Month is the default view. Desktop shows a Monday-to-Sunday month with tasks in each date cell and an Unscheduled rail. On mobile, select a date in the compact grid to see that day's tasks below it. All weekends stay visible.
 

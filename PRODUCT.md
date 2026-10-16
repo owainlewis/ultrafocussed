@@ -16,11 +16,11 @@ Solo users connecting annual goals to scheduled actions. Personal use is the v1 
 
 ## Product Purpose
 
-A personal War Map with Year, Month, and Goals views. Set up to four annual goals, list their actions, and schedule those actions in the month. Tasks have only a title and optional date. Completion and a separate focus action stay on the task row.
+A personal War Map with Today, Year, Month, and Goals views. Set up to four annual goals, list their actions, and schedule those actions in the month. Tasks have only a title and optional date. Completion and a separate focus action stay on the task row.
 
 ## Capabilities and Constraints
 
-Year provides a twelve-month overview. Month is the default calendar, with all seven days visible. Goals groups actions under up to four goals per year. Actions share task identity across every view. Removing a goal preserves its tasks and dates. Browser-local persistence, unscheduled tasks, completion and reordering remain supported. Existing notes, progress notes, goal links, main outcomes and other legacy metadata are preserved in storage and backups; the task editor does not expose them. The calendar begins immediately below the toolbar; no planning or session panels sit above it.
+Today provides a clean checklist of tasks scheduled for the current local date, quick capture onto today, completion and separate focus buttons. It uses the same tasks as every other view and updates at midnight. Year provides a twelve-month overview. Month is the default calendar, with all seven days visible. Goals groups actions under up to four goals per year. Actions share task identity across every view. Removing a goal preserves its tasks and dates. Browser-local persistence, unscheduled tasks, completion and reordering remain supported. Existing notes, progress notes, goal links, main outcomes and other legacy metadata are preserved in storage and backups; the task editor does not expose them. The calendar begins immediately below the toolbar; no planning or session panels sit above it.
 
 The focus loop is a separate task-row action: choose 1 to 180 minutes, begin, stop or let it expire, and finish. It uses its own dialog. Closing the dialog keeps the active session running. Reloads preserve sessions without opening extra dialogs. Finishing records the time spent and preserves task completion and existing metadata. Completion is changed on the task row. No next-step, progress-note or completion fields appear in the focus dialog.
 

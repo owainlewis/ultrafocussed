@@ -834,3 +834,143 @@ it('persists light and dark mode without changing planner data', async () => {
   expect(document.documentElement.dataset.theme).toBe('dark');
   expect(localStorage.getItem('ultrafocussed.theme')).toBe('dark');
 });
+
+describe('Today checklist', () => {
+  const openToday = async () => {
+    const user = userEvent.setup();
+    await user.click(
+      within(
+        screen.getByRole('navigation', { name: 'Planner view' }),
+      ).getByRole('button', { name: 'Today', exact: true }),
+    );
+    return user;
+  };
+
+  it('shows only today including completed tasks and captures directly onto today', async () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    stored([
+      { id: 'today-open', title: 'Do today', date: today },
+      { id: 'today-done', title: 'Already done', date: today, completed: true },
+      { id: 'past', title: 'Yesterday only', date: dateKey(yesterday) },
+      { id: 'future', title: 'Tomorrow only', date: tomorrow() },
+      { id: 'inbox', title: 'Unscheduled only' },
+    ]);
+    render(<App />);
+    const user = await openToday();
+    const list = screen.getByRole('region', { name: "Today's tasks" });
+    expect(
+      within(list).getByRole('button', { name: 'Complete Do today' }),
+    ).toBeTruthy();
+    expect(
+      within(list).getByRole('button', { name: 'Reopen Already done' }),
+    ).toBeTruthy();
+    for (const title of [
+      'Yesterday only',
+      'Tomorrow only',
+      'Unscheduled only',
+    ]) {
+      expect(
+        within(list).queryByRole('button', { name: title, exact: true }),
+      ).toBeNull();
+    }
+    expect(screen.queryByRole('button', { name: 'Previous year' })).toBeNull();
+    const input = within(list).getByRole('textbox', {
+      name: 'New task for today',
+    });
+    await user.type(input, '  New today task  {Enter}');
+    expect(input).toHaveProperty('value', '');
+    expect(saved().tasks).toHaveLength(6);
+    expect(
+      saved().tasks.find((task) => task.title === 'New today task')?.date,
+    ).toBe(today);
+    expect(
+      within(list).getByRole('button', { name: 'New today task', exact: true }),
+    ).toBeTruthy();
+  });
+
+  it('shares completion and focus with Month and Goals without copying tasks or leaving Today on finish', async () => {
+    stored([{ id: 'shared', title: 'Shared action', date: today }]);
+    const initial = saved();
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...initial,
+        goals: [{ id: 'g', title: 'A goal', year: new Date().getFullYear() }],
+        tasks: initial.tasks.map((task) => ({ ...task, goalId: 'g' })),
+      }),
+    );
+    render(<App />);
+    const user = await openToday();
+    await user.click(
+      screen.getByRole('button', { name: 'Focus on Shared action' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Begin session' }));
+    await user.click(screen.getByRole('button', { name: 'Stop session' }));
+    await user.click(screen.getByRole('button', { name: 'Finish session' }));
+    expect(screen.getByRole('region', { name: "Today's tasks" })).toBeTruthy();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Shared action', exact: true }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Complete Shared action' }),
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Month', exact: true }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Reopen Shared action' }),
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Goals', exact: true }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Reopen Shared action' }),
+    ).toBeTruthy();
+    expect(saved().tasks).toHaveLength(1);
+    expect(saved().tasks[0]).toMatchObject({
+      id: 'shared',
+      goalId: 'g',
+      completed: true,
+      date: today,
+    });
+    expect(saved().tasks[0].sessions).toHaveLength(1);
+  });
+
+  it('advances Today and its capture date at local midnight', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 9, 16, 23, 59, 59));
+      stored([
+        { id: 'old', title: 'Before midnight', date: '2026-10-16' },
+        { id: 'new', title: 'After midnight', date: '2026-10-17' },
+      ]);
+      render(<App />);
+      fireEvent.click(
+        within(
+          screen.getByRole('navigation', { name: 'Planner view' }),
+        ).getByRole('button', { name: 'Today', exact: true }),
+      );
+      expect(
+        screen.getByRole('button', { name: 'Before midnight', exact: true }),
+      ).toBeTruthy();
+      act(() => vi.advanceTimersByTime(1000));
+      expect(
+        screen.queryByRole('button', { name: 'Before midnight', exact: true }),
+      ).toBeNull();
+      expect(
+        screen.getByRole('button', { name: 'After midnight', exact: true }),
+      ).toBeTruthy();
+      const input = screen.getByRole('textbox', { name: 'New task for today' });
+      fireEvent.change(input, { target: { value: 'Capture after midnight' } });
+      fireEvent.submit(input.closest('form')!);
+      expect(
+        saved().tasks.find((task) => task.title === 'Capture after midnight')
+          ?.date,
+      ).toBe('2026-10-17');
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+});

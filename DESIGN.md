@@ -4,11 +4,13 @@ Ultrafocussed is an Operate surface. The work leads: dates, tasks, and goal chec
 
 ## Structure
 
-The app header contains the identity, Month/Year/Goals tabs, backup controls, theme toggle, and help. The selected tab has a short underline. A separate, attached toolbar contains the period title, previous/next, Today, and the current view's primary action. Add goal belongs here, never in a detached content band. Only failed saves need a persistent status message.
+The app header contains the identity, Today/Month/Year/Goals tabs, backup controls, theme toggle, and help. The selected tab has a short underline. A separate, attached toolbar contains the period title, previous/next, Today, and the current view's primary action. Add goal belongs here, never in a detached content band. Only failed saves need a persistent status message.
 
 On phones, navigation tabs occupy a second header row. Period controls stay grouped. Unscheduled becomes an explicit full-width toggle in the toolbar. Main views have no horizontal page scrolling.
 
 ## Views
+
+Today is a single, contained checklist with inline quick capture above the task rows. It shows only tasks dated today, including completed tasks in place, and uses the shared task row, completion, editing, focus and ordering behavior. Capture assigns the current local date. No sidebar, counters, repeated headings or new task model. The toolbar shows the current date without period navigation. The midnight hook updates both the list and capture date. Finishing focus stays in Today.
 
 Month has an Unscheduled rail on desktop and a Monday-to-Sunday calendar. Date cells have a compact plus control for task creation, visible keyboard focus, and readable task rows. Today has a filled date circle. Past dates have a distinct neutral fill in both themes, with editable tasks. The date boundary advances at local midnight and when the window regains focus. Spillover dates are quieter than the active month.
 

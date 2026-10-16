@@ -30,7 +30,12 @@ import {
 } from './model';
 import { MonthView, YearView, GoalsView } from './WarMapViews';
 import { Modal } from './Modal';
-import { PlannerHeader, PlannerToolbar } from './PlannerChrome';
+import {
+  PlannerHeader,
+  PlannerToolbar,
+  type PlannerView,
+} from './PlannerChrome';
+import { TodayView } from './TodayView';
 import { useTheme } from './useTheme';
 import { useToday } from './useToday';
 
@@ -89,7 +94,15 @@ function useModal(
   }, []);
 }
 
-function CaptureField({ onAdd }: { onAdd: (title: string) => void }) {
+function CaptureField({
+  onAdd,
+  label = 'New task for unscheduled',
+  placeholder = 'Capture a task',
+}: {
+  onAdd: (title: string) => void;
+  label?: string;
+  placeholder?: string;
+}) {
   const [title, setTitle] = useState('');
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -101,8 +114,8 @@ function CaptureField({ onAdd }: { onAdd: (title: string) => void }) {
     <form className="capture" onSubmit={submit}>
       <Plus size={16} aria-hidden="true" />
       <input
-        aria-label="New task for unscheduled"
-        placeholder="Capture a task"
+        aria-label={label}
+        placeholder={placeholder}
         value={title}
         maxLength={300}
         onChange={(e) => setTitle(e.target.value)}
@@ -421,10 +434,11 @@ function Help({ onClose }: { onClose: () => void }) {
       </header>
       <ul>
         <li>
-          Use Year for an overview, Month to schedule work, and Goals to list
-          actions under up to four goals per year. Choose a task’s timer to
-          start a separate focus session. Set the minutes and begin; stop early
-          whenever you like. Completion stays on the task row.
+          Use Today to work through today’s tasks, Year for an overview, Month
+          to schedule work, and Goals to list actions under up to four goals per
+          year. Choose a task’s timer to start a separate focus session. Set the
+          minutes and begin; stop early whenever you like. Completion stays on
+          the task row.
         </li>
         <li>Type in Unscheduled and press Enter to capture a task.</li>
         <li>
@@ -575,7 +589,7 @@ export default function App() {
   const [readError, setReadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(false);
   const [month, setMonth] = useState(() => monthStart(new Date()));
-  const [view, setView] = useState<'year' | 'month' | 'goals'>('month');
+  const [view, setView] = useState<PlannerView>('month');
   const [selectedDay, setSelectedDay] = useState(() => dateKey(new Date()));
   const [inboxOpen, setInboxOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -691,6 +705,7 @@ export default function App() {
   };
   // Like showDate, but also opens the Unscheduled rail on mobile.
   const reveal = (date: string | null) => {
+    if (view === 'today' && date === today) return;
     if (date) showDate(date);
     else {
       setView('month');
@@ -1021,12 +1036,18 @@ export default function App() {
       <PlannerToolbar
         view={view}
         title={
-          view === 'month'
+          view === 'today'
             ? new Intl.DateTimeFormat(undefined, {
+                weekday: 'long',
+                day: 'numeric',
                 month: 'long',
-                year: 'numeric',
-              }).format(month)
-            : month.getFullYear()
+              }).format(parseDate(today))
+            : view === 'month'
+              ? new Intl.DateTimeFormat(undefined, {
+                  month: 'long',
+                  year: 'numeric',
+                }).format(month)
+              : month.getFullYear()
         }
         onToday={goToday}
         onPeriod={goPeriod}
@@ -1081,7 +1102,24 @@ export default function App() {
           className={`planner-content war-map-content view-${view}`}
           disabled={readError}
         >
-          {view === 'month' ? (
+          {view === 'today' ? (
+            <TodayView
+              capture={
+                <CaptureField
+                  label="New task for today"
+                  placeholder="Add a task for today"
+                  onAdd={(title) => addTask(title, today)}
+                />
+              }
+              empty={!state.tasks.some((task) => task.date === today)}
+              dropProps={dropProps(today)}
+            >
+              {renderList(
+                state.tasks.filter((task) => task.date === today),
+                today,
+              )}
+            </TodayView>
+          ) : view === 'month' ? (
             <div className="board month-board">
               {inbox}
               <div

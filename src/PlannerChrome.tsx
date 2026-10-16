@@ -12,7 +12,7 @@ import {
 import type { ReactNode } from 'react';
 import type { Theme } from './useTheme';
 
-export type PlannerView = 'year' | 'month' | 'goals';
+export type PlannerView = 'today' | 'year' | 'month' | 'goals';
 
 export function PlannerHeader({
   view,
@@ -42,13 +42,19 @@ export function PlannerHeader({
         <span>ultrafocussed</span>
       </div>
       <nav className="planner-tabs" aria-label="Planner view">
-        {(['month', 'year', 'goals'] as const).map((mode) => (
+        {(['today', 'month', 'year', 'goals'] as const).map((mode) => (
           <button
             key={mode}
             aria-pressed={view === mode}
             onClick={() => onView(mode)}
           >
-            {mode === 'month' ? 'Month' : mode === 'year' ? 'Year' : 'Goals'}
+            {mode === 'today'
+              ? 'Today'
+              : mode === 'month'
+                ? 'Month'
+                : mode === 'year'
+                  ? 'Year'
+                  : 'Goals'}
           </button>
         ))}
       </nav>
@@ -115,25 +121,35 @@ export function PlannerToolbar({
     <div className="planner-toolbar">
       <div className="period-controls">
         <h1>{title}</h1>
-        <div className="period-buttons">
-          <button
-            className="icon-button"
-            aria-label={view === 'month' ? 'Previous month' : 'Previous year'}
-            onClick={() => onPeriod(-1)}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            className="icon-button"
-            aria-label={view === 'month' ? 'Next month' : 'Next year'}
-            onClick={() => onPeriod(1)}
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
-        <button className="text-button" onClick={onToday}>
-          Today
-        </button>
+        {view !== 'today' && (
+          <>
+            <div className="period-buttons">
+              <button
+                className="icon-button"
+                aria-label={
+                  view === 'month' ? 'Previous month' : 'Previous year'
+                }
+                onClick={() => onPeriod(-1)}
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                className="icon-button"
+                aria-label={view === 'month' ? 'Next month' : 'Next year'}
+                onClick={() => onPeriod(1)}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+            <button
+              className="text-button"
+              aria-label="Go to today"
+              onClick={onToday}
+            >
+              Today
+            </button>
+          </>
+        )}
       </div>
       <div className="view-actions">
         {children}
