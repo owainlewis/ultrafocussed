@@ -190,6 +190,15 @@ export function GoalsView({
   const [editor, setEditor] = useState<Goal | null>(null);
   const [removing, setRemoving] = useState<Goal | null>(null);
   const visible = goals.filter((goal) => goal.year === year);
+  const focusAfterRemove = useRef(false);
+  useEffect(() => {
+    if (focusAfterRemove.current) {
+      document
+        .querySelector<HTMLButtonElement>('.view-actions .primary-button')
+        ?.focus();
+      focusAfterRemove.current = false;
+    }
+  }, [visible.length]);
   const root = useRef<HTMLDivElement>(null);
   const focusNewGoal = useRef(false);
   useEffect(() => {
@@ -254,6 +263,7 @@ export function GoalsView({
             <button
               className="danger-button"
               onClick={() => {
+                focusAfterRemove.current = true;
                 onDelete(removing.id);
                 setRemoving(null);
               }}

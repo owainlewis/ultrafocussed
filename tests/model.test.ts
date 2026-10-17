@@ -18,7 +18,9 @@ import {
   planForDay,
   completedBlocks,
   startChecklistWeek,
-  toggleRoutineDay,
+  logRoutineProgress,
+  routineEntries,
+  routineProgress,
   remainingSeconds,
   finishFocus,
   type Task,
@@ -305,9 +307,12 @@ test('weekly checklists use dated shared tasks and keep snapshots', () => {
   const first = startChecklistWeek(original, '2026-10-12');
   assert.deepEqual(first.routineWeeks?.['2026-10-12'], [routine]);
   assert.equal(startChecklistWeek(first, '2026-10-12'), first);
-  const checked = toggleRoutineDay(first, routine, '2026-10-13');
+  const checked = logRoutineProgress(first, routine, '2026-10-13', 1);
   assert.equal(checked.tasks[0].completed, true);
-  const unchecked = toggleRoutineDay(checked, routine, '2026-10-13');
+  const unchecked = {
+    ...checked,
+    tasks: checked.tasks.map((task) => ({ ...task, completed: false })),
+  };
   assert.equal(unchecked.tasks.length, 1);
   assert.equal(unchecked.tasks[0].id, checked.tasks[0].id);
   assert.equal(unchecked.tasks[0].completed, false);
@@ -318,7 +323,7 @@ test('weekly checklists use dated shared tasks and keep snapshots', () => {
   assert.equal(next.routineWeeks?.['2026-10-12'][0].target, 3);
   assert.equal(next.routineWeeks?.['2026-10-19'][0].target, 4);
   assert.deepEqual(decodeState(JSON.stringify(next)), next);
-  for (const target of [0, 8, 1.5])
+  for (const target of [0, 1001, 1.5])
     assert.throws(() =>
       decodeState(
         JSON.stringify({ ...original, routines: [{ ...routine, target }] }),
@@ -394,4 +399,46 @@ test('daily blocks share tasks, preserve workforms and count only full submitted
       }),
     ),
   );
+});
+
+test('weekly batches record quantities on unscheduled shared tasks and keep legacy records', () => {
+  const routine = { id: 'r', title: 'Posts', target: 7, daily: false };
+  const week = '2026-10-12';
+  const state = {
+    version: 1 as const,
+    tasks: [],
+    routines: [routine],
+    routineWeeks: { [week]: [routine] },
+  };
+  const logged = logRoutineProgress(state, routine, '2026-10-13', 7);
+  assert.equal(logged.tasks.length, 1);
+  assert.equal(logged.tasks[0].date, null);
+  assert.equal(routineProgress(logged, routine, week), 7);
+  assert.equal(routineProgress(logged, routine, '2026-10-19'), 0);
+  assert.deepEqual(decodeState(JSON.stringify(logged)), logged);
+  assert.equal(
+    routineEntries(
+      {
+        ...logged,
+        tasks: logged.tasks.map((task) => ({ ...task, completed: false })),
+      },
+      'r',
+      week,
+    ).length,
+    0,
+  );
+  const legacy = {
+    ...state,
+    tasks: [{ ...task('old', '2026-10-14'), routineId: 'r', completed: true }],
+  };
+  assert.equal(routineProgress(legacy, routine, week), 1);
+  const daily = { ...routine, id: 'd', daily: true };
+  const first = logRoutineProgress(
+    { ...state, routines: [daily] },
+    daily,
+    '2026-10-13',
+    1,
+  );
+  assert.equal(logRoutineProgress(first, daily, '2026-10-13', 1), first);
+  assert.equal(logRoutineProgress(first, daily, '2026-10-14', 7), first);
 });

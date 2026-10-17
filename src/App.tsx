@@ -6,7 +6,6 @@ import {
   type FormEvent,
   type KeyboardEvent,
   type ReactNode,
-  type RefObject,
 } from 'react';
 import { Check, Plus, Timer, X } from 'lucide-react';
 import {
@@ -88,23 +87,6 @@ function download(content: string, name: string) {
   link.download = name;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-// Opens a native modal dialog and returns focus to the opener when it closes.
-function useModal(
-  ref: RefObject<HTMLDialogElement | null>,
-  focus?: () => void,
-) {
-  useEffect(() => {
-    const opener = document.activeElement;
-    const dialog = ref.current;
-    dialog?.showModal();
-    focus?.();
-    return () => {
-      if (dialog?.open) dialog.close?.();
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-    };
-  }, []);
 }
 
 function CaptureField({
@@ -526,58 +508,39 @@ function DetailPanel({
 }
 
 function Help({ onClose }: { onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useModal(dialog);
   return (
-    <dialog
-      ref={dialog}
-      className="help-dialog"
-      aria-labelledby="help-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-    >
-      <header className="panel-header">
-        <h2 id="help-title">How the planner works</h2>
-        <button
-          className="icon-button"
-          aria-label="Close planner help"
-          onClick={onClose}
-        >
-          <X size={18} />
-        </button>
-      </header>
-      <ul>
-        <li>
-          Use Tasks to capture work before scheduling it, Year for an overview,
-          Month to schedule work, and Goals to list actions under up to four
-          goals per year. Choose a task’s timer to start a separate focus
-          session. Set the minutes and begin; stop early whenever you like.
-          Completion stays on the task row.
-        </li>
-        <li>Type in Tasks and press Enter to capture an unscheduled task.</li>
-        <li>
-          Drag a task to another day or position. With the keyboard, focus a
-          task and press Alt (Option) with Up or Down to reorder, or Left or
-          Right to move it a day.
-        </li>
-        <li>
-          Open a task to change its title or optional date. Create an action
-          under a goal to link it automatically. Existing notes remain in saved
-          data and exported backups.
-        </li>
-        <li>
-          All tasks stay in Tasks, including scheduled and completed work.
-          Adding a date also puts a task on the calendar. Unfinished tasks stay
-          on their date until you change it.
-        </li>
-      </ul>
-      <p className="help-storage">
-        Tasks are saved in this browser on this device. Clearing site data
-        removes them. Use Export to keep a backup file.
-      </p>
-    </dialog>
+    <Modal title="How the planner works" onClose={onClose}>
+      <div className="help-content">
+        <ul>
+          <li>
+            <strong>Plan:</strong> choose a task and start a focused hour.
+            Submit a workform afterward. Four completed hours is your daily
+            goal; partial sessions stay in history.
+          </li>
+          <li>
+            <strong>Tasks:</strong> capture work with a title and optional date.
+            Completed tasks are hidden until you choose Show completed.
+          </li>
+          <li>
+            <strong>Calendar:</strong> use Month or Year to schedule tasks. Plan
+            records focused hours without clock times.
+          </li>
+          <li>
+            <strong>Projects and Goals:</strong> list the work needed for each
+            outcome. Link existing tasks under Organise so every view stays in
+            sync.
+          </li>
+          <li>
+            <strong>Weekly:</strong> log completed work toward weekly targets,
+            including batches, and review previous weeks.
+          </li>
+        </ul>
+        <p className="help-storage">
+          Your planner is saved in this browser on this device. Export a backup
+          to keep a copy. Clearing site data removes the local planner.
+        </p>
+      </div>
+    </Modal>
   );
 }
 
@@ -641,7 +604,7 @@ function FocusPanel({
     <section
       ref={panel}
       tabIndex={-1}
-      className={`focus-panel focus-${mode}`}
+      className={`focus-panel focus-state-${mode}`}
       aria-label="Focus session"
     >
       <h3 className="focus-task">{task.title}</h3>
@@ -747,7 +710,7 @@ export default function App() {
   const [readError, setReadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(false);
   const [month, setMonth] = useState(() => monthStart(new Date()));
-  const [view, setView] = useState<PlannerView>('tasks');
+  const [view, setView] = useState<PlannerView>('plan');
   const [showCompleted, setShowCompleted] = useState(false);
   useEffect(() => {
     if (view === 'month' || view === 'year') setCalendarMode(view);
@@ -762,6 +725,7 @@ export default function App() {
   const [focusRequest, setFocusRequest] = useState<{
     id: string | null;
     onlyIfLost: boolean;
+    fallback?: string;
   } | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [deleted, setDeleted] = useState<{ task: Task; index: number } | null>(
@@ -837,6 +801,8 @@ export default function App() {
       document.querySelectorAll<HTMLElement>('[data-task-id]'),
     ).find((element) => element.dataset.taskId === focusRequest.id);
     if (target) target.focus();
+    else if (focusRequest.fallback)
+      document.querySelector<HTMLElement>(focusRequest.fallback)?.focus();
     else if (view === 'tasks')
       document
         .querySelector<HTMLInputElement>('.tasks-view .capture input')
@@ -850,9 +816,10 @@ export default function App() {
         document.querySelector<HTMLElement>('.daily-toolbar button')
       )?.focus();
     else if (view === 'goals' || view === 'projects')
-      document
-        .querySelector<HTMLInputElement>('.goal-action-composer input')
-        ?.focus();
+      (
+        document.querySelector<HTMLElement>('.goal-action-composer input') ??
+        document.querySelector<HTMLElement>('.view-actions .primary-button')
+      )?.focus();
   }, [focusRequest]);
 
   const setTasks = (change: (tasks: Task[]) => Task[]) =>
@@ -862,7 +829,15 @@ export default function App() {
     announce(`Added “${title}”.`);
   };
   const editTask = (id: string, patch: Patch) =>
-    setTasks((tasks) => updateTask(tasks, id, patch));
+    setTasks((tasks) =>
+      updateTask(
+        tasks,
+        id,
+        patch.completed !== undefined
+          ? { ...patch, completedOn: patch.completed ? today : null }
+          : patch,
+      ),
+    );
   const goPeriod = (direction: number) => {
     const next = addMonths(month, direction * (view === 'month' ? 1 : 12));
     setMonth(next);
@@ -1247,7 +1222,6 @@ export default function App() {
                 state={state}
                 onChange={setState}
                 today={today}
-                onTasks={() => setView('tasks')}
                 onResume={() => {
                   if (state.focus) setFocusTaskId(state.focus.taskId);
                 }}
@@ -1425,6 +1399,20 @@ export default function App() {
                   const next = [...tasks];
                   const restored = { ...deleted.task };
                   if (
+                    restored.goalId &&
+                    !(state.goals ?? []).some(
+                      (goal) => goal.id === restored.goalId,
+                    )
+                  )
+                    restored.goalId = null;
+                  if (
+                    restored.projectId &&
+                    !(state.projects ?? []).some(
+                      (project) => project.id === restored.projectId,
+                    )
+                  )
+                    restored.projectId = null;
+                  if (
                     restored.main &&
                     next.some(
                       (task) => task.date === restored.date && task.main,
@@ -1439,6 +1427,7 @@ export default function App() {
                   return next;
                 });
                 setDeleted(null);
+                setFocusRequest({ id: deleted.task.id, onlyIfLost: false });
                 announce('Task restored.');
               }}
             >
@@ -1513,6 +1502,11 @@ export default function App() {
               tasks.filter((task) => task.id !== currentTask.id),
             );
             setEditingId(null);
+            setFocusRequest({
+              id: null,
+              onlyIfLost: false,
+              fallback: '.toast button',
+            });
           }}
         />
       )}

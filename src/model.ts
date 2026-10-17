@@ -3,6 +3,8 @@ export type Task = {
   title: string;
   date: string | null;
   completed: boolean;
+  completedOn?: string | null;
+  routineUnits?: number;
   notes: string;
   main: boolean;
   goalId?: string | null;
@@ -41,7 +43,7 @@ export type Routine = {
   archived?: boolean;
 };
 export type WeeklyRoutine = Omit<Routine, 'archived'>;
-export type FocusBlock = { id: string; time: string; taskId: string | null };
+export type FocusBlock = { id: string; time?: string; taskId: string | null };
 export type PlannerState = {
   version: 1;
   tasks: Task[];
@@ -104,9 +106,10 @@ export function decodeState(raw: string | null): PlannerState {
         typeof block.id !== 'string' ||
         !block.id ||
         blockIds.has(block.id) ||
-        typeof block.time !== 'string' ||
-        !/^([01]\d|2[0-3]):[0-5]\d$/.test(block.time) ||
-        block.time > '23:00' ||
+        (block.time !== undefined &&
+          (typeof block.time !== 'string' ||
+            !/^([01]\d|2[0-3]):[0-5]\d$/.test(block.time) ||
+            block.time > '23:00')) ||
         (block.taskId !== null &&
           (typeof block.taskId !== 'string' || !block.taskId))
       )
@@ -131,7 +134,7 @@ export function decodeState(raw: string | null): PlannerState {
     item.title.length <= 200 &&
     Number.isInteger(item.target) &&
     item.target >= 1 &&
-    item.target <= 7 &&
+    item.target <= 1000 &&
     typeof item.daily === 'boolean' &&
     (!item.daily || item.target === 7);
   if (value.routines !== undefined && !Array.isArray(value.routines))
@@ -218,6 +221,11 @@ export function decodeState(raw: string | null): PlannerState {
       throw new Error('Invalid progress notes');
     if (
       !task ||
+      (task.completedOn != null && !validDate(task.completedOn)) ||
+      (task.routineUnits !== undefined &&
+        (!Number.isInteger(task.routineUnits) ||
+          task.routineUnits < 1 ||
+          task.routineUnits > 1000)) ||
       (task.routineId != null &&
         (typeof task.routineId !== 'string' ||
           !routineIds.has(task.routineId))) ||
@@ -457,43 +465,11 @@ export function startChecklistWeek(
   };
 }
 
-export function toggleRoutineDay(
-  state: PlannerState,
-  routine: WeeklyRoutine,
-  day: string,
-): PlannerState {
-  const matches = state.tasks.filter(
-    (task) => task.routineId === routine.id && task.date === day,
-  );
-  const done = matches.some((task) => task.completed);
-  if (matches.length)
-    return {
-      ...state,
-      tasks: state.tasks.map((task) =>
-        task.routineId === routine.id && task.date === day
-          ? { ...task, completed: !done }
-          : task,
-      ),
-    };
-  return {
-    ...state,
-    tasks: [
-      ...state.tasks,
-      {
-        ...createTask(routine.title, day),
-        routineId: routine.id,
-        completed: true,
-      },
-    ],
-  };
-}
-
 export function planForDay(state: PlannerState, day: string): FocusBlock[] {
   return (
     state.dailyPlans?.[day] ??
-    ['09:00', '10:30', '13:00', '14:30'].map((time, index) => ({
+    Array.from({ length: 4 }, (_, index) => ({
       id: `${day}-block-${index + 1}`,
-      time,
       taskId: null,
     }))
   );
@@ -513,4 +489,67 @@ export function completedBlocks(state: PlannerState, day: string): number {
       (record) => record.minutes >= 60 && record.progress.trim(),
     ),
   ).length;
+}
+
+export function routineEntries(
+  state: PlannerState,
+  routineId: string,
+  week: string,
+): Task[] {
+  const end = dateKey(addDays(parseDate(week), 6));
+  return state.tasks.filter((task) => {
+    const day = task.completedOn ?? task.date;
+    return (
+      task.completed &&
+      task.routineId === routineId &&
+      day &&
+      day >= week &&
+      day <= end
+    );
+  });
+}
+export function routineProgress(
+  state: PlannerState,
+  routine: WeeklyRoutine,
+  week: string,
+): number {
+  const entries = routineEntries(state, routine.id, week);
+  return routine.daily
+    ? new Set(entries.map((task) => task.completedOn ?? task.date)).size
+    : entries.reduce((total, task) => total + (task.routineUnits ?? 1), 0);
+}
+export function logRoutineProgress(
+  state: PlannerState,
+  routine: WeeklyRoutine,
+  day: string,
+  units: number,
+): PlannerState {
+  if (
+    !validDate(day) ||
+    !Number.isInteger(units) ||
+    units < 1 ||
+    units > 1000 ||
+    (routine.daily &&
+      (units !== 1 ||
+        state.tasks.some(
+          (task) =>
+            task.completed &&
+            task.routineId === routine.id &&
+            (task.completedOn ?? task.date) === day,
+        )))
+  )
+    return state;
+  return {
+    ...state,
+    tasks: [
+      ...state.tasks,
+      {
+        ...createTask(routine.title, null),
+        completed: true,
+        completedOn: day,
+        routineId: routine.id,
+        routineUnits: units,
+      },
+    ],
+  };
 }

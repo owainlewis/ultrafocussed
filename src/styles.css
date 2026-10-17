@@ -562,25 +562,13 @@ dialog::backdrop {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.help-dialog {
-  width: 560px;
-  max-width: calc(100vw - 32px);
-  padding: 20px 24px 24px;
-  border: 0;
-  border-radius: 14px;
-  background: var(--paper);
-  box-shadow: var(--shadow-dialog);
-}
-.help-dialog .panel-header {
-  margin-bottom: 4px;
-}
-.help-dialog ul {
+.help-content ul {
   margin: 12px 0 16px;
   padding-left: 18px;
   font-size: 14px;
   line-height: 1.6;
 }
-.help-dialog li + li {
+.help-content li + li {
   margin-top: 6px;
 }
 .help-storage {
@@ -755,11 +743,12 @@ dialog::backdrop {
 }
 .focus-review {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 16px;
 }
 .focus-review p {
+  margin: 0;
   color: var(--muted);
 }
 .task-focus.timer-active,
@@ -1223,10 +1212,15 @@ dialog::backdrop {
   display: none;
 }
 .modal {
+  position: fixed;
+  inset: min(10dvh, 72px) 0 auto;
+  margin: 0 auto;
   width: 460px;
   max-width: calc(100vw - 32px);
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - min(10dvh, 72px) - 24px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 28px;
   border: 0;
   border-radius: 14px;
@@ -1235,13 +1229,16 @@ dialog::backdrop {
   box-shadow: var(--shadow-dialog);
 }
 .modal-header {
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 24px;
 }
 .modal-header h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
   font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.03em;
@@ -1685,80 +1682,6 @@ dialog::backdrop {
   font-weight: 600;
   border-bottom: 1px solid var(--rule-soft);
 }
-.weekly-table-scroll {
-  position: relative;
-  overflow-x: auto;
-}
-.weekly-table {
-  width: 100%;
-  min-width: 680px;
-  border-collapse: collapse;
-  text-align: center;
-}
-.weekly-table th,
-.weekly-table td {
-  padding: 12px 6px;
-  border-bottom: 1px solid var(--rule-soft);
-}
-.weekly-table tr:last-child > * {
-  border-bottom: 0;
-}
-.weekly-table thead {
-  background: var(--rail);
-  color: var(--muted);
-  font-size: 12px;
-}
-.weekly-table th:first-child {
-  text-align: left;
-  padding-left: 20px;
-  min-width: 150px;
-}
-.weekly-table tbody th {
-  font-weight: 600;
-  overflow-wrap: anywhere;
-  max-width: 240px;
-}
-.weekly-table small {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
-  margin-top: 3px;
-}
-.weekly-table th[aria-current='date'] {
-  color: var(--ink);
-  background: var(--accent-soft);
-}
-.weekly-check {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  min-height: 44px;
-  cursor: pointer;
-}
-.weekly-check input {
-  width: 19px;
-  height: 19px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-.weekly-check input:disabled {
-  cursor: default;
-}
-.weekly-table .elapsed-day {
-  background: var(--tint);
-}
-.weekly-table .missed-day {
-  background: var(--error-bg);
-}
-.weekly-total {
-  min-width: 90px;
-  font-variant-numeric: tabular-nums;
-}
-.weekly-total strong {
-  font-weight: 600;
-}
 .weekly-row-actions {
   display: flex;
   justify-content: flex-end;
@@ -1798,98 +1721,127 @@ dialog::backdrop {
 
 .daily-plan {
   width: calc(100% - 48px);
-  max-width: 960px;
-  margin: 28px auto;
+  max-width: 800px;
+  margin: 32px auto;
 }
 .daily-heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
 }
 .daily-heading h2 {
-  font-size: 17px;
-  font-weight: 600;
-  margin: 0;
-}
-.daily-heading p {
-  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
+  margin: 0;
+  max-width: 24ch;
 }
-.daily-heading strong {
-  color: var(--ink);
+.daily-score {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.daily-score strong {
+  font-size: 36px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+.daily-score strong span {
+  font-size: 18px;
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.daily-score small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.daily-goal {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 32px;
+}
+.goal-hour {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.goal-hour.is-earned {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
 }
 .focus-blocks {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.focus-block {
+  background: var(--paper);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  background: var(--paper);
-  padding: 18px;
+  overflow: hidden;
+}
+.focus-block {
+  padding: 16px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.focus-block:last-child {
+  border-bottom: 0;
 }
 .block-fields {
   display: flex;
-  gap: 18px;
+  gap: 12px;
   align-items: center;
 }
 .block-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  width: 24px;
   flex-shrink: 0;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-}
-.block-time,
-.block-task {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
   font-size: 12px;
-  color: var(--muted);
-}
-.block-time {
-  width: 112px;
-  flex-shrink: 0;
 }
 .block-task {
   flex: 1;
   min-width: 0;
 }
-.block-time input,
 .block-task select {
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   padding: 8px;
-  border: 1px solid var(--control);
+  border: 1px solid transparent;
   border-radius: 5px;
-  background: var(--paper);
+  background: transparent;
   color: var(--ink);
   font: inherit;
-  font-size: 14px;
 }
-.block-time small {
-  font-variant-numeric: tabular-nums;
+.block-task select:hover:not(:disabled) {
+  border-color: var(--rule);
+  background: var(--rail);
 }
 .block-fields > button {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
   white-space: nowrap;
 }
-.block-complete {
-  background: var(--rail);
+.block-complete .block-task select {
+  color: var(--muted);
 }
 .block-workforms {
-  margin: 16px 0 0 46px;
+  margin: 12px 0 0 36px;
   font-size: 13px;
 }
 .block-workforms summary {
@@ -1908,15 +1860,35 @@ dialog::backdrop {
 .block-workforms small {
   color: var(--muted);
 }
+.plan-capture {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--muted);
+}
+.plan-capture input {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
 .add-focus-block {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px 0;
-  margin-top: 12px;
+  margin-top: 8px;
   background: transparent;
   border: 0;
   color: var(--muted);
+  font-size: 13px;
 }
 .plan-note {
   color: var(--muted);
@@ -1925,7 +1897,7 @@ dialog::backdrop {
 @media (max-width: 760px) {
   .daily-plan {
     width: calc(100% - 24px);
-    margin: 16px auto;
+    margin: 24px auto;
   }
   .daily-toolbar .period-controls {
     flex-wrap: wrap;
@@ -1933,25 +1905,201 @@ dialog::backdrop {
   .daily-toolbar .period-controls h1 {
     flex-basis: 100%;
   }
-  .block-fields {
-    display: grid;
-    grid-template-columns: 24px minmax(0, 1fr);
-    gap: 12px;
+  .daily-heading {
+    align-items: flex-start;
   }
-  .block-time {
-    width: 100%;
+  .daily-heading h2 {
+    font-size: 13px;
+    max-width: 14ch;
   }
-  .block-task,
-  .block-fields > button {
-    grid-column: 2;
+  .daily-score strong {
+    font-size: 30px;
   }
-  .block-fields > button {
-    justify-content: center;
+  .daily-score strong span {
+    font-size: 14px;
+  }
+  .daily-goal {
+    margin-bottom: 24px;
   }
   .focus-block {
-    padding: 14px;
+    padding: 10px;
+  }
+  .block-fields {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 4px 8px;
+  }
+  .block-task {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .block-start {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .block-start span {
+    display: none;
+  }
+  .block-number {
+    width: 20px;
+    grid-row: 1;
   }
   .block-workforms {
-    margin-left: 36px;
+    margin-left: 28px;
+  }
+}
+
+/* Dialog content grows vertically instead of squeezing form fields. */
+.modal > form,
+.modal .field,
+.focus-panel {
+  min-width: 0;
+}
+.focus-panel {
+  display: block;
+}
+.focus-review .field {
+  width: 100%;
+}
+.focus-review textarea {
+  min-height: 136px;
+}
+.focus-review > .primary-button {
+  align-self: flex-end;
+}
+.modal-actions,
+.task-editor-actions {
+  flex-wrap: wrap;
+}
+.task-organise {
+  border-top: 1px solid var(--rule-soft);
+  padding-top: 16px;
+}
+.task-organise summary {
+  min-height: 32px;
+}
+@media (max-width: 760px) {
+  .modal {
+    inset: 16px 0 auto;
+    max-height: calc(100dvh - 32px);
+    padding: 20px;
+  }
+  .modal .field input,
+  .modal .field textarea,
+  .modal select {
+    font-size: 16px;
+  }
+  .focus-running-controls {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .focus-start {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .focus-start .field input {
+    max-width: none;
+  }
+  .modal-actions > button {
+    flex: 1;
+  }
+  .focus-review > .primary-button {
+    width: 100%;
+  }
+}
+
+.weekly-routine {
+  padding: 20px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.weekly-routine:last-child {
+  border-bottom: 0;
+}
+.weekly-routine-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.weekly-routine h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.weekly-routine-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.weekly-routine-progress {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+  margin-top: 16px;
+}
+.weekly-progress-label {
+  font-variant-numeric: tabular-nums;
+}
+.weekly-progress-label span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.weekly-routine progress {
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--hover);
+  color: var(--accent);
+  accent-color: var(--accent);
+  overflow: hidden;
+}
+.weekly-routine progress::-webkit-progress-bar {
+  background: var(--hover);
+}
+.weekly-routine progress::-webkit-progress-value {
+  background: var(--accent);
+}
+.weekly-routine progress::-moz-progress-bar {
+  background: var(--accent);
+}
+.weekly-entries {
+  margin-top: 18px;
+  font-size: 13px;
+}
+.weekly-entries summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.weekly-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.weekly-entry small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+@media (max-width: 760px) {
+  .weekly-routine {
+    padding: 16px;
+  }
+  .weekly-routine-progress {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+  .weekly-routine-progress progress {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .weekly-entry {
+    flex-wrap: wrap;
   }
 }

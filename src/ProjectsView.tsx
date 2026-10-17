@@ -28,6 +28,15 @@ export function ProjectsView({
 }) {
   const [editing, setEditing] = useState<Project | null>(null);
   const [removing, setRemoving] = useState<Project | null>(null);
+  const focusAfterRemove = useRef(false);
+  useEffect(() => {
+    if (focusAfterRemove.current) {
+      document
+        .querySelector<HTMLButtonElement>('.view-actions .primary-button')
+        ?.focus();
+      focusAfterRemove.current = false;
+    }
+  }, [projects.length]);
   const root = useRef<HTMLDivElement>(null);
   const focusNew = useRef(false);
   useEffect(() => {
@@ -91,6 +100,7 @@ export function ProjectsView({
             <button
               className="danger-button"
               onClick={() => {
+                focusAfterRemove.current = true;
                 onRemove(removing.id);
                 setRemoving(null);
               }}

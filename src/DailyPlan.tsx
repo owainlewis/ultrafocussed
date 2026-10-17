@@ -4,6 +4,7 @@ import {
   addDays,
   blockRecords,
   completedBlocks,
+  createTask,
   dateKey,
   parseDate,
   planForDay,
@@ -11,25 +12,41 @@ import {
   type PlannerState,
 } from './model';
 
+function extraBlock(taskId: string | null = null): FocusBlock {
+  return { id: crypto.randomUUID(), taskId };
+}
+
 export function DailyPlan({
   state,
   onChange,
   today,
   onStart,
   onResume,
-  onTasks,
 }: {
   state: PlannerState;
   onChange: Dispatch<SetStateAction<PlannerState>>;
   today: string;
   onStart: (day: string, block: FocusBlock) => void;
   onResume: () => void;
-  onTasks: () => void;
 }) {
   const [day, setDay] = useState(today);
+  const [capture, setCapture] = useState('');
   const blocks = planForDay(state, day);
   const done = completedBlocks(state, day);
-  const newTime = useRef<HTMLInputElement>(null);
+  const canCapture =
+    blocks.length < 24 ||
+    blocks.some(
+      (block) =>
+        !block.taskId || !state.tasks.some((task) => task.id === block.taskId),
+    );
+  const newTask = useRef<HTMLSelectElement>(null);
+  const nextBlock = blocks.find(
+    (block) =>
+      block.taskId &&
+      !blockRecords(state, day, block.id).some(
+        (record) => record.minutes >= 60 && record.progress.trim(),
+      ),
+  );
   const change = (id: string, patch: Partial<FocusBlock>) =>
     onChange((current) => ({
       ...current,
@@ -40,23 +57,11 @@ export function DailyPlan({
         ),
       },
     }));
-  const timeEnd = (time: string) => {
-    const [h, m] = time.split(':').map(Number);
-    return `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  };
-  const overlap = blocks.some((block, i) =>
-    blocks.some(
-      (other, j) =>
-        i < j &&
-        block.time < timeEnd(other.time) &&
-        other.time < timeEnd(block.time),
-    ),
-  );
   return (
     <>
       <div className="planner-toolbar daily-toolbar">
         <div className="period-controls">
-          <h1>Daily plan</h1>
+          <h1>Plan</h1>
           <div className="period-buttons">
             <button
               className="icon-button"
@@ -93,25 +98,41 @@ export function DailyPlan({
               year: 'numeric',
             }).format(parseDate(day))}
           </h2>
-          <p role="status">
-            <strong>{done}</strong> / {blocks.length} blocks completed
-          </p>
+          <div
+            className="daily-score"
+            role="status"
+            aria-label={`${done} of 4 deep-work hours completed`}
+          >
+            <strong>
+              {done}
+              <span> / 4 hours</span>
+            </strong>
+            <small>
+              {done >= 4
+                ? 'Daily goal reached'
+                : `${4 - done} ${4 - done === 1 ? 'hour' : 'hours'} to go`}
+            </small>
+          </div>
         </header>
-        {overlap && (
-          <p className="plan-note">
-            Some planned times overlap. Adjust them to leave an hour for each
-            block.
-          </p>
-        )}
-        {!state.tasks.length && (
-          <p className="plan-note">
-            Capture your work in{' '}
-            <button className="inline-link" onClick={onTasks}>
-              Tasks
-            </button>
-            , then assign it here.
-          </p>
-        )}
+        <div
+          className="daily-goal"
+          role="progressbar"
+          aria-label="Daily deep-work goal"
+          aria-valuemin={0}
+          aria-valuemax={4}
+          aria-valuenow={Math.min(done, 4)}
+          aria-valuetext={`${done} of 4 hours`}
+        >
+          {[1, 2, 3, 4].map((hour) => (
+            <span
+              key={hour}
+              className={done >= hour ? 'goal-hour is-earned' : 'goal-hour'}
+              aria-hidden="true"
+            >
+              {done >= hour && <Check size={15} />} {hour}h
+            </span>
+          ))}
+        </div>
         <div className="focus-blocks">
           {blocks.map((block, index) => {
             const records = blockRecords(state, day, block.id);
@@ -139,32 +160,10 @@ export function DailyPlan({
                       {complete ? 'Completed' : `Block ${index + 1}`}
                     </span>
                   </div>
-                  <label className="block-time">
-                    <span>Start time</span>
-                    <input
-                      ref={index === blocks.length - 1 ? newTime : undefined}
-                      type="time"
-                      min="00:00"
-                      max="23:00"
-                      required
-                      value={block.time}
-                      disabled={locked}
-                      aria-label={`Start time for block ${index + 1}`}
-                      onChange={(event) => {
-                        if (
-                          /^([01]\d|2[0-3]):[0-5]\d$/.test(
-                            event.target.value,
-                          ) &&
-                          event.target.value <= '23:00'
-                        )
-                          change(block.id, { time: event.target.value });
-                      }}
-                    />
-                    <small>to {timeEnd(block.time)}</small>
-                  </label>
                   <label className="block-task">
-                    <span>Task</span>
+                    <span className="visually-hidden">Task</span>
                     <select
+                      ref={index === blocks.length - 1 ? newTask : undefined}
                       aria-label={`Task for block ${index + 1}`}
                       value={task?.id ?? ''}
                       disabled={locked}
@@ -186,26 +185,35 @@ export function DailyPlan({
                     </select>
                   </label>
                   <button
-                    className={complete ? 'secondary-button' : 'primary-button'}
+                    className={`block-start ${!complete && !state.focus && block.id === nextBlock?.id ? 'primary-button' : 'icon-button'}`}
                     disabled={
                       complete ||
                       (!active && (!!state.focus || !task || day !== today))
                     }
                     onClick={() => (active ? onResume() : onStart(day, block))}
-                    aria-label={`${active ? 'Resume' : 'Start'} block ${index + 1}`}
+                    aria-label={`${complete ? 'Completed' : active ? 'Resume' : 'Start'} block ${index + 1}`}
                     title={
                       day !== today && !complete
                         ? 'Start blocks from today’s plan'
-                        : undefined
+                        : complete
+                          ? 'Hour completed'
+                          : active
+                            ? 'Resume focus'
+                            : task
+                              ? 'Start a focused hour'
+                              : 'Choose a task first'
                     }
                   >
                     {complete ? (
-                      'Completed'
+                      <Check size={18} aria-hidden="true" />
                     ) : active ? (
-                      'Resume'
+                      <Play size={16} aria-hidden="true" />
                     ) : (
                       <>
-                        <Play size={14} aria-hidden="true" /> Start hour
+                        <Play size={14} aria-hidden="true" />
+                        {block.id === nextBlock?.id && !state.focus && (
+                          <span>Start hour</span>
+                        )}
                       </>
                     )}
                   </button>
@@ -229,6 +237,55 @@ export function DailyPlan({
             );
           })}
         </div>
+        <form
+          className="plan-capture"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!capture.trim() || !canCapture) return;
+            const task = createTask(capture, null);
+            onChange((current) => {
+              const list = planForDay(current, day);
+              const empty = list.find(
+                (block) =>
+                  !block.taskId ||
+                  !current.tasks.some((item) => item.id === block.taskId),
+              );
+              if (!empty && list.length >= 24) return current;
+              return {
+                ...current,
+                tasks: [...current.tasks, task],
+                dailyPlans: {
+                  ...current.dailyPlans,
+                  [day]: empty
+                    ? list.map((block) =>
+                        block.id === empty.id
+                          ? { ...block, taskId: task.id }
+                          : block,
+                      )
+                    : [...list, extraBlock(task.id)],
+                },
+              };
+            });
+            setCapture('');
+          }}
+        >
+          <Plus size={16} aria-hidden="true" />
+          <input
+            aria-label="New task for today’s plan"
+            placeholder={
+              canCapture
+                ? 'Add a task for your next hour'
+                : 'All 24 hours are planned'
+            }
+            disabled={!canCapture}
+            value={capture}
+            maxLength={300}
+            onChange={(event) => setCapture(event.target.value)}
+          />
+          {capture.trim() && (
+            <button className="small-primary">Add task</button>
+          )}
+        </form>
         {blocks.length < 24 && (
           <button
             className="add-focus-block"
@@ -237,13 +294,10 @@ export function DailyPlan({
                 ...current,
                 dailyPlans: {
                   ...current.dailyPlans,
-                  [day]: [
-                    ...planForDay(current, day),
-                    { id: crypto.randomUUID(), time: '16:00', taskId: null },
-                  ],
+                  [day]: [...planForDay(current, day), extraBlock()],
                 },
               }));
-              requestAnimationFrame(() => newTime.current?.focus());
+              requestAnimationFrame(() => newTask.current?.focus());
             }}
           >
             <Plus size={16} aria-hidden="true" /> Add another hour

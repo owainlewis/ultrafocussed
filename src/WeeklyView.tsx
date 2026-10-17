@@ -12,7 +12,9 @@ import {
   dateKey,
   parseDate,
   startChecklistWeek,
-  toggleRoutineDay,
+  logRoutineProgress,
+  routineEntries,
+  routineProgress,
   weekStart,
   type PlannerState,
   type WeeklyRoutine,
@@ -30,6 +32,7 @@ export function WeeklyView({
   const currentWeek = dateKey(weekStart(parseDate(today)));
   const [week, setWeek] = useState(currentWeek);
   const [editor, setEditor] = useState<WeeklyRoutine | 'new' | null>(null);
+  const [logging, setLogging] = useState<WeeklyRoutine | null>(null);
   const [removing, setRemoving] = useState<WeeklyRoutine | null>(null);
   // Only the current week is created automatically. Browsing history never invents missed work.
   useEffect(() => {
@@ -41,12 +44,31 @@ export function WeeklyView({
   const rows = state.routineWeeks?.[week];
   const addButton = useRef<HTMLButtonElement>(null);
   const focusAfterRemove = useRef(false);
+  const focusLog = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusLog.current) return;
+    Array.from(document.querySelectorAll<HTMLElement>('[data-routine-log]'))
+      .find((item) => item.dataset.routineLog === focusLog.current)
+      ?.focus();
+    focusLog.current = null;
+  }, [state.tasks]);
   useEffect(() => {
     if (focusAfterRemove.current) {
       addButton.current?.focus();
       focusAfterRemove.current = false;
     }
   }, [rows]);
+  const reopen = (id: string, routineId: string) => {
+    focusLog.current = routineId;
+    onChange((value) => ({
+      ...value,
+      tasks: value.tasks.map((task) =>
+        task.id === id
+          ? { ...task, completed: false, completedOn: null }
+          : task,
+      ),
+    }));
+  };
   const format = (day: string, options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(undefined, options).format(parseDate(day));
   const save = (title: string, target: number, daily: boolean) => {
@@ -132,119 +154,114 @@ export function WeeklyView({
             )}
           </div>
         ) : (
-          <div
-            className="weekly-table-scroll"
-            tabIndex={0}
-            role="region"
-            aria-label="Routine days, Monday to Sunday"
-          >
-            <table className="weekly-table">
-              <thead>
-                <tr>
-                  <th scope="col">Routine</th>
-                  {days.map((day) => (
-                    <th
-                      scope="col"
-                      key={day}
-                      aria-current={day === today ? 'date' : undefined}
+          <div className="weekly-routines">
+            {rows.map((row) => {
+              const count = routineProgress(state, row, week);
+              const entries = routineEntries(state, row.id, week);
+              return (
+                <article
+                  className="weekly-routine"
+                  key={row.id}
+                  aria-label={`Routine: ${row.title}`}
+                >
+                  <div className="weekly-routine-heading">
+                    <div>
+                      <h2>{row.title}</h2>
+                      <p>
+                        {row.daily
+                          ? 'Daily · 7 per week'
+                          : `${row.target} per week`}
+                      </p>
+                    </div>
+                    <div className="weekly-row-actions">
+                      <button
+                        className="icon-button"
+                        aria-label={`Edit routine ${row.title}`}
+                        onClick={() => setEditor(row)}
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={`Remove routine ${row.title}`}
+                        onClick={() => setRemoving(row)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="weekly-routine-progress">
+                    <div className="weekly-progress-label">
+                      <strong>
+                        {count} / {row.target}
+                      </strong>
+                      <span>
+                        {count >= row.target
+                          ? 'Target met'
+                          : `${row.target - count} ${week < currentWeek ? 'short' : 'to go'}`}
+                      </span>
+                    </div>
+                    <progress
+                      max={row.target}
+                      value={Math.min(count, row.target)}
+                      aria-label={`${row.title} weekly progress`}
+                    />
+                    <button
+                      className="secondary-button"
+                      data-routine-log={row.id}
+                      aria-label={`Log progress for ${row.title}`}
+                      disabled={week > currentWeek}
+                      onClick={() => setLogging(row)}
                     >
-                      <span>{format(day, { weekday: 'short' })}</span>
-                      <small>{format(day, { day: 'numeric' })}</small>
-                    </th>
-                  ))}
-                  <th scope="col">Week</th>
-                  <th scope="col">
-                    <span className="visually-hidden">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => {
-                  const completed = days.filter((day) =>
-                    state.tasks.some(
-                      (task) =>
-                        task.routineId === row.id &&
-                        task.date === day &&
-                        task.completed,
-                    ),
-                  );
-                  const missed = row.daily
-                    ? days.filter(
-                        (day) => day < today && !completed.includes(day),
-                      ).length
-                    : 0;
-                  const shortfall = Math.max(0, row.target - completed.length);
-                  return (
-                    <tr key={row.id}>
-                      <th scope="row">
-                        <span>{row.title}</span>
-                        <small>
-                          {row.daily ? 'Daily' : `${row.target} per week`}
-                        </small>
-                      </th>
-                      {days.map((day) => {
-                        const checked = completed.includes(day);
-                        return (
-                          <td
-                            key={day}
-                            className={`${day < today ? 'elapsed-day' : ''} ${row.daily && day < today && !checked ? 'missed-day' : ''}`}
-                          >
-                            <label className="weekly-check">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={day > today}
-                                aria-label={`${row.title}, ${format(day, { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}`}
-                                onChange={() =>
-                                  onChange((value) =>
-                                    toggleRoutineDay(value, row, day),
-                                  )
-                                }
-                              />
-                            </label>
-                          </td>
-                        );
-                      })}
-                      <td className="weekly-total">
-                        <strong>
-                          {completed.length} / {row.target}
-                        </strong>
-                        <small>
-                          {shortfall === 0
-                            ? 'Target met'
-                            : row.daily && missed
-                              ? `${missed} missed`
-                              : week < currentWeek
-                                ? `${shortfall} short`
-                                : `${shortfall} to go`}
-                        </small>
-                      </td>
-                      <td>
-                        <div className="weekly-row-actions">
+                      Log progress
+                    </button>
+                  </div>
+                  {entries.length > 0 && (
+                    <details className="weekly-entries">
+                      <summary>Completed work ({entries.length})</summary>
+                      {entries.map((task) => (
+                        <div className="weekly-entry" key={task.id}>
+                          <span>
+                            {task.title}
+                            <small>
+                              {format(task.completedOn ?? task.date!, {
+                                weekday: 'short',
+                                day: 'numeric',
+                                month: 'short',
+                              })}{' '}
+                              · {task.routineUnits ?? 1} completed
+                            </small>
+                          </span>
                           <button
-                            className="icon-button"
-                            aria-label={`Edit routine ${row.title}`}
-                            onClick={() => setEditor(row)}
+                            className="text-button"
+                            aria-label={`Reopen ${task.title}`}
+                            onClick={() => reopen(task.id, row.id)}
                           >
-                            <Pencil size={15} />
-                          </button>
-                          <button
-                            className="icon-button"
-                            aria-label={`Remove routine ${row.title}`}
-                            onClick={() => setRemoving(row)}
-                          >
-                            <Trash2 size={15} />
+                            Reopen
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      ))}
+                    </details>
+                  )}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
+      {logging && (
+        <ProgressDialog
+          routine={logging}
+          week={week}
+          today={today}
+          entries={routineEntries(state, logging.id, week)}
+          onClose={() => setLogging(null)}
+          onSave={(day, units) => {
+            onChange((value) => logRoutineProgress(value, logging, day, units));
+            setLogging(null);
+          }}
+        />
+      )}
       {editor && (
         <RoutineDialog
           routine={editor === 'new' ? undefined : editor}
@@ -318,7 +335,7 @@ function RoutineDialog({
             (daily ||
               (Number.isInteger(Number(target)) &&
                 Number(target) >= 1 &&
-                Number(target) <= 7))
+                Number(target) <= 1000))
           )
             onSave(title.trim(), daily ? 7 : Number(target), daily);
         }}
@@ -347,7 +364,7 @@ function RoutineDialog({
               type="number"
               required
               min={1}
-              max={7}
+              max={1000}
               step={1}
               value={target}
               onChange={(event) => setTarget(event.target.value)}
@@ -355,12 +372,98 @@ function RoutineDialog({
           </label>
         )}
         <p className="routine-hint">
-          One check per day. Changes in the current week apply to new checklists
-          too. Saved weeks keep their own targets.
+          Weekly targets can be completed in batches. Choose Every day only for
+          a daily routine. Saved weeks keep their own targets.
         </p>
         <footer className="modal-actions">
           <button className="primary-button" disabled={!title.trim()}>
             Save routine
+          </button>
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
+function ProgressDialog({
+  routine,
+  week,
+  today,
+  entries,
+  onSave,
+  onClose,
+}: {
+  routine: WeeklyRoutine;
+  week: string;
+  today: string;
+  entries: import('./model').Task[];
+  onSave: (day: string, units: number) => void;
+  onClose: () => void;
+}) {
+  const last = dateKey(addDays(parseDate(week), 6));
+  const max = last < today ? last : today;
+  const [day, setDay] = useState(
+    today > last ? last : today < week ? week : today,
+  );
+  const [units, setUnits] = useState('1');
+  const duplicate =
+    routine.daily &&
+    entries.some((task) => (task.completedOn ?? task.date) === day);
+  const valid =
+    day >= week &&
+    day <= max &&
+    Number.isInteger(Number(units)) &&
+    Number(units) >= 1 &&
+    Number(units) <= 1000 &&
+    !duplicate;
+  return (
+    <Modal title="Log progress" description={routine.title} onClose={onClose}>
+      <form
+        className="task-editor"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (valid) onSave(day, routine.daily ? 1 : Number(units));
+        }}
+      >
+        {!routine.daily && (
+          <label className="field">
+            How many completed?
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              step={1}
+              required
+              value={units}
+              onChange={(event) => setUnits(event.target.value)}
+            />
+          </label>
+        )}
+        <label className="field">
+          Completed on
+          <input
+            type="date"
+            min={week}
+            max={max}
+            required
+            value={day}
+            onChange={(event) => setDay(event.target.value)}
+          />
+        </label>
+        {duplicate && (
+          <p role="alert" className="focus-error">
+            Already logged for this day.
+          </p>
+        )}
+        <p className="routine-hint">
+          Records completed work. Nothing is scheduled on the calendar.
+        </p>
+        <footer className="modal-actions">
+          <button type="button" className="secondary-button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="primary-button" disabled={!valid}>
+            Log completed work
           </button>
         </footer>
       </form>
