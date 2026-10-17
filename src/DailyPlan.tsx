@@ -40,14 +40,11 @@ export function DailyPlan({
   const [day, setDay] = useState(today);
   const [recording, setRecording] = useState<string | null>(null);
   const [workform, setWorkform] = useState('');
-  const [viewing, setViewing] = useState<string | null>(null);
   const completedFocus = useRef<string | null>(null);
   useEffect(() => {
     if (!completedFocus.current) return;
-    Array.from(
-      document.querySelectorAll<HTMLButtonElement>('[data-workform-block]'),
-    )
-      .find((button) => button.dataset.workformBlock === completedFocus.current)
+    Array.from(document.querySelectorAll<HTMLElement>('[data-plan-hour]'))
+      .find((button) => button.dataset.planHour === completedFocus.current)
       ?.focus();
     completedFocus.current = null;
   }, [state.tasks]);
@@ -168,6 +165,8 @@ export function DailyPlan({
                 className={`focus-block ${complete ? 'block-complete' : ''} ${active ? 'block-active' : ''}`}
                 key={block.id}
                 aria-label={`Hour ${index + 1}`}
+                tabIndex={-1}
+                data-plan-hour={block.id}
               >
                 <div className="block-fields">
                   <div className="block-description">
@@ -283,21 +282,6 @@ export function DailyPlan({
                         Mark done
                       </button>
                     )}
-                    {records.length > 0 && (
-                      <div className="block-workforms">
-                        <button
-                          className="text-button"
-                          data-workform-block={block.id}
-                          aria-label={`View workform for hour ${index + 1}`}
-                          onClick={() => {
-                            setWorkform(records[0]?.progress ?? '');
-                            setViewing(block.id);
-                          }}
-                        >
-                          View workform
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               </article>
@@ -322,58 +306,6 @@ export function DailyPlan({
           </button>
         )}
       </section>
-      {viewing && (
-        <Modal title="Hour workform" onClose={() => setViewing(null)}>
-          <form
-            className="task-editor"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!workform.trim()) return;
-              onChange((current) => {
-                const record = blockRecords(current, day, viewing)[0];
-                const owner = current.tasks.find((task) =>
-                  task.sessions?.some((item) => item.id === record?.id),
-                );
-                return record && owner
-                  ? saveBlockWorkform(current, owner.id, {
-                      ...record,
-                      progress: workform.trim(),
-                    })
-                  : current;
-              });
-              setViewing(null);
-            }}
-          >
-            <p className="routine-hint">
-              {(blockRecords(state, day, viewing)[0]?.minutes ?? 0) >= 60
-                ? '1 focused hour'
-                : `${Math.floor(blockRecords(state, day, viewing)[0]?.minutes ?? 0)} minutes recorded`}
-            </p>
-            <label className="field">
-              What did you work on?
-              <textarea
-                required
-                rows={6}
-                maxLength={1000000}
-                value={workform}
-                onChange={(event) => setWorkform(event.target.value)}
-              />
-            </label>
-            <footer className="modal-actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setViewing(null)}
-              >
-                Close workform
-              </button>
-              <button className="primary-button" disabled={!workform.trim()}>
-                Save reflection
-              </button>
-            </footer>
-          </form>
-        </Modal>
-      )}
       {recording && (
         <Modal
           title="Complete hour"

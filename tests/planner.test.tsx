@@ -1489,13 +1489,9 @@ it('plans existing tasks into hours and counts a block only after its workform i
       .textContent,
   ).toContain('1');
   expect(document.activeElement).toBe(
-    screen.getByRole('button', { name: 'View workform for hour 1' }),
+    screen.getByRole('article', { name: 'Hour 1' }),
   );
-  await user.click(
-    screen.getByRole('button', { name: 'View workform for hour 1' }),
-  );
-  expect(screen.getByDisplayValue('Finished the lesson outline.')).toBeTruthy();
-  await user.click(screen.getByRole('button', { name: 'Close workform' }));
+  expect(screen.queryByRole('button', { name: /View workform/ })).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Add another hour' }));
   expect(screen.getAllByRole('article')).toHaveLength(5);
 });
@@ -1936,7 +1932,7 @@ it('records completed hours directly and fills all four green goal segments with
     ).toBeNull();
   }
   expect(document.activeElement).toBe(
-    screen.getByRole('button', { name: 'View workform for hour 4' }),
+    screen.getByRole('article', { name: 'Hour 4' }),
   );
   expect(screen.getByText('Daily goal reached')).toBeTruthy();
   expect(document.querySelectorAll('.goal-hour.is-earned')).toHaveLength(4);
@@ -1957,7 +1953,7 @@ it('records completed hours directly and fills all four green goal segments with
   ).toBeTruthy();
 });
 
-it('finishes a partial hour with one workform and edits its reflection without adding another hour', async () => {
+it('finishes a partial hour with one workform and no submitted-workform action', async () => {
   const blockId = `${today}-block-1`;
   localStorage.setItem(
     STORAGE_KEY,
@@ -2000,17 +1996,8 @@ it('finishes a partial hour with one workform and edits its reflection without a
   expect(
     screen.getByRole('status', { name: '1 of 4 deep-work hours completed' }),
   ).toBeTruthy();
-  await user.click(
-    screen.getByRole('button', { name: 'View workform for hour 1' }),
-  );
-  await user.clear(screen.getByLabelText('What did you work on?'));
-  await user.type(
-    screen.getByLabelText('What did you work on?'),
-    'Updated reflection',
-  );
-  await user.click(screen.getByRole('button', { name: 'Save reflection' }));
-  expect(saved().tasks[0].sessions).toHaveLength(1);
-  expect(saved().tasks[0].sessions![0].progress).toBe('Updated reflection');
+  expect(screen.queryByRole('button', { name: /View workform/ })).toBeNull();
+  expect(screen.queryByRole('dialog')).toBeNull();
   expect(saved().tasks[0].notes).toBe('Keep notes');
   expect(
     screen.getByRole('status', { name: '1 of 4 deep-work hours completed' }),

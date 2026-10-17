@@ -728,6 +728,7 @@ export default function App() {
     id: string | null;
     onlyIfLost: boolean;
     fallback?: string;
+    hourId?: string;
   } | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [deleted, setDeleted] = useState<{ task: Task; index: number } | null>(
@@ -799,6 +800,15 @@ export default function App() {
     setFocusRequest(null);
     const active = document.activeElement;
     if (focusRequest.onlyIfLost && active && active !== document.body) return;
+    if (view === 'plan' && focusRequest.hourId) {
+      const hour = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-plan-hour]'),
+      ).find((item) => item.dataset.planHour === focusRequest.hourId);
+      if (hour) {
+        hour.focus();
+        return;
+      }
+    }
     const target = Array.from(
       document.querySelectorAll<HTMLElement>('[data-task-id]'),
     ).find((element) => element.dataset.taskId === focusRequest.id);
@@ -811,11 +821,9 @@ export default function App() {
         ?.focus();
     else if (view === 'plan')
       (
-        document.querySelector<HTMLElement>('.block-workforms button') ??
         document.querySelector<HTMLElement>(
           '.focus-block button:not(:disabled)',
-        ) ??
-        document.querySelector<HTMLElement>('.daily-toolbar button')
+        ) ?? document.querySelector<HTMLElement>('.daily-toolbar button')
       )?.focus();
     else if (view === 'goals' || view === 'projects')
       (
@@ -1128,7 +1136,11 @@ export default function App() {
         });
         if (state.focus?.blockId) setView('plan');
         else reveal(focusTask.date);
-        setFocusRequest({ id: focusTask.id, onlyIfLost: false });
+        setFocusRequest({
+          id: focusTask.id,
+          onlyIfLost: false,
+          hourId: state.focus?.blockId,
+        });
         announce('Session saved.');
       }}
     />
