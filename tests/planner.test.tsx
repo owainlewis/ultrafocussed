@@ -298,7 +298,9 @@ describe('planner user flows', () => {
       { id: 'done', title: 'Done task', date: '2020-01-01', completed: true },
     ]);
     render(<App />);
-    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(
+      within(screen.getByRole('main')).queryByRole('complementary'),
+    ).toBeNull();
     const tasks = screen.getByRole('region', { name: 'Tasks', exact: true });
     expect(
       within(tasks).getByRole('button', { name: 'Old task', exact: true }),
@@ -895,7 +897,9 @@ describe('Tasks brain dump', () => {
     expect(saved().tasks.find((task) => task.id === 'done')?.completed).toBe(
       true,
     );
-    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(
+      within(screen.getByRole('main')).queryByRole('complementary'),
+    ).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Today', exact: true }),
     ).toBeNull();
@@ -946,7 +950,9 @@ describe('Tasks brain dump', () => {
     await user.click(
       screen.getByRole('button', { name: 'Month', exact: true }),
     );
-    expect(screen.queryByRole('complementary')).toBeNull();
+    expect(
+      within(screen.getByRole('main')).queryByRole('complementary'),
+    ).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Reopen Schedule this' }),
     ).toBeTruthy();
@@ -1214,4 +1220,42 @@ it('keeps keyboard focus in the checklist when a task is unlinked', async () => 
     screen.getByLabelText('New task for Work'),
   );
   expect(saved().tasks[0].projectId).toBeNull();
+});
+
+it('collapses navigation without losing names, selection or the saved preference', async () => {
+  const app = render(<App />);
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: 'Collapse sidebar', exact: true }),
+  );
+  expect(
+    screen
+      .getByRole('button', { name: 'Expand sidebar' })
+      .getAttribute('aria-expanded'),
+  ).toBe('false');
+  expect(localStorage.getItem('ultrafocussed.sidebar')).toBe('collapsed');
+  await user.click(
+    screen.getByRole('button', { name: 'Calendar', exact: true }),
+  );
+  expect(
+    screen
+      .getByRole('button', { name: 'Calendar', exact: true })
+      .getAttribute('aria-pressed'),
+  ).toBe('true');
+  await user.click(screen.getByRole('button', { name: 'Year', exact: true }));
+  expect(
+    screen
+      .getByRole('button', { name: 'Calendar', exact: true })
+      .getAttribute('aria-pressed'),
+  ).toBe('true');
+  app.unmount();
+  render(<App />);
+  expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+  expect(localStorage.getItem('ultrafocussed.sidebar')).toBe('expanded');
+  expect(
+    screen
+      .getByRole('button', { name: 'Collapse sidebar' })
+      .getAttribute('aria-expanded'),
+  ).toBe('true');
 });

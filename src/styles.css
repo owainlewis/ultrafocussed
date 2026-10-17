@@ -134,72 +134,6 @@ p {
   white-space: nowrap;
 }
 
-.app-header {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  min-height: 60px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--rule-soft);
-  background: var(--paper);
-}
-.app-identity {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
-}
-.app-identity svg {
-  color: var(--muted);
-}
-.planner-tabs {
-  display: flex;
-  align-self: stretch;
-  gap: 4px;
-}
-.planner-tabs button {
-  position: relative;
-  border: 0;
-  padding: 0 16px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 550;
-}
-.planner-tabs button:hover {
-  color: var(--ink);
-  background: var(--tint);
-}
-.planner-tabs button[aria-pressed='true'] {
-  color: var(--ink);
-}
-.planner-tabs button[aria-pressed='true']::after {
-  content: '';
-  position: absolute;
-  height: 2px;
-  bottom: 0;
-  left: 16px;
-  right: 16px;
-  background: var(--ink);
-}
-.app-utilities {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-left: auto;
-}
-.backup-actions {
-  display: flex;
-  padding-right: 8px;
-  margin-right: 6px;
-  border-right: 1px solid var(--rule-soft);
-}
-.app-utilities .icon-button {
-  min-width: 32px;
-  min-height: 32px;
-}
 .planner-toolbar {
   display: flex;
   align-items: center;
@@ -251,7 +185,7 @@ p {
 /* Shell */
 .app-shell {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100dvh;
   min-height: 560px;
 }
@@ -291,10 +225,6 @@ p {
   background: var(--hover);
 }
 
-.save-failed {
-  color: var(--danger);
-  font-weight: 600;
-}
 .count {
   display: inline-block;
   min-width: 20px;
@@ -1452,31 +1382,6 @@ dialog::backdrop {
 }
 
 @media (max-width: 760px) {
-  .app-header {
-    flex-wrap: wrap;
-    gap: 0;
-    padding: 12px 14px 0;
-  }
-  .app-identity {
-    font-size: 14px;
-  }
-  .app-utilities {
-    margin-left: auto;
-  }
-  .backup-actions {
-    padding-right: 4px;
-    margin-right: 2px;
-  }
-  .planner-tabs {
-    order: 3;
-    flex-basis: 100%;
-    height: 44px;
-    margin-top: 8px;
-  }
-  .planner-tabs button {
-    flex: 1;
-    padding: 0 12px;
-  }
   .planner-toolbar {
     min-height: 62px;
     padding: 12px 16px;
@@ -1642,4 +1547,127 @@ dialog::backdrop {
 .calendar-scale button[aria-pressed='true'] {
   background: var(--accent);
   color: var(--on-accent);
+}
+
+/* Application navigation stays anchored while the workspace scrolls. */
+.planner-workspace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.planner-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100dvh;
+  width: 224px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 12px 12px;
+  background: var(--rail);
+  border-right: 1px solid var(--rule-soft);
+  overflow-y: auto;
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 24px;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+.sidebar-brand svg {
+  flex-shrink: 0;
+}
+.planner-sidebar button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.planner-sidebar button svg {
+  flex-shrink: 0;
+}
+.planner-sidebar button:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.planner-sidebar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.sidebar-collapse {
+  margin-bottom: 20px;
+}
+.sidebar-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sidebar-navigation button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 650;
+}
+.sidebar-utilities {
+  margin-top: auto;
+  padding-top: 24px;
+}
+.sidebar-backups {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.sidebar-save-error {
+  display: block;
+  color: var(--error-ink);
+  font-size: 11px;
+  text-align: center;
+  padding: 8px 0;
+}
+.planner-sidebar.is-collapsed {
+  width: 68px;
+}
+.planner-sidebar.is-collapsed .sidebar-label {
+  display: none;
+}
+.planner-sidebar.is-collapsed .sidebar-brand {
+  padding: 6px 11px 24px;
+}
+@media (max-width: 760px) {
+  .planner-sidebar,
+  .planner-sidebar.is-collapsed {
+    width: 60px;
+    padding: 16px 8px 8px;
+  }
+  .planner-sidebar .sidebar-label,
+  .planner-sidebar .sidebar-collapse {
+    display: none;
+  }
+  .planner-sidebar .sidebar-brand {
+    padding: 6px 11px 26px;
+  }
+  .planner-sidebar button {
+    padding: 10px 12px;
+  }
+  .sidebar-utilities {
+    padding-top: 16px;
+  }
+  .planner-workspace .tasks-view {
+    width: calc(100% - 24px);
+    padding: 12px;
+  }
 }

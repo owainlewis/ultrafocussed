@@ -8,13 +8,19 @@ import {
   Moon,
   Plus,
   Layers,
+  ListTodo,
+  CalendarDays,
+  FolderOpen,
+  Flag,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Theme } from './useTheme';
 
 export type PlannerView = 'tasks' | 'year' | 'month' | 'goals' | 'projects';
 
-export function PlannerHeader({
+export function PlannerSidebar({
   view,
   onView,
   theme,
@@ -35,16 +41,65 @@ export function PlannerHeader({
   readError: boolean;
   saveError: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('ultrafocussed.sidebar') === 'collapsed';
+    } catch {
+      return false;
+    }
+  });
+  const toggle = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(
+        'ultrafocussed.sidebar',
+        next ? 'collapsed' : 'expanded',
+      );
+    } catch {
+      /* Navigation still works when preference storage is unavailable. */
+    }
+  };
+  const navigation = [
+    { view: 'tasks', label: 'Tasks', icon: ListTodo },
+    { view: 'month', label: 'Calendar', icon: CalendarDays },
+    { view: 'projects', label: 'Projects', icon: FolderOpen },
+    { view: 'goals', label: 'Goals', icon: Flag },
+  ] as const;
   return (
-    <header className="app-header">
-      <div className="app-identity">
-        <Layers size={19} aria-hidden="true" />
-        <span>UltraFocussed</span>
+    <aside
+      className={`planner-sidebar ${collapsed ? 'is-collapsed' : ''}`}
+      aria-label="Planner sidebar"
+    >
+      <div className="sidebar-brand" title="UltraFocussed">
+        <Layers size={22} aria-hidden="true" />
+        <span className="sidebar-label">UltraFocussed</span>
       </div>
-      <nav className="planner-tabs" aria-label="Planner view">
-        {(['tasks', 'month', 'projects', 'goals'] as const).map((mode) => (
+      <button
+        className="sidebar-collapse"
+        onClick={toggle}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!collapsed}
+        aria-controls="planner-navigation"
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        {collapsed ? (
+          <PanelLeftOpen size={18} aria-hidden="true" />
+        ) : (
+          <PanelLeftClose size={18} aria-hidden="true" />
+        )}
+        <span className="sidebar-label">Collapse sidebar</span>
+      </button>
+      <nav
+        id="planner-navigation"
+        className="sidebar-navigation"
+        aria-label="Planner view"
+      >
+        {navigation.map(({ view: mode, label, icon: Icon }) => (
           <button
             key={mode}
+            aria-label={label}
+            title={label}
             aria-pressed={
               mode === 'month'
                 ? view === 'month' || view === 'year'
@@ -52,57 +107,60 @@ export function PlannerHeader({
             }
             onClick={() => onView(mode)}
           >
-            {mode === 'tasks'
-              ? 'Tasks'
-              : mode === 'month'
-                ? 'Calendar'
-                : mode === 'projects'
-                  ? 'Projects'
-                  : 'Goals'}
+            <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
+            <span className="sidebar-label">{label}</span>
           </button>
         ))}
       </nav>
-      <div className="app-utilities">
+      <div className="sidebar-utilities">
         {(readError || saveError) && (
-          <span className="save-failed">Not saved</span>
+          <span className="sidebar-save-error" role="status" title="Not saved">
+            Not saved
+          </span>
         )}
-        <div className="backup-actions" aria-label="Planner backups">
+        <div
+          className="sidebar-backups"
+          role="group"
+          aria-label="Planner backups"
+        >
           <button
-            className="icon-button"
             aria-label="Export backup"
             title="Export backup"
             disabled={readError}
             onClick={onExport}
           >
-            <Download size={17} />
+            <Download size={18} aria-hidden="true" />
+            <span className="sidebar-label">Export backup</span>
           </button>
           <button
-            className="icon-button"
             aria-label="Import backup"
             title="Import backup"
             onClick={onImport}
           >
-            <Upload size={17} />
+            <Upload size={18} aria-hidden="true" />
+            <span className="sidebar-label">Import backup</span>
           </button>
         </div>
         <button
-          className="icon-button"
           aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
           title={`${theme === 'light' ? 'Dark' : 'Light'} mode`}
           onClick={onTheme}
         >
-          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+          {theme === 'light' ? (
+            <Moon size={18} aria-hidden="true" />
+          ) : (
+            <Sun size={18} aria-hidden="true" />
+          )}
+          <span className="sidebar-label">
+            {theme === 'light' ? 'Dark' : 'Light'} mode
+          </span>
         </button>
-        <button
-          className="icon-button"
-          aria-label="Planner help"
-          title="Planner help"
-          onClick={onHelp}
-        >
-          <CircleHelp size={18} />
+        <button aria-label="Planner help" title="Planner help" onClick={onHelp}>
+          <CircleHelp size={18} aria-hidden="true" />
+          <span className="sidebar-label">Help</span>
         </button>
       </div>
-    </header>
+    </aside>
   );
 }
 

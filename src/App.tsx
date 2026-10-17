@@ -34,7 +34,7 @@ import {
 import { MonthView, YearView, GoalsView } from './WarMapViews';
 import { Modal } from './Modal';
 import {
-  PlannerHeader,
+  PlannerSidebar,
   PlannerToolbar,
   type PlannerView,
 } from './PlannerChrome';
@@ -1070,7 +1070,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <PlannerHeader
+      <PlannerSidebar
         view={view}
         onView={(mode) => {
           setView(mode === 'month' ? calendarMode : mode);
@@ -1083,211 +1083,217 @@ export default function App() {
         readError={readError}
         saveError={saveError}
       />
-      {view !== 'tasks' && (
-        <PlannerToolbar
-          view={view}
-          title={
-            view === 'month'
-              ? new Intl.DateTimeFormat(undefined, {
-                  month: 'long',
-                  year: 'numeric',
-                }).format(month)
-              : view === 'projects'
-                ? 'Projects'
-                : month.getFullYear()
-          }
-          onToday={goToday}
-          onPeriod={goPeriod}
-          onCalendarView={setView}
-          onAddProject={
-            view === 'projects' && !readError
-              ? () => setCreatingProject(true)
-              : undefined
-          }
-          onAddGoal={
-            view === 'goals' &&
-            !readError &&
-            (state.goals ?? []).filter(
-              (goal) => goal.year === month.getFullYear(),
-            ).length < 4
-              ? () => setCreatingGoal(true)
-              : undefined
-          }
-        />
-      )}
-      {(readError || saveError) && (
-        <div className="storage-error" role="alert">
-          <span>
-            {readError
-              ? 'We couldn’t read your saved planner. Existing data has not been overwritten. Retry or restore a backup.'
-              : 'Your latest changes could not be saved. Keep this page open and retry, or export a backup.'}
+      <div className="planner-workspace">
+        {view !== 'tasks' && (
+          <PlannerToolbar
+            view={view}
+            title={
+              view === 'month'
+                ? new Intl.DateTimeFormat(undefined, {
+                    month: 'long',
+                    year: 'numeric',
+                  }).format(month)
+                : view === 'projects'
+                  ? 'Projects'
+                  : month.getFullYear()
+            }
+            onToday={goToday}
+            onPeriod={goPeriod}
+            onCalendarView={setView}
+            onAddProject={
+              view === 'projects' && !readError
+                ? () => setCreatingProject(true)
+                : undefined
+            }
+            onAddGoal={
+              view === 'goals' &&
+              !readError &&
+              (state.goals ?? []).filter(
+                (goal) => goal.year === month.getFullYear(),
+              ).length < 4
+                ? () => setCreatingGoal(true)
+                : undefined
+            }
+          />
+        )}
+        {(readError || saveError) && (
+          <div className="storage-error" role="alert">
+            <span>
+              {readError
+                ? 'We couldn’t read your saved planner. Existing data has not been overwritten. Retry or restore a backup.'
+                : 'Your latest changes could not be saved. Keep this page open and retry, or export a backup.'}
+            </span>
+            <button onClick={retrySave}>Retry</button>
+            {readError ? (
+              <>
+                <button onClick={() => importRef.current?.click()}>
+                  Restore backup
+                </button>
+                <button onClick={exportRaw}>Download saved data</button>
+              </>
+            ) : (
+              <button onClick={exportBackup}>Export backup</button>
+            )}
+          </div>
+        )}
+        <main>
+          <span id="move-hint" hidden>
+            Alt with arrow keys moves this task.
           </span>
-          <button onClick={retrySave}>Retry</button>
-          {readError ? (
-            <>
-              <button onClick={() => importRef.current?.click()}>
-                Restore backup
-              </button>
-              <button onClick={exportRaw}>Download saved data</button>
-            </>
-          ) : (
-            <button onClick={exportBackup}>Export backup</button>
-          )}
-        </div>
-      )}
-      <main>
-        <span id="move-hint" hidden>
-          Alt with arrow keys moves this task.
-        </span>
-        <fieldset
-          className={`planner-content war-map-content view-${view}`}
-          disabled={readError}
-        >
-          {view === 'tasks' ? (
-            <TasksView
-              capture={<CaptureField onAdd={(title) => addTask(title, null)} />}
-              empty={listedTasks.length === 0}
-              hasTasks={state.tasks.length > 0}
-              showCompleted={showCompleted}
-              onShowCompleted={setShowCompleted}
-            >
-              {renderList(listedTasks, null)}
-            </TasksView>
-          ) : view === 'month' ? (
-            <div className="month-calendar">
-              <MonthView
-                month={month}
+          <fieldset
+            className={`planner-content war-map-content view-${view}`}
+            disabled={readError}
+          >
+            {view === 'tasks' ? (
+              <TasksView
+                capture={
+                  <CaptureField onAdd={(title) => addTask(title, null)} />
+                }
+                empty={listedTasks.length === 0}
+                hasTasks={state.tasks.length > 0}
+                showCompleted={showCompleted}
+                onShowCompleted={setShowCompleted}
+              >
+                {renderList(listedTasks, null)}
+              </TasksView>
+            ) : view === 'month' ? (
+              <div className="month-calendar">
+                <MonthView
+                  month={month}
+                  tasks={state.tasks}
+                  selected={selectedDay}
+                  onSelect={setSelectedDay}
+                  dropProps={dropProps}
+                  renderDay={(day) => {
+                    const key = dateKey(day);
+                    return (
+                      <>
+                        {renderList(
+                          state.tasks.filter((task) => task.date === key),
+                          key,
+                        )}
+                        <DayComposer date={key} onAdd={addTask} />
+                      </>
+                    );
+                  }}
+                />
+              </div>
+            ) : view === 'year' ? (
+              <YearView
+                year={month.getFullYear()}
                 tasks={state.tasks}
-                selected={selectedDay}
-                onSelect={setSelectedDay}
-                dropProps={dropProps}
-                renderDay={(day) => {
-                  const key = dateKey(day);
-                  return (
-                    <>
-                      {renderList(
-                        state.tasks.filter((task) => task.date === key),
-                        key,
-                      )}
-                      <DayComposer date={key} onAdd={addTask} />
-                    </>
-                  );
+                onMonth={(date) => {
+                  setMonth(date);
+                  setSelectedDay(dateKey(date));
+                  setView('month');
                 }}
+                onDay={showDate}
               />
-            </div>
-          ) : view === 'year' ? (
-            <YearView
-              year={month.getFullYear()}
-              tasks={state.tasks}
-              onMonth={(date) => {
-                setMonth(date);
-                setSelectedDay(dateKey(date));
-                setView('month');
-              }}
-              onDay={showDate}
-            />
-          ) : view === 'projects' ? (
-            <ProjectsView
-              projects={state.projects ?? []}
-              tasks={state.tasks}
-              creating={creatingProject}
-              onCreationClose={() => setCreatingProject(false)}
-              renderTasks={(tasks) => renderList(tasks, null, true)}
-              onAdd={(title) =>
-                setState((current) => ({
-                  ...current,
-                  projects: [
-                    ...(current.projects ?? []),
-                    { id: crypto.randomUUID(), title, completed: false },
-                  ],
-                }))
-              }
-              onRename={(id, title) =>
-                setState((current) => ({
-                  ...current,
-                  projects: (current.projects ?? []).map((project) =>
-                    project.id === id ? { ...project, title } : project,
-                  ),
-                }))
-              }
-              onToggleState={(id) =>
-                setState((current) => ({
-                  ...current,
-                  projects: (current.projects ?? []).map((project) =>
-                    project.id === id
-                      ? { ...project, completed: !project.completed }
-                      : project,
-                  ),
-                }))
-              }
-              onRemove={(id) =>
-                setState((current) => removeProject(current, id))
-              }
-              onAddTask={(title, projectId) =>
-                setTasks((tasks) => [
-                  ...tasks,
-                  { ...createTask(title, null), projectId },
-                ])
-              }
-            />
-          ) : (
-            <GoalsView
-              creating={creatingGoal}
-              onCreationClose={() => setCreatingGoal(false)}
-              year={month.getFullYear()}
-              goals={state.goals ?? []}
-              tasks={state.tasks}
-              renderActions={(tasks) => renderList(tasks, null, true)}
-              onAddGoal={(title) =>
-                setState((current) => {
-                  if (
-                    (current.goals ?? []).filter(
-                      (goal) => goal.year === month.getFullYear(),
-                    ).length >= 4
-                  )
-                    return current;
-                  return {
+            ) : view === 'projects' ? (
+              <ProjectsView
+                projects={state.projects ?? []}
+                tasks={state.tasks}
+                creating={creatingProject}
+                onCreationClose={() => setCreatingProject(false)}
+                renderTasks={(tasks) => renderList(tasks, null, true)}
+                onAdd={(title) =>
+                  setState((current) => ({
                     ...current,
-                    goals: [
-                      ...(current.goals ?? []),
-                      {
-                        id: crypto.randomUUID(),
-                        title,
-                        year: month.getFullYear(),
-                      },
+                    projects: [
+                      ...(current.projects ?? []),
+                      { id: crypto.randomUUID(), title, completed: false },
                     ],
-                  };
-                })
-              }
-              onRename={(id, title) =>
-                setState((current) => ({
-                  ...current,
-                  goals: (current.goals ?? []).map((goal) =>
-                    goal.id === id ? { ...goal, title } : goal,
-                  ),
-                }))
-              }
-              onDelete={(id) => setState((current) => removeGoal(current, id))}
-              onAddAction={(title, goalId) =>
-                setTasks((tasks) => [
-                  ...tasks,
-                  { ...createTask(title, null), goalId },
-                ])
-              }
-            />
-          )}
-        </fieldset>
-        <input
-          ref={importRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          aria-label="Import planner backup"
-          onChange={(event) => {
-            void importBackup(event.target.files?.[0]);
-          }}
-        />
-      </main>
+                  }))
+                }
+                onRename={(id, title) =>
+                  setState((current) => ({
+                    ...current,
+                    projects: (current.projects ?? []).map((project) =>
+                      project.id === id ? { ...project, title } : project,
+                    ),
+                  }))
+                }
+                onToggleState={(id) =>
+                  setState((current) => ({
+                    ...current,
+                    projects: (current.projects ?? []).map((project) =>
+                      project.id === id
+                        ? { ...project, completed: !project.completed }
+                        : project,
+                    ),
+                  }))
+                }
+                onRemove={(id) =>
+                  setState((current) => removeProject(current, id))
+                }
+                onAddTask={(title, projectId) =>
+                  setTasks((tasks) => [
+                    ...tasks,
+                    { ...createTask(title, null), projectId },
+                  ])
+                }
+              />
+            ) : (
+              <GoalsView
+                creating={creatingGoal}
+                onCreationClose={() => setCreatingGoal(false)}
+                year={month.getFullYear()}
+                goals={state.goals ?? []}
+                tasks={state.tasks}
+                renderActions={(tasks) => renderList(tasks, null, true)}
+                onAddGoal={(title) =>
+                  setState((current) => {
+                    if (
+                      (current.goals ?? []).filter(
+                        (goal) => goal.year === month.getFullYear(),
+                      ).length >= 4
+                    )
+                      return current;
+                    return {
+                      ...current,
+                      goals: [
+                        ...(current.goals ?? []),
+                        {
+                          id: crypto.randomUUID(),
+                          title,
+                          year: month.getFullYear(),
+                        },
+                      ],
+                    };
+                  })
+                }
+                onRename={(id, title) =>
+                  setState((current) => ({
+                    ...current,
+                    goals: (current.goals ?? []).map((goal) =>
+                      goal.id === id ? { ...goal, title } : goal,
+                    ),
+                  }))
+                }
+                onDelete={(id) =>
+                  setState((current) => removeGoal(current, id))
+                }
+                onAddAction={(title, goalId) =>
+                  setTasks((tasks) => [
+                    ...tasks,
+                    { ...createTask(title, null), goalId },
+                  ])
+                }
+              />
+            )}
+          </fieldset>
+          <input
+            ref={importRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            aria-label="Import planner backup"
+            onChange={(event) => {
+              void importBackup(event.target.files?.[0]);
+            }}
+          />
+        </main>
+      </div>
       <div className="toast-region" role="status" aria-live="polite">
         {deleted ? (
           <div className="toast">

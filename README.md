@@ -57,3 +57,5 @@ npm run format:check
 Model tests cover persistence format, invalid data, local calendar dates, week boundaries, moving and reordering, completion, and main outcomes. Browser verification is recorded in [docs/verification.md](docs/verification.md).
 
 Calendar has one navigation tab with a Month/Year switch in its toolbar. It remembers the scale when switching tabs. Projects uses the same title-and-checklist layout as Goals, without a year or count limit. Projects have an independent Active/Completed state; changing it keeps task completion unchanged. Tasks can link to both a project and a goal under Organise. Removing either group keeps the tasks, dates, notes and other links.
+
+Navigation lives in a collapsible left sidebar with icons. Its width preference is saved in this browser. Phones use a compact icon rail; backup, theme and help controls stay grouped at the bottom.

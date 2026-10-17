@@ -4,9 +4,9 @@ Ultrafocussed is an Operate surface. The work leads: dates, tasks, and goal chec
 
 ## Structure
 
-The app header contains the identity, Tasks/Calendar/Projects/Goals tabs, backup controls, theme toggle, and help. The selected tab has a short underline. A separate, attached toolbar contains the period title, previous/next, Today, and the current view's primary action. Add goal belongs here, never in a detached content band. Only failed saves need a persistent status message.
+A left sidebar contains the identity, Tasks/Calendar/Projects/Goals navigation with Lucide icons, and grouped backup, theme and help controls at the bottom. The selected view has a neutral filled background. A labelled collapse control switches between full labels and an icon rail; the choice is saved separately from planner data. Icon buttons retain accessible names and native tooltips.
 
-On phones, navigation tabs occupy a second header row. Period controls stay grouped. Main views have no horizontal page scrolling.
+On phones the sidebar is a compact icon rail. The content column stays flexible and the calendar toolbar wraps its period controls. Main views have no horizontal page scrolling. The attached page toolbar owns period navigation and the view's primary action. Only failed saves need a persistent status message.
 
 ## Views
 
@@ -20,7 +20,7 @@ Goals has up to four title-and-checklist sections for the year. Each section has
 
 ## Components and interaction
 
-PlannerHeader owns application navigation and utilities. PlannerToolbar owns period navigation and view actions. Modal provides native focus trapping, labelled headings, Escape handling, and focus restoration. Goal creation/rename and calendar task creation use this shared component.
+PlannerSidebar owns application navigation and utilities. PlannerToolbar owns period navigation and view actions. Modal provides native focus trapping, labelled headings, Escape handling, and focus restoration. Goal creation/rename and calendar task creation use this shared component.
 
 Task editing uses the shared Modal and contains a title and optional date, plus a collapsed Organise section for project and goal links, with Clear date when scheduled. Delete and Save share a footer. Saving patches editable fields only; existing notes, progress notes, goal links, main outcomes and session history remain in saved data and backups. Unsaved edits require an explicit Keep editing or Discard changes decision. Saving a changed date returns focus to the task. Tasks keeps its list in place; calendar edits follow the new date or open Tasks when clearing it. Task rows omit old note previews and main-outcome labels.
 
@@ -28,7 +28,7 @@ Focus is a separate timer action on every eligible task row, including Goals. It
 
 ## Light and dark themes
 
-The first visit follows the system preference. The header's sun/moon control switches themes and saves the explicit choice separately from planner data. Theme preference failures do not block planning. The initial theme is applied before mounting React.
+The first visit follows the system preference. The sidebar's sun/moon control switches themes and saves the explicit choice separately from planner data. Theme preference failures do not block planning. The initial theme is applied before mounting React.
 
 Both themes use semantic tokens for text, muted text, surfaces, separators, controls, past dates, primary actions, header bands, errors, and keyboard focus. Filled actions use an explicit foreground token instead of assuming white text. Native inputs and date pickers inherit color-scheme. Secondary text retains at least 4.5:1 contrast, including past-date cells. Dark mode uses layered charcoal surfaces rather than inverting white header bands.
 

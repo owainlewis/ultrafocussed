@@ -28,7 +28,7 @@ No accounts, cloud sync, team or social features. No timer sounds, notifications
 
 ## Brand Commitments
 
-Ultrafocussed. Minimalist layout with light and dark modes, neutral surfaces, clear contrast, and blue only for keyboard focus. Application navigation and view actions live in consistent attached toolbars. No green and no other decorative accent colour. No permanent navigation sidebar.
+Ultrafocussed. Minimalist layout with light and dark modes, neutral surfaces, clear contrast, and blue only for keyboard focus. Application navigation lives in a collapsible left sidebar; view actions live in attached page toolbars. No green and no other decorative accent colour. Phones use a compact navigation icon rail.
 
 ## Product Principles
 
