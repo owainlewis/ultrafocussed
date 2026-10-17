@@ -607,7 +607,7 @@ function FocusPanel({
       className={`focus-panel focus-state-${mode}`}
       aria-label="Focus session"
     >
-      <h3 className="focus-task">{task.title}</h3>
+      <h3 className="focus-task">{session?.intent?.trim() || task.title}</h3>
       {mode === 'setup' ? (
         <form
           className="focus-start"
@@ -1226,19 +1226,30 @@ export default function App() {
                   if (state.focus) setFocusTaskId(state.focus.taskId);
                 }}
                 onStart={(day, block) => {
-                  if (!block.taskId || state.focus || day !== today) return;
+                  if (state.focus || day !== today) return;
+                  const linked = state.tasks.find(
+                    (task) => task.id === block.taskId,
+                  );
+                  if (!linked && !block.intent?.trim()) return;
+                  const task =
+                    linked ??
+                    createTask(block.intent!.trim().slice(0, 300), null);
                   setState((current) => {
-                    if (
-                      current.focus ||
-                      !current.tasks.some((task) => task.id === block.taskId)
-                    )
-                      return current;
-                    const blocks = planForDay(current, day);
+                    if (current.focus) return current;
                     return {
                       ...current,
-                      dailyPlans: { ...current.dailyPlans, [day]: blocks },
+                      tasks: linked ? current.tasks : [...current.tasks, task],
+                      dailyPlans: {
+                        ...current.dailyPlans,
+                        [day]: planForDay(current, day).map((item) =>
+                          item.id === block.id
+                            ? { ...item, taskId: task.id }
+                            : item,
+                        ),
+                      },
                       focus: {
-                        taskId: block.taskId!,
+                        taskId: task.id,
+                        intent: block.intent?.trim(),
                         duration: 60,
                         startedAt: Date.now(),
                         blockId: block.id,
@@ -1246,7 +1257,7 @@ export default function App() {
                       },
                     };
                   });
-                  setFocusTaskId(block.taskId);
+                  setFocusTaskId(task.id);
                 }}
               />
             ) : view === 'weekly' ? (

@@ -5,6 +5,8 @@ export type Task = {
   completed: boolean;
   completedOn?: string | null;
   routineUnits?: number;
+  routineWeek?: string;
+  routineSlots?: number[];
   notes: string;
   main: boolean;
   goalId?: string | null;
@@ -21,6 +23,7 @@ export type FocusRecord = {
   endedAt: number;
   minutes: number;
   progress: string;
+  intent?: string;
   blockId?: string;
   planDate?: string;
 };
@@ -30,6 +33,7 @@ export type FocusSession = {
   duration: number;
   stoppedAt?: number;
   workform?: string;
+  intent?: string;
   blockId?: string;
   planDate?: string;
 };
@@ -43,7 +47,12 @@ export type Routine = {
   archived?: boolean;
 };
 export type WeeklyRoutine = Omit<Routine, 'archived'>;
-export type FocusBlock = { id: string; time?: string; taskId: string | null };
+export type FocusBlock = {
+  id: string;
+  time?: string;
+  taskId: string | null;
+  intent?: string;
+};
 export type PlannerState = {
   version: 1;
   tasks: Task[];
@@ -110,6 +119,8 @@ export function decodeState(raw: string | null): PlannerState {
           (typeof block.time !== 'string' ||
             !/^([01]\d|2[0-3]):[0-5]\d$/.test(block.time) ||
             block.time > '23:00')) ||
+        (block.intent !== undefined &&
+          (typeof block.intent !== 'string' || block.intent.length > 1000)) ||
         (block.taskId !== null &&
           (typeof block.taskId !== 'string' || !block.taskId))
       )
@@ -118,12 +129,14 @@ export function decodeState(raw: string | null): PlannerState {
     }
   }
   const validBlockLink = (entry: FocusRecord | FocusSession) =>
-    (entry.blockId === undefined && entry.planDate === undefined) ||
-    (typeof entry.blockId === 'string' &&
-      validDate(entry.planDate) &&
-      (value.dailyPlans?.[entry.planDate] ?? []).some(
-        (block: FocusBlock) => block.id === entry.blockId,
-      ));
+    (entry.intent === undefined ||
+      (typeof entry.intent === 'string' && entry.intent.length <= 1000)) &&
+    ((entry.blockId === undefined && entry.planDate === undefined) ||
+      (typeof entry.blockId === 'string' &&
+        validDate(entry.planDate) &&
+        (value.dailyPlans?.[entry.planDate] ?? []).some(
+          (block: FocusBlock) => block.id === entry.blockId,
+        )));
   const routineIds = new Set<string>();
   const validRoutine = (item: Routine) =>
     item &&
@@ -222,6 +235,18 @@ export function decodeState(raw: string | null): PlannerState {
     if (
       !task ||
       (task.completedOn != null && !validDate(task.completedOn)) ||
+      (task.routineWeek !== undefined &&
+        (!validDate(task.routineWeek) ||
+          dateKey(weekStart(parseDate(task.routineWeek))) !==
+            task.routineWeek)) ||
+      (task.routineSlots !== undefined &&
+        (!Array.isArray(task.routineSlots) ||
+          task.routineSlots.length > 1000 ||
+          new Set(task.routineSlots).size !== task.routineSlots.length ||
+          task.routineSlots.some(
+            (slot: number) =>
+              !Number.isInteger(slot) || slot < 0 || slot > 100000,
+          ))) ||
       (task.routineUnits !== undefined &&
         (!Number.isInteger(task.routineUnits) ||
           task.routineUnits < 1 ||
@@ -401,6 +426,7 @@ export function finishFocus(
                 endedAt,
                 minutes: Math.max(0, (endedAt - focus.startedAt) / 60000),
                 progress: progress.trim(),
+                ...(focus.intent ? { intent: focus.intent } : {}),
                 ...(focus.blockId
                   ? { blockId: focus.blockId, planDate: focus.planDate }
                   : {}),
@@ -514,9 +540,7 @@ export function routineProgress(
   week: string,
 ): number {
   const entries = routineEntries(state, routine.id, week);
-  return routine.daily
-    ? new Set(entries.map((task) => task.completedOn ?? task.date)).size
-    : entries.reduce((total, task) => total + (task.routineUnits ?? 1), 0);
+  return entries.reduce((total, task) => total + (task.routineUnits ?? 1), 0);
 }
 export function logRoutineProgress(
   state: PlannerState,
@@ -552,4 +576,98 @@ export function logRoutineProgress(
       },
     ],
   };
+}
+
+// Stable slots let a checkbox be reopened without shifting the other completions.
+export function routineChecks(
+  state: PlannerState,
+  routine: WeeklyRoutine,
+  week: string,
+) {
+  const entries = state.tasks.filter(
+    (task) =>
+      task.routineId === routine.id &&
+      (routineEntries(state, routine.id, week).some(
+        (item) => item.id === task.id,
+      ) ||
+        (!task.completed && task.routineWeek === week)),
+  );
+  const used = new Set<number>();
+  const allocations = entries.map((task) => ({
+    task,
+    slots: (task.routineWeek === week ? (task.routineSlots ?? []) : []).filter(
+      (slot) => {
+        if (used.has(slot)) return false;
+        used.add(slot);
+        return true;
+      },
+    ),
+  }));
+  for (const entry of allocations) {
+    while (entry.slots.length < (entry.task.routineUnits ?? 1)) {
+      let slot = 0;
+      while (used.has(slot)) slot++;
+      used.add(slot);
+      entry.slots.push(slot);
+    }
+  }
+  return allocations;
+}
+export function toggleRoutineCheck(
+  state: PlannerState,
+  routine: WeeklyRoutine,
+  week: string,
+  slot: number,
+  today: string,
+): PlannerState {
+  if (dateKey(weekStart(parseDate(today))) !== week) return state;
+  const allocations = routineChecks(state, routine, week);
+  const owner = allocations.find((entry) => entry.slots.includes(slot));
+  let tasks = state.tasks.map((task) => {
+    const allocation = allocations.find((entry) => entry.task.id === task.id);
+    return allocation
+      ? { ...task, routineWeek: week, routineSlots: allocation.slots }
+      : task;
+  });
+  if (!owner) {
+    tasks.push({
+      ...createTask(routine.title, null),
+      routineId: routine.id,
+      routineUnits: 1,
+      routineWeek: week,
+      routineSlots: [slot],
+      completed: true,
+      completedOn: today,
+    });
+  } else if (owner.slots.length === 1) {
+    tasks = tasks.map((task) =>
+      task.id === owner.task.id
+        ? {
+            ...task,
+            completed: !task.completed,
+            completedOn: task.completed ? null : today,
+          }
+        : task,
+    );
+  } else {
+    tasks = tasks.map((task) =>
+      task.id === owner.task.id
+        ? {
+            ...task,
+            routineUnits: owner.slots.length - 1,
+            routineSlots: owner.slots.filter((value) => value !== slot),
+          }
+        : task,
+    );
+    tasks.push({
+      ...createTask(owner.task.title, null),
+      routineId: routine.id,
+      routineUnits: 1,
+      routineWeek: week,
+      routineSlots: [slot],
+      completed: !owner.task.completed,
+      completedOn: owner.task.completed ? null : today,
+    });
+  }
+  return { ...state, tasks };
 }

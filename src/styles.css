@@ -2103,3 +2103,64 @@ dialog::backdrop {
     flex-wrap: wrap;
   }
 }
+
+.block-description {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.block-description textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 68px;
+  padding: 10px 12px;
+  font: inherit;
+  line-height: 1.5;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+.block-description .block-task select {
+  font-size: 13px;
+  opacity: 0.8;
+}
+.block-fields {
+  align-items: flex-start;
+}
+.block-number,
+.block-start {
+  margin-top: 10px;
+}
+.weekly-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.weekly-check {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 38px;
+  cursor: pointer;
+}
+.weekly-check input {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--ink);
+  cursor: pointer;
+}
+.weekly-check small {
+  font-size: 11px;
+}
+@media (max-width: 600px) {
+  .block-description {
+    grid-column: 2;
+  }
+}
+.block-description .block-task {
+  grid-column: auto;
+  grid-row: auto;
+  width: 100%;
+}

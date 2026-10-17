@@ -37,12 +37,14 @@ export function DailyPlan({
     blocks.length < 24 ||
     blocks.some(
       (block) =>
-        !block.taskId || !state.tasks.some((task) => task.id === block.taskId),
+        !block.intent?.trim() &&
+        (!block.taskId ||
+          !state.tasks.some((task) => task.id === block.taskId)),
     );
   const newTask = useRef<HTMLSelectElement>(null);
   const nextBlock = blocks.find(
     (block) =>
-      block.taskId &&
+      (block.taskId || block.intent?.trim()) &&
       !blockRecords(state, day, block.id).some(
         (record) => record.minutes >= 60 && record.progress.trim(),
       ),
@@ -160,35 +162,54 @@ export function DailyPlan({
                       {complete ? 'Completed' : `Block ${index + 1}`}
                     </span>
                   </div>
-                  <label className="block-task">
-                    <span className="visually-hidden">Task</span>
-                    <select
-                      ref={index === blocks.length - 1 ? newTask : undefined}
-                      aria-label={`Task for block ${index + 1}`}
-                      value={task?.id ?? ''}
+                  <div className="block-description">
+                    <textarea
+                      aria-label={`Intention for block ${index + 1}`}
+                      placeholder="What will you work on this hour?"
+                      maxLength={1000}
+                      rows={2}
+                      value={block.intent ?? ''}
                       disabled={locked}
                       onChange={(event) =>
-                        change(block.id, { taskId: event.target.value || null })
+                        change(block.id, { intent: event.target.value })
                       }
-                    >
-                      <option value="">Choose a task</option>
-                      {state.tasks
-                        .filter(
-                          (item) => !item.completed || item.id === block.taskId,
-                        )
-                        .map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.title}
-                            {item.completed ? ' (completed)' : ''}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
+                    />
+                    <label className="block-task">
+                      <span className="visually-hidden">Task</span>
+                      <select
+                        ref={index === blocks.length - 1 ? newTask : undefined}
+                        aria-label={`Task for block ${index + 1}`}
+                        value={task?.id ?? ''}
+                        disabled={locked}
+                        onChange={(event) =>
+                          change(block.id, {
+                            taskId: event.target.value || null,
+                          })
+                        }
+                      >
+                        <option value="">Link a task (optional)</option>
+                        {state.tasks
+                          .filter(
+                            (item) =>
+                              !item.completed || item.id === block.taskId,
+                          )
+                          .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.title}
+                              {item.completed ? ' (completed)' : ''}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  </div>
                   <button
                     className={`block-start ${!complete && !state.focus && block.id === nextBlock?.id ? 'primary-button' : 'icon-button'}`}
                     disabled={
                       complete ||
-                      (!active && (!!state.focus || !task || day !== today))
+                      (!active &&
+                        (!!state.focus ||
+                          (!task && !block.intent?.trim()) ||
+                          day !== today))
                     }
                     onClick={() => (active ? onResume() : onStart(day, block))}
                     aria-label={`${complete ? 'Completed' : active ? 'Resume' : 'Start'} block ${index + 1}`}
@@ -199,9 +220,9 @@ export function DailyPlan({
                           ? 'Hour completed'
                           : active
                             ? 'Resume focus'
-                            : task
+                            : task || block.intent?.trim()
                               ? 'Start a focused hour'
-                              : 'Choose a task first'
+                              : 'Describe your hour or choose a task'
                     }
                   >
                     {complete ? (
@@ -247,8 +268,9 @@ export function DailyPlan({
               const list = planForDay(current, day);
               const empty = list.find(
                 (block) =>
-                  !block.taskId ||
-                  !current.tasks.some((item) => item.id === block.taskId),
+                  !block.intent?.trim() &&
+                  (!block.taskId ||
+                    !current.tasks.some((item) => item.id === block.taskId)),
               );
               if (!empty && list.length >= 24) return current;
               return {

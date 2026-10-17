@@ -36,9 +36,9 @@ System sans typography, compact application chrome, 14 px body text, 13 px calen
 
 Calendar has one navigation tab with a Month/Year switch in its toolbar. It remembers the scale when switching tabs. Projects uses the same title-and-checklist layout as Goals, without a year or count limit. Projects have an independent Active/Completed state; changing it keeps task completion unchanged. Tasks can link to both a project and a goal under Organise. Removing either group keeps the tasks, dates, notes and other links.
 
-Weekly tracks recurring commitments as weekly targets. Log progress with a quantity and the date the work was completed, so several outputs can be recorded in one batch. Targets can range from 1 to 1000. Explicit Every day routines count distinct completion dates once per day. Routine templates supply new weeks; saved weeks retain their names and targets. Previous and next week controls allow review without inventing records for unvisited past weeks.
+Weekly tracks recurring commitments with one checkbox per required completion. Tick several in one sitting; each tick automatically records today's date on a shared, unscheduled task. Untick to reopen that completion. Previous weeks retain their targets and records and are read-only for completion ticks. Existing batch records remain available, including notes and dates.
 
-Weekly uses the shared Task model: a batch is one completed, unscheduled task with routineId, routineUnits and completedOn. Logging progress creates no calendar date. Completing or reopening an existing linked task updates the same weekly totals. Legacy dated completions still count. Target snapshots store no separate completion counters. Removing a routine stops repetition while retaining its tasks and other weeks.
+Weekly uses the shared Task model. Completion slots keep checkbox positions stable when reopening an item. Removing a routine retains its tasks and other weeks.
 
 Existing tasks can link to a routine under Organise. Completing a linked, dated task counts toward that day in Weekly without creating a second task.
 
@@ -49,3 +49,5 @@ Start hour begins a fixed 60-minute session on today's plan. Only one session ca
 Plan uses one compact sheet of hour rows and a four-segment progress display. A full submitted hour earns one segment; reaching four shows Daily goal reached. Task labels remain accessible without repeating visible field headings. The next assigned hour has the primary Start action. Quick capture creates an unscheduled shared task and assigns it to the first empty block, or adds an hour when the existing blocks are all assigned. Previous-day navigation shows that day’s earned hours.
 
 Dialogs share a stable top position and scroll within the viewport when expanded. Focus-panel state classes are separate from form-layout classes, so workforms stack at full width. Input sizing, wrapping action footers and nested unsaved-change prompts work on phones. Keyboard focus returns to Add after checklist removal, to Undo after task deletion, and to the restored task after Undo. Undo clears group links if the group was removed in the meantime, preventing unreadable saved state.
+
+Each Plan hour accepts a saved free-text intention with an optional task link. Starting an unlinked intention creates a shared task. The timer and submitted workform retain the intention for that hour.

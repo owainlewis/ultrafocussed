@@ -21,6 +21,8 @@ import {
   logRoutineProgress,
   routineEntries,
   routineProgress,
+  toggleRoutineCheck,
+  routineChecks,
   remainingSeconds,
   finishFocus,
   type Task,
@@ -441,4 +443,56 @@ test('weekly batches record quantities on unscheduled shared tasks and keep lega
   );
   assert.equal(logRoutineProgress(first, daily, '2026-10-13', 1), first);
   assert.equal(logRoutineProgress(first, daily, '2026-10-14', 7), first);
+});
+
+test('legacy batch checkboxes split one completion without shifting slots or losing notes', () => {
+  const routine = { id: 'r', title: 'Posts', target: 7, daily: false };
+  const week = '2026-10-12';
+  let state = logRoutineProgress(
+    { version: 1, tasks: [], routines: [routine] },
+    routine,
+    '2026-10-13',
+    7,
+  );
+  state.tasks[0].notes = 'Keep my notes';
+  state = toggleRoutineCheck(state, routine, week, 3, '2026-10-17');
+  assert.equal(routineProgress(state, routine, week), 6);
+  assert.equal(state.tasks[0].notes, 'Keep my notes');
+  assert.equal(
+    routineChecks(state, routine, week).find((entry) => entry.slots.includes(3))
+      ?.task.completed,
+    false,
+  );
+  state = toggleRoutineCheck(state, routine, week, 3, '2026-10-17');
+  assert.equal(routineProgress(state, routine, week), 7);
+  assert.equal(state.tasks.length, 2);
+  assert.deepEqual(decodeState(JSON.stringify(state)), state);
+  assert.equal(
+    toggleRoutineCheck(state, routine, week, 3, '2026-10-19'),
+    state,
+  );
+});
+
+test('focus workforms retain the hour intention without replacing task notes or title', () => {
+  const day = '2026-10-17';
+  const item = { ...createTask('Build course', null), notes: 'Client notes' };
+  const blocks = planForDay({ version: 1, tasks: [item] }, day);
+  const state = {
+    version: 1 as const,
+    tasks: [item],
+    dailyPlans: { [day]: blocks },
+    focus: {
+      taskId: item.id,
+      duration: 60,
+      startedAt: 0,
+      intent: 'Outline lesson one',
+      blockId: blocks[0].id,
+      planDate: day,
+    },
+  };
+  const result = finishFocus(state, 'Drafted outline', false, '', 3600000);
+  assert.equal(result.tasks[0].title, 'Build course');
+  assert.equal(result.tasks[0].notes, 'Client notes');
+  assert.equal(result.tasks[0].sessions?.[0].intent, 'Outline lesson one');
+  assert.deepEqual(decodeState(JSON.stringify(result)), result);
 });

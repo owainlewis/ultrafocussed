@@ -37,25 +37,14 @@ async function logWeekly(
   user: ReturnType<typeof userEvent.setup>,
   title: string,
   units = 1,
-  day = today,
 ) {
-  await user.click(
-    screen.getByRole('button', {
-      name: `Log progress for ${title}`,
-      exact: true,
-    }),
-  );
-  const quantity = screen.queryByLabelText('How many completed?');
-  if (quantity) {
-    await user.clear(quantity);
-    await user.type(quantity, String(units));
-  }
-  fireEvent.change(screen.getByLabelText('Completed on'), {
-    target: { value: day },
-  });
-  await user.click(
-    screen.getByRole('button', { name: 'Log completed work', exact: true }),
-  );
+  for (let index = 1; index <= units; index++)
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: `${title}, completion ${index}`,
+        exact: true,
+      }),
+    );
 }
 
 async function capture(title: string) {
@@ -1302,13 +1291,12 @@ it('tracks weekly routines through shared tasks and preserves previous weeks', a
   await user.clear(screen.getByLabelText('Weekly target'));
   await user.type(screen.getByLabelText('Weekly target'), '3');
   await user.click(screen.getByRole('button', { name: 'Save routine' }));
-  const monday = dateKey(weekStart(new Date()));
-  await logWeekly(user, 'Gym', 1, monday);
+  await logWeekly(user, 'Gym');
   expect(saved().tasks).toHaveLength(1);
   expect(saved().tasks[0]).toMatchObject({
     title: 'Gym',
     date: null,
-    completedOn: monday,
+    completedOn: today,
     completed: true,
     routineId: saved().routines![0].id,
   });
@@ -1347,9 +1335,10 @@ it('supports daily targets and keeps task records when removing a routine', asyn
     screen.getByLabelText('Name', { exact: true }),
     'Daily practice',
   );
-  await user.click(screen.getByRole('checkbox', { name: 'Every day' }));
+  await user.clear(screen.getByLabelText('Weekly target'));
+  await user.type(screen.getByLabelText('Weekly target'), '7');
   await user.click(screen.getByRole('button', { name: 'Save routine' }));
-  expect(saved().routines![0]).toMatchObject({ daily: true, target: 7 });
+  expect(saved().routines![0]).toMatchObject({ daily: false, target: 7 });
   await logWeekly(user, 'Daily practice');
   const task = saved().tasks[0];
   await user.click(
@@ -1805,28 +1794,90 @@ it('logs seven weekly outputs in one batch without creating scheduled daily task
   render(<App />);
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Weekly', exact: true }));
-  expect(screen.queryByRole('checkbox')).toBeNull();
+  expect(screen.getAllByRole('checkbox')).toHaveLength(7);
   await logWeekly(user, 'LinkedIn posts', 7);
   expect(screen.getByText('7 / 7')).toBeTruthy();
   expect(screen.getByText('Target met')).toBeTruthy();
-  expect(saved().tasks).toHaveLength(1);
-  expect(saved().tasks[0]).toMatchObject({
-    routineId: 'r',
-    routineUnits: 7,
-    date: null,
-    completedOn: today,
-    completed: true,
-  });
-  await user.click(screen.getByText('Completed work (1)'));
+  expect(saved().tasks).toHaveLength(7);
+  for (const task of saved().tasks)
+    expect(task).toMatchObject({
+      routineId: 'r',
+      routineUnits: 1,
+      date: null,
+      completedOn: today,
+      completed: true,
+    });
   await user.click(
-    screen.getByRole('button', { name: 'Reopen LinkedIn posts', exact: true }),
-  );
-  expect(screen.getByText('0 / 7')).toBeTruthy();
-  expect(saved().tasks[0].completed).toBe(false);
-  expect(document.activeElement).toBe(
-    screen.getByRole('button', {
-      name: 'Log progress for LinkedIn posts',
+    screen.getByRole('checkbox', {
+      name: 'LinkedIn posts, completion 4',
       exact: true,
     }),
   );
+  expect(screen.getByText('6 / 7')).toBeTruthy();
+  expect(
+    (
+      screen.getByRole('checkbox', {
+        name: 'LinkedIn posts, completion 4',
+        exact: true,
+      }) as HTMLInputElement
+    ).checked,
+  ).toBe(false);
+  expect(saved().tasks).toHaveLength(7);
+});
+
+it('saves an hour intention and starts it without requiring an existing task', async () => {
+  render(<App />);
+  const user = userEvent.setup();
+  await user.type(
+    screen.getByRole('textbox', { name: 'Intention for block 1' }),
+    'Outline the management course',
+  );
+  expect(saved().dailyPlans![today][0].intent).toBe(
+    'Outline the management course',
+  );
+  expect(saved().tasks).toHaveLength(0);
+  await user.click(
+    screen.getByRole('button', { name: 'Start block 1', exact: true }),
+  );
+  expect(saved().tasks).toHaveLength(1);
+  expect(saved().focus?.intent).toBe('Outline the management course');
+  expect(saved().focus?.taskId).toBe(saved().tasks[0].id);
+  expect(
+    screen.getByRole('heading', { name: 'Outline the management course' }),
+  ).toBeTruthy();
+  cleanup();
+  render(<App />);
+  expect(
+    (
+      screen.getByRole('textbox', {
+        name: 'Intention for block 1',
+      }) as HTMLTextAreaElement
+    ).value,
+  ).toBe('Outline the management course');
+  expect(saved().tasks).toHaveLength(1);
+});
+
+it('disables quick capture when all 24 hours already have intentions', () => {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      tasks: [],
+      dailyPlans: {
+        [today]: Array.from({ length: 24 }, (_, index) => ({
+          id: `hour-${index}`,
+          taskId: null,
+          intent: `Work ${index}`,
+        })),
+      },
+    }),
+  );
+  render(<App />);
+  expect(
+    (
+      screen.getByRole('textbox', {
+        name: 'New task for today’s plan',
+      }) as HTMLInputElement
+    ).disabled,
+  ).toBe(true);
 });
