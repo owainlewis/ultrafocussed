@@ -91,7 +91,6 @@ export function PlannerSidebar({
         ) : (
           <PanelLeftClose size={18} aria-hidden="true" />
         )}
-        <span className="sidebar-label">Collapse sidebar</span>
       </button>
       <nav
         id="planner-navigation"
