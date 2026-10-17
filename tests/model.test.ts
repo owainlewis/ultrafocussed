@@ -25,6 +25,7 @@ import {
   routineChecks,
   remainingSeconds,
   finishFocus,
+  saveBlockWorkform,
   type Task,
 } from '../src/model.ts';
 const task = (
@@ -495,4 +496,127 @@ test('focus workforms retain the hour intention without replacing task notes or 
   assert.equal(result.tasks[0].notes, 'Client notes');
   assert.equal(result.tasks[0].sessions?.[0].intent, 'Outline lesson one');
   assert.deepEqual(decodeState(JSON.stringify(result)), result);
+});
+
+test('resumed block sessions update one workform and count the combined hour once', () => {
+  const day = '2026-10-17';
+  const initial = { version: 1 as const, tasks: [task('a', null)] };
+  const blocks = planForDay(initial, day);
+  const focus = {
+    taskId: 'a',
+    startedAt: 0,
+    duration: 60,
+    blockId: blocks[0].id,
+    planDate: day,
+  };
+  const first = finishFocus(
+    { ...initial, dailyPlans: { [day]: blocks }, focus },
+    'Drafted outline',
+    false,
+    '',
+    30 * 60000,
+  );
+  const second = finishFocus(
+    { ...first, focus: { ...focus, startedAt: 40 * 60000 } },
+    'Drafted outline and lesson one',
+    false,
+    '',
+    70 * 60000,
+  );
+  assert.equal(second.tasks[0].sessions!.length, 1);
+  assert.equal(second.tasks[0].sessions![0].minutes, 60);
+  assert.equal(
+    second.tasks[0].sessions![0].progress,
+    'Drafted outline and lesson one',
+  );
+  assert.equal(completedBlocks(second, day), 1);
+});
+
+test('loading legacy workforms combines one hour while retaining all reflection text', () => {
+  const day = '2026-10-17';
+  const initial = {
+    version: 1 as const,
+    tasks: [task('a', null), task('b', null)],
+  };
+  const blocks = planForDay(initial, day);
+  const record = {
+    id: 'first',
+    startedAt: 0,
+    endedAt: 1800000,
+    minutes: 30,
+    progress: 'First notes',
+    blockId: blocks[0].id,
+    planDate: day,
+  };
+  const state = {
+    ...initial,
+    dailyPlans: { [day]: blocks },
+    tasks: [
+      { ...initial.tasks[0], sessions: [record] },
+      {
+        ...initial.tasks[1],
+        sessions: [
+          {
+            ...record,
+            id: 'second',
+            startedAt: 1800000,
+            endedAt: 3600000,
+            progress: 'Second notes',
+          },
+        ],
+      },
+    ],
+  };
+  const decoded = decodeState(JSON.stringify(state));
+  assert.equal(decoded.tasks.flatMap((item) => item.sessions ?? []).length, 1);
+  assert.equal(
+    decoded.tasks[0].sessions![0].progress,
+    'First notes\n\nSecond notes',
+  );
+  assert.equal(completedBlocks(decoded, day), 1);
+  assert.deepEqual(decodeState(JSON.stringify(decoded)), decoded);
+});
+
+test('editing a reflection during a resumed timer updates its draft', () => {
+  const day = '2026-10-17';
+  const initial = { version: 1 as const, tasks: [task('a', null)] };
+  const blocks = planForDay(initial, day);
+  const focus = {
+    taskId: 'a',
+    startedAt: 0,
+    duration: 60,
+    blockId: blocks[0].id,
+    planDate: day,
+  };
+  const partial = finishFocus(
+    { ...initial, dailyPlans: { [day]: blocks }, focus },
+    'Old notes',
+    false,
+    '',
+    600000,
+  );
+  const running = {
+    ...partial,
+    focus: {
+      ...focus,
+      startedAt: 1200000,
+      creditedMinutes: 10,
+      workform: 'Old notes',
+    },
+  };
+  const edited = saveBlockWorkform(running, 'a', {
+    ...partial.tasks[0].sessions![0],
+    progress: 'Revised notes',
+  });
+  assert.equal(edited.focus?.workform, 'Revised notes');
+  const finished = finishFocus(
+    edited,
+    edited.focus!.workform!,
+    false,
+    '',
+    4200000,
+  );
+  assert.equal(finished.tasks[0].sessions!.length, 1);
+  assert.equal(finished.tasks[0].sessions![0].progress, 'Revised notes');
+  assert.equal(completedBlocks(finished, day), 1);
 });

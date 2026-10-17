@@ -15,6 +15,7 @@ import {
   dateKey,
   parseDate,
   planForDay,
+  saveBlockWorkform,
   type FocusBlock,
   type PlannerState,
 } from './model';
@@ -274,8 +275,32 @@ export function DailyPlan({
                             : 'Record an hour you have completed'
                         }
                         onClick={() => {
-                          setWorkform('');
-                          setRecording(block.id);
+                          if (records[0]?.progress.trim()) {
+                            completedFocus.current = block.id;
+                            onChange((current) => {
+                              if (current.focus) return current;
+                              const record = blockRecords(
+                                current,
+                                day,
+                                block.id,
+                              )[0];
+                              const owner = current.tasks.find((task) =>
+                                task.sessions?.some(
+                                  (item) => item.id === record?.id,
+                                ),
+                              );
+                              if (!record?.progress.trim() || !owner)
+                                return current;
+                              return saveBlockWorkform(current, owner.id, {
+                                ...record,
+                                minutes: 60,
+                                endedAt: Math.max(record.endedAt, Date.now()),
+                              });
+                            });
+                          } else {
+                            setWorkform('');
+                            setRecording(block.id);
+                          }
                         }}
                       >
                         Mark done
@@ -289,10 +314,12 @@ export function DailyPlan({
                       className="text-button"
                       data-workform-block={block.id}
                       aria-label={`View workform for block ${index + 1}`}
-                      onClick={() => setViewing(block.id)}
+                      onClick={() => {
+                        setWorkform(records[0]?.progress ?? '');
+                        setViewing(block.id);
+                      }}
                     >
                       View workform
-                      {records.length > 1 ? `s (${records.length})` : ''}
                     </button>
                   </div>
                 )}
@@ -369,32 +396,55 @@ export function DailyPlan({
         )}
       </section>
       {viewing && (
-        <Modal
-          title="Hour workform"
-          onClose={() => setViewing(null)}
-          initialFocus="button"
-        >
-          <div className="saved-workforms">
-            {blockRecords(state, day, viewing).map((record) => (
-              <section key={record.id}>
-                <p className="routine-hint">
-                  {record.minutes >= 60
-                    ? '1 focused hour'
-                    : `${Math.floor(record.minutes)} minutes · partial session`}
-                </p>
-                {record.intent && (
-                  <p className="routine-hint">Planned: {record.intent}</p>
-                )}
-                <h3>What you worked on</h3>
-                <p className="saved-reflection">{record.progress}</p>
-              </section>
-            ))}
-          </div>
-          <footer className="modal-actions">
-            <button className="primary-button" onClick={() => setViewing(null)}>
-              Close workform
-            </button>
-          </footer>
+        <Modal title="Hour workform" onClose={() => setViewing(null)}>
+          <form
+            className="task-editor"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!workform.trim()) return;
+              onChange((current) => {
+                const record = blockRecords(current, day, viewing)[0];
+                const owner = current.tasks.find((task) =>
+                  task.sessions?.some((item) => item.id === record?.id),
+                );
+                return record && owner
+                  ? saveBlockWorkform(current, owner.id, {
+                      ...record,
+                      progress: workform.trim(),
+                    })
+                  : current;
+              });
+              setViewing(null);
+            }}
+          >
+            <p className="routine-hint">
+              {(blockRecords(state, day, viewing)[0]?.minutes ?? 0) >= 60
+                ? '1 focused hour'
+                : `${Math.floor(blockRecords(state, day, viewing)[0]?.minutes ?? 0)} minutes recorded`}
+            </p>
+            <label className="field">
+              What did you work on?
+              <textarea
+                required
+                rows={6}
+                maxLength={1000000}
+                value={workform}
+                onChange={(event) => setWorkform(event.target.value)}
+              />
+            </label>
+            <footer className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setViewing(null)}
+              >
+                Close workform
+              </button>
+              <button className="primary-button" disabled={!workform.trim()}>
+                Save reflection
+              </button>
+            </footer>
+          </form>
         </Modal>
       )}
       {recording && (
@@ -436,26 +486,24 @@ export function DailyPlan({
                   planDate: day,
                   ...(block.intent ? { intent: block.intent } : {}),
                 };
-                const updated = {
-                  ...task,
-                  sessions: [...(task.sessions ?? []), record],
-                };
-                return {
-                  ...current,
-                  tasks: current.tasks.some((item) => item.id === task.id)
-                    ? current.tasks.map((item) =>
-                        item.id === task.id ? updated : item,
-                      )
-                    : [...current.tasks, updated],
-                  dailyPlans: {
-                    ...current.dailyPlans,
-                    [day]: list.map((item) =>
-                      item.id === block.id
-                        ? { ...item, taskId: task.id }
-                        : item,
-                    ),
+                return saveBlockWorkform(
+                  {
+                    ...current,
+                    tasks: current.tasks.some((item) => item.id === task.id)
+                      ? current.tasks
+                      : [...current.tasks, task],
+                    dailyPlans: {
+                      ...current.dailyPlans,
+                      [day]: list.map((item) =>
+                        item.id === block.id
+                          ? { ...item, taskId: task.id }
+                          : item,
+                      ),
+                    },
                   },
-                };
+                  task.id,
+                  record,
+                );
               });
               completedFocus.current = recording;
               setRecording(null);
@@ -466,7 +514,7 @@ export function DailyPlan({
               <textarea
                 required
                 rows={5}
-                maxLength={2000}
+                maxLength={1000000}
                 value={workform}
                 onChange={(event) => setWorkform(event.target.value)}
               />

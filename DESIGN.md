@@ -53,3 +53,5 @@ Dialogs share a stable top position and scroll within the viewport when expanded
 Each Plan hour accepts a saved free-text intention with an optional task link. Starting an unlinked intention creates a shared task. The timer and submitted workform retain the intention for that hour.
 
 Plan offers Mark done for an hour worked without the timer. Submit a short workform to record the hour; it turns green and earns one green progress segment. Four hours fill the goal bar. View workform opens saved reflections in a modal, keeping the plan free of expanding sections. Recording an hour does not complete its linked task.
+
+Each Plan hour has one editable workform. Stopped sessions carry notes and recorded minutes forward; resumed timers show the remaining time. Existing workforms for the same hour are consolidated on load, retaining their text. When a workform already exists, Mark done completes the hour immediately without reopening the form. View workform edits the reflection without adding another hour.

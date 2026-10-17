@@ -1476,7 +1476,7 @@ it('plans existing tasks into hours and counts a block only after its workform i
   await user.click(
     screen.getByRole('button', { name: 'View workform for block 1' }),
   );
-  expect(screen.getByText('Finished the lesson outline.')).toBeTruthy();
+  expect(screen.getByDisplayValue('Finished the lesson outline.')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Close workform' }));
   await user.click(screen.getByRole('button', { name: 'Add another hour' }));
   expect(screen.getAllByRole('article')).toHaveLength(5);
@@ -1507,7 +1507,7 @@ it('saves an early stop as a partial hour without completing the task or block',
       .textContent,
   ).toContain('0');
   await user.click(screen.getByRole('button', { name: 'Start block 1' }));
-  expect(screen.getByLabelText('Time remaining').textContent).toBe('60:00');
+  expect(screen.getByLabelText('Time remaining').textContent).toBe('50:00');
 });
 
 it('keeps each day’s plan separate and retains task identity across multiple blocks', async () => {
@@ -1952,5 +1952,65 @@ it('records completed hours directly and fills all four green goal segments with
   render(<App />);
   expect(
     screen.getByRole('status', { name: '4 of 4 deep-work hours completed' }),
+  ).toBeTruthy();
+});
+
+it('finishes a partial hour with one workform and edits its reflection without adding another hour', async () => {
+  const blockId = `${today}-block-1`;
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      tasks: [
+        {
+          id: 't',
+          title: 'Course',
+          date: null,
+          completed: false,
+          notes: 'Keep notes',
+          main: false,
+          sessions: [
+            {
+              id: 'w',
+              startedAt: 0,
+              endedAt: 600000,
+              minutes: 10,
+              progress: 'Started the outline',
+              blockId,
+              planDate: today,
+            },
+          ],
+        },
+      ],
+      dailyPlans: { [today]: [{ id: blockId, taskId: 't' }] },
+    }),
+  );
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Mark block 1 done' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(saved().tasks[0].sessions).toHaveLength(1);
+  expect(saved().tasks[0].sessions![0]).toMatchObject({
+    id: 'w',
+    minutes: 60,
+    progress: 'Started the outline',
+  });
+  expect(
+    screen.getByRole('status', { name: '1 of 4 deep-work hours completed' }),
+  ).toBeTruthy();
+  await user.click(
+    screen.getByRole('button', { name: 'View workform for block 1' }),
+  );
+  await user.clear(screen.getByLabelText('What did you work on?'));
+  await user.type(
+    screen.getByLabelText('What did you work on?'),
+    'Updated reflection',
+  );
+  await user.click(screen.getByRole('button', { name: 'Save reflection' }));
+  expect(saved().tasks[0].sessions).toHaveLength(1);
+  expect(saved().tasks[0].sessions![0].progress).toBe('Updated reflection');
+  expect(saved().tasks[0].notes).toBe('Keep notes');
+  expect(
+    screen.getByRole('status', { name: '1 of 4 deep-work hours completed' }),
   ).toBeTruthy();
 });

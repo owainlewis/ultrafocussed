@@ -31,6 +31,7 @@ export type FocusSession = {
   taskId: string;
   startedAt: number;
   duration: number;
+  creditedMinutes?: number;
   stoppedAt?: number;
   workform?: string;
   intent?: string;
@@ -313,7 +314,7 @@ export function decodeState(raw: string | null): PlannerState {
             !Number.isFinite(entry.minutes) ||
             entry.minutes < 0 ||
             typeof entry.progress !== 'string' ||
-            entry.progress.length > 2000,
+            entry.progress.length > 1000000,
         ))
     )
       throw new Error('Invalid progress history');
@@ -322,7 +323,13 @@ export function decodeState(raw: string | null): PlannerState {
   if (
     focus != null &&
     ((focus.workform !== undefined &&
-      (typeof focus.workform !== 'string' || focus.workform.length > 2000)) ||
+      (typeof focus.workform !== 'string' ||
+        focus.workform.length > 1000000)) ||
+      (focus.creditedMinutes !== undefined &&
+        (!focus.blockId ||
+          !Number.isFinite(focus.creditedMinutes) ||
+          focus.creditedMinutes < 0 ||
+          focus.creditedMinutes >= 60)) ||
       !validBlockLink(focus) ||
       (focus.blockId !== undefined && focus.duration !== 60) ||
       !ids.has(focus.taskId) ||
@@ -335,7 +342,7 @@ export function decodeState(raw: string | null): PlannerState {
           focus.stoppedAt < focus.startedAt)))
   )
     throw new Error('Invalid focus session');
-  return value;
+  return consolidateBlockWorkforms(value);
 }
 export function createTask(title: string, date: string | null): Task {
   return {
@@ -390,7 +397,7 @@ export function moveTask(
 }
 
 export function remainingSeconds(session: FocusSession, now: number): number {
-  const planned = session.duration * 60;
+  const planned = (session.duration - (session.creditedMinutes ?? 0)) * 60;
   const elapsed = ((session.stoppedAt ?? now) - session.startedAt) / 1000;
   return Math.max(0, Math.min(planned, Math.ceil(planned - elapsed)));
 }
@@ -406,33 +413,39 @@ export function finishFocus(
   if (!focus) return state;
   const endedAt = Math.max(
     focus.startedAt,
-    Math.min(focus.stoppedAt ?? now, focus.startedAt + focus.duration * 60000),
+    Math.min(
+      focus.stoppedAt ?? now,
+      focus.startedAt + (focus.duration - (focus.creditedMinutes ?? 0)) * 60000,
+    ),
   );
-  return {
+  const record: FocusRecord = {
+    id: crypto.randomUUID(),
+    startedAt: focus.startedAt,
+    endedAt,
+    minutes: Math.max(0, (endedAt - focus.startedAt) / 60000),
+    progress: progress.trim(),
+    ...(focus.intent ? { intent: focus.intent } : {}),
+    ...(focus.blockId
+      ? { blockId: focus.blockId, planDate: focus.planDate }
+      : {}),
+  };
+  const updated = {
     ...state,
     focus: null,
     tasks: state.tasks.map((task) =>
-      task.id !== focus.taskId
-        ? task
-        : {
-            ...task,
-            completed,
-            nextStep: nextStep.trim(),
-            sessions: [
-              ...(task.sessions ?? []),
-              {
-                id: crypto.randomUUID(),
-                startedAt: focus.startedAt,
-                endedAt,
-                minutes: Math.max(0, (endedAt - focus.startedAt) / 60000),
-                progress: progress.trim(),
-                ...(focus.intent ? { intent: focus.intent } : {}),
-                ...(focus.blockId
-                  ? { blockId: focus.blockId, planDate: focus.planDate }
-                  : {}),
-              },
-            ],
-          },
+      task.id === focus.taskId
+        ? { ...task, completed, nextStep: nextStep.trim() }
+        : task,
+    ),
+  };
+  if (record.blockId)
+    return saveBlockWorkform(updated, focus.taskId, record, true);
+  return {
+    ...updated,
+    tasks: updated.tasks.map((task) =>
+      task.id === focus.taskId
+        ? { ...task, sessions: [...(task.sessions ?? []), record] }
+        : task,
     ),
   };
 }
@@ -670,4 +683,76 @@ export function toggleRoutineCheck(
     });
   }
   return { ...state, tasks };
+}
+
+// A Plan hour has one reflection, even if its timer was stopped and resumed.
+export function saveBlockWorkform(
+  state: PlannerState,
+  taskId: string,
+  record: FocusRecord,
+  addMinutes = false,
+): PlannerState {
+  const previous = blockRecords(state, record.planDate!, record.blockId!);
+  const merged = {
+    ...record,
+    id: previous[0]?.id ?? record.id,
+    startedAt: Math.min(
+      record.startedAt,
+      ...previous.map((item) => item.startedAt),
+    ),
+    endedAt: Math.max(record.endedAt, ...previous.map((item) => item.endedAt)),
+    minutes: Math.min(
+      60,
+      addMinutes
+        ? previous.reduce((sum, item) => sum + item.minutes, record.minutes)
+        : record.minutes,
+    ),
+  };
+  return {
+    ...state,
+    ...(state.focus &&
+    state.focus.blockId === record.blockId &&
+    state.focus?.planDate === record.planDate
+      ? { focus: { ...state.focus, workform: record.progress } }
+      : {}),
+    tasks: state.tasks.map((task) => {
+      const sessions = (task.sessions ?? []).filter(
+        (item) =>
+          item.blockId !== record.blockId || item.planDate !== record.planDate,
+      );
+      if (task.id === taskId) sessions.push(merged);
+      return task.sessions || task.id === taskId ? { ...task, sessions } : task;
+    }),
+  };
+}
+export function consolidateBlockWorkforms(state: PlannerState): PlannerState {
+  let result = state;
+  const groups = new Map<string, { taskId: string; records: FocusRecord[] }>();
+  for (const task of state.tasks)
+    for (const record of task.sessions ?? []) {
+      if (!record.blockId || !record.planDate) continue;
+      const key = JSON.stringify([record.planDate, record.blockId]);
+      const group = groups.get(key) ?? { taskId: task.id, records: [] };
+      group.records.push(record);
+      groups.set(key, group);
+    }
+  for (const { taskId, records } of groups.values()) {
+    if (records.length < 2) continue;
+    const last = records[records.length - 1];
+    const progress = [
+      ...new Set(
+        records.map((record) => record.progress.trim()).filter(Boolean),
+      ),
+    ].join('\n\n');
+    result = saveBlockWorkform(result, taskId, {
+      ...last,
+      id: records[0].id,
+      progress,
+      minutes: Math.min(
+        60,
+        records.reduce((sum, record) => sum + record.minutes, 0),
+      ),
+    });
+  }
+  return state.focus ? { ...result, focus: state.focus } : result;
 }

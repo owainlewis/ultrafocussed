@@ -31,6 +31,7 @@ import {
   type Project,
   type Routine,
   planForDay,
+  blockRecords,
 } from './model';
 import { MonthView, YearView, GoalsView } from './WarMapViews';
 import { Modal } from './Modal';
@@ -675,15 +676,15 @@ function FocusPanel({
                 value={workform}
                 onChange={(event) => onWorkform(event.target.value)}
                 required
-                maxLength={2000}
+                maxLength={1000000}
                 rows={4}
               />
             </label>
           )}
           {session?.blockId && seconds > 0 && (
             <p className="routine-hint">
-              Stopped early. Submit the workform to save a partial session. It
-              won’t count as a completed hour.
+              Stopped early. Your time and notes will be saved to this hour.
+              Continue later or use Mark done when the hour is complete.
             </p>
           )}
           <button
@@ -1102,7 +1103,10 @@ export default function App() {
                   ...current.focus,
                   stoppedAt: Math.min(
                     Date.now(),
-                    current.focus.startedAt + current.focus.duration * 60000,
+                    current.focus.startedAt +
+                      (current.focus.duration -
+                        (current.focus.creditedMinutes ?? 0)) *
+                        60000,
                   ),
                 },
               }
@@ -1251,6 +1255,13 @@ export default function App() {
                         taskId: task.id,
                         intent: block.intent?.trim(),
                         duration: 60,
+                        creditedMinutes: Math.min(
+                          59.999,
+                          blockRecords(current, day, block.id)[0]?.minutes ?? 0,
+                        ),
+                        workform:
+                          blockRecords(current, day, block.id)[0]?.progress ??
+                          '',
                         startedAt: Date.now(),
                         blockId: block.id,
                         planDate: day,
