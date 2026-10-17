@@ -20,7 +20,7 @@ npm run preview
 
 ## Tasks, Year, Month, Goals
 
-Tasks is the default view for capturing work before scheduling it. Press Enter to add an unscheduled task. Every task remains in this list, including scheduled, past and completed work. Choose Add date or the displayed date to open the two-field task editor. Scheduling puts the same task on the calendar and keeps you in Tasks. Clear its date to remove it from the calendar without removing it from the list.
+Tasks is the default view for capturing work before scheduling it. Press Enter to add an unscheduled task. Scheduled and past tasks remain in this list. Completed tasks are hidden by default; use Show completed to see or reopen them. This filter only changes Tasks, not the calendar or Goals. Choose Add date or the displayed date to open the two-field task editor. Scheduling puts the same task on the calendar and keeps you in Tasks. Clear its date to remove it from the calendar without removing it from the list.
 
 Month shows a full-width Monday-to-Sunday calendar. On mobile, select a date in the compact grid to see that day's tasks below it. All weekends stay visible. There is no separate Unscheduled rail.
 

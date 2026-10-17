@@ -1567,3 +1567,23 @@ dialog::backdrop {
     margin: -5px 2px 0 2px;
   }
 }
+
+.tasks-filter {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.tasks-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.tasks-filter input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+}

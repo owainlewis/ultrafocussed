@@ -613,6 +613,7 @@ export default function App() {
   const [saveError, setSaveError] = useState(false);
   const [month, setMonth] = useState(() => monthStart(new Date()));
   const [view, setView] = useState<PlannerView>('tasks');
+  const [showCompleted, setShowCompleted] = useState(false);
   const [selectedDay, setSelectedDay] = useState(() => dateKey(new Date()));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDateFirst, setEditingDateFirst] = useState(false);
@@ -621,7 +622,7 @@ export default function App() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [focusRequest, setFocusRequest] = useState<{
-    id: string;
+    id: string | null;
     onlyIfLost: boolean;
   } | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -632,6 +633,9 @@ export default function App() {
   const days = monthDays(month);
   const currentTask = state.tasks.find((task) => task.id === editingId);
   const visibleDays = days;
+  const listedTasks = state.tasks.filter(
+    (task) => showCompleted || !task.completed,
+  );
   const focusTask = state.tasks.find(
     (task) => task.id === (state.focus?.taskId ?? focusTaskId),
   );
@@ -691,9 +695,14 @@ export default function App() {
     setFocusRequest(null);
     const active = document.activeElement;
     if (focusRequest.onlyIfLost && active && active !== document.body) return;
-    Array.from(document.querySelectorAll<HTMLElement>('[data-task-id]'))
-      .find((element) => element.dataset.taskId === focusRequest.id)
-      ?.focus();
+    const target = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-task-id]'),
+    ).find((element) => element.dataset.taskId === focusRequest.id);
+    if (target) target.focus();
+    else if (view === 'tasks')
+      document
+        .querySelector<HTMLInputElement>('.tasks-view .capture input')
+        ?.focus();
   }, [focusRequest]);
 
   const setTasks = (change: (tasks: Task[]) => Task[]) =>
@@ -745,7 +754,7 @@ export default function App() {
     if (!task) return false;
     const siblings = state.tasks.filter((item) =>
       view === 'tasks'
-        ? true
+        ? showCompleted || !item.completed
         : view === 'goals'
           ? item.goalId === task.goalId
           : item.date === task.date,
@@ -853,7 +862,16 @@ export default function App() {
               ? remainingSeconds(state.focus, now)
               : 0
           }
-          onToggle={() => editTask(task.id, { completed: !task.completed })}
+          onToggle={() => {
+            if (view === 'tasks' && !showCompleted && !task.completed) {
+              const index = listedTasks.findIndex(
+                (item) => item.id === task.id,
+              );
+              const next = listedTasks[index + 1] ?? listedTasks[index - 1];
+              setFocusRequest({ id: next?.id ?? null, onlyIfLost: false });
+            }
+            editTask(task.id, { completed: !task.completed });
+          }}
           onEdit={(dateFirst = false) => {
             setEditingDateFirst(dateFirst);
             setEditingId(task.id);
@@ -1046,9 +1064,12 @@ export default function App() {
           {view === 'tasks' ? (
             <TasksView
               capture={<CaptureField onAdd={(title) => addTask(title, null)} />}
-              empty={state.tasks.length === 0}
+              empty={listedTasks.length === 0}
+              hasTasks={state.tasks.length > 0}
+              showCompleted={showCompleted}
+              onShowCompleted={setShowCompleted}
             >
-              {renderList(state.tasks, null)}
+              {renderList(listedTasks, null)}
             </TasksView>
           ) : view === 'month' ? (
             <div className="month-calendar">

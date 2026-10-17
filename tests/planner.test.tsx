@@ -67,6 +67,10 @@ describe('planner user flows', () => {
     expect(saved().tasks[0].completed).toBe(true);
     app.unmount();
     render(<App />);
+    expect(
+      screen.queryByRole('button', { name: 'Reopen Ship the planner' }),
+    ).toBeNull();
+    await user.click(screen.getByRole('checkbox', { name: 'Show completed' }));
     await user.click(
       screen.getByRole('button', { name: 'Reopen Ship the planner' }),
     );
@@ -288,7 +292,7 @@ describe('planner user flows', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(saved().tasks[0].date).toBe(tomorrow());
   });
-  it('keeps past and completed tasks in Tasks without an Unscheduled rail', async () => {
+  it('keeps past tasks and can show completed tasks without an Unscheduled rail', async () => {
     stored([
       { id: 'old', title: 'Old task', date: '2020-01-01' },
       { id: 'done', title: 'Done task', date: '2020-01-01', completed: true },
@@ -299,6 +303,12 @@ describe('planner user flows', () => {
     expect(
       within(tasks).getByRole('button', { name: 'Old task', exact: true }),
     ).toBeTruthy();
+    expect(
+      within(tasks).queryByRole('button', { name: 'Reopen Done task' }),
+    ).toBeNull();
+    await userEvent
+      .setup()
+      .click(screen.getByRole('checkbox', { name: 'Show completed' }));
     expect(
       within(tasks).getByRole('button', { name: 'Reopen Done task' }),
     ).toBeTruthy();
@@ -519,6 +529,7 @@ describe('separate focus action', () => {
     await user.click(
       screen.getByRole('button', { name: 'Complete Finish work' }),
     );
+    await user.click(screen.getByRole('checkbox', { name: 'Show completed' }));
     await user.click(
       screen.getByRole('button', { name: 'Open active timer for Finish work' }),
     );
@@ -858,12 +869,20 @@ describe('Tasks brain dump', () => {
       'Future work',
       'Past work',
       'Undated work',
-      'Completed work',
     ]) {
       expect(
         within(tasks).getByRole('button', { name: title, exact: true }),
       ).toBeTruthy();
     }
+    expect(
+      within(tasks).queryByRole('button', {
+        name: 'Completed work',
+        exact: true,
+      }),
+    ).toBeNull();
+    expect(saved().tasks.find((task) => task.id === 'done')?.completed).toBe(
+      true,
+    );
     expect(screen.queryByRole('complementary')).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Today', exact: true }),
@@ -919,6 +938,7 @@ describe('Tasks brain dump', () => {
     await user.click(
       screen.getByRole('button', { name: 'Tasks', exact: true }),
     );
+    await user.click(screen.getByRole('checkbox', { name: 'Show completed' }));
     await user.click(
       screen.getByRole('button', { name: 'Edit date for Schedule this' }),
     );
@@ -966,5 +986,50 @@ describe('Tasks brain dump', () => {
     expect(document.activeElement).toBe(
       screen.getByRole('button', { name: 'Second dated', exact: true }),
     );
+  });
+});
+
+it('hides completed rows, keeps keyboard focus useful, and can show and reopen them', async () => {
+  stored([
+    { id: 'one', title: 'First item' },
+    { id: 'two', title: 'Second item', date: today },
+  ]);
+  render(<App />);
+  const user = userEvent.setup();
+  const toggle = screen.getByRole('checkbox', { name: 'Show completed' });
+  expect(toggle).toHaveProperty('checked', false);
+  await user.click(screen.getByRole('button', { name: 'Complete First item' }));
+  expect(
+    screen.queryByRole('button', { name: 'First item', exact: true }),
+  ).toBeNull();
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Second item', exact: true }),
+  );
+  await user.click(
+    screen.getByRole('button', { name: 'Complete Second item' }),
+  );
+  expect(screen.getByText('No open tasks.')).toBeTruthy();
+  expect(document.activeElement).toBe(
+    screen.getByRole('textbox', { name: 'New task', exact: true }),
+  );
+  await user.click(toggle);
+  expect(
+    screen.getByRole('button', { name: 'Reopen First item' }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole('button', { name: 'Reopen Second item' }),
+  ).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Reopen First item' }));
+  await user.click(toggle);
+  expect(
+    screen.getByRole('button', { name: 'Complete First item' }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole('button', { name: 'Second item', exact: true }),
+  ).toBeNull();
+  expect(saved().tasks).toHaveLength(2);
+  expect(saved().tasks.find((task) => task.id === 'two')).toMatchObject({
+    completed: true,
+    date: today,
   });
 });
