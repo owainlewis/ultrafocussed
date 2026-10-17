@@ -15,6 +15,8 @@ import {
   addMonths,
   removeGoal,
   removeProject,
+  planForDay,
+  completedBlocks,
   startChecklistWeek,
   toggleRoutineDay,
   remainingSeconds,
@@ -329,5 +331,67 @@ test('weekly checklists use dated shared tasks and keep snapshots', () => {
   );
   assert.throws(() =>
     decodeState(JSON.stringify({ ...checked, routines: [] })),
+  );
+});
+
+test('daily blocks share tasks, preserve workforms and count only full submitted hours once', () => {
+  const day = '2026-10-17';
+  const initial = { version: 1 as const, tasks: [task('a', null)] };
+  const blocks = planForDay(initial, day);
+  assert.equal(blocks.length, 4);
+  const state = {
+    ...initial,
+    dailyPlans: { [day]: blocks },
+    focus: {
+      taskId: 'a',
+      startedAt: 1000,
+      duration: 60,
+      planDate: day,
+      blockId: blocks[0].id,
+      workform: 'Draft',
+    },
+  };
+  assert.deepEqual(decodeState(JSON.stringify(state)), state);
+  const full = finishFocus(state, 'Wrote the outline', false, '', 3601000);
+  assert.equal(completedBlocks(full, day), 1);
+  assert.equal(full.tasks[0].completed, false);
+  assert.equal(full.tasks[0].date, null);
+  assert.deepEqual(decodeState(JSON.stringify(full)), full);
+  assert.equal(
+    completedBlocks(
+      {
+        ...full,
+        tasks: [
+          {
+            ...full.tasks[0],
+            sessions: [...full.tasks[0].sessions!, ...full.tasks[0].sessions!],
+          },
+        ],
+      },
+      day,
+    ),
+    1,
+  );
+  const partial = finishFocus(
+    { ...state, focus: { ...state.focus, stoppedAt: 601000 } },
+    'Started outline',
+    false,
+    '',
+    3601000,
+  );
+  assert.equal(completedBlocks(partial, day), 0);
+  assert.equal(partial.tasks[0].sessions![0].minutes, 10);
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({ ...state, focus: { ...state.focus, duration: 30 } }),
+    ),
+  );
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({
+        ...state,
+        dailyPlans: { [day]: [{ ...blocks[0], time: '23:30' }] },
+      }),
+    ),
   );
 });

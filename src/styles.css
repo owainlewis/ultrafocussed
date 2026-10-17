@@ -1795,3 +1795,163 @@ dialog::backdrop {
     flex-basis: 100%;
   }
 }
+
+.daily-plan {
+  width: calc(100% - 48px);
+  max-width: 960px;
+  margin: 28px auto;
+}
+.daily-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.daily-heading h2 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+}
+.daily-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.daily-heading strong {
+  color: var(--ink);
+}
+.focus-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.focus-block {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  padding: 18px;
+}
+.block-fields {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+.block-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.block-time,
+.block-task {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.block-time {
+  width: 112px;
+  flex-shrink: 0;
+}
+.block-task {
+  flex: 1;
+  min-width: 0;
+}
+.block-time input,
+.block-task select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px;
+  border: 1px solid var(--control);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+.block-time small {
+  font-variant-numeric: tabular-nums;
+}
+.block-fields > button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  white-space: nowrap;
+}
+.block-complete {
+  background: var(--rail);
+}
+.block-workforms {
+  margin: 16px 0 0 46px;
+  font-size: 13px;
+}
+.block-workforms summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.block-workforms div {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.block-workforms p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+}
+.block-workforms small {
+  color: var(--muted);
+}
+.add-focus-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  margin-top: 12px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+}
+.plan-note {
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .daily-plan {
+    width: calc(100% - 24px);
+    margin: 16px auto;
+  }
+  .daily-toolbar .period-controls {
+    flex-wrap: wrap;
+  }
+  .daily-toolbar .period-controls h1 {
+    flex-basis: 100%;
+  }
+  .block-fields {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .block-time {
+    width: 100%;
+  }
+  .block-task,
+  .block-fields > button {
+    grid-column: 2;
+  }
+  .block-fields > button {
+    justify-content: center;
+  }
+  .focus-block {
+    padding: 14px;
+  }
+  .block-workforms {
+    margin-left: 36px;
+  }
+}

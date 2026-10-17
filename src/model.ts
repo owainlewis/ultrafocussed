@@ -19,12 +19,17 @@ export type FocusRecord = {
   endedAt: number;
   minutes: number;
   progress: string;
+  blockId?: string;
+  planDate?: string;
 };
 export type FocusSession = {
   taskId: string;
   startedAt: number;
   duration: number;
   stoppedAt?: number;
+  workform?: string;
+  blockId?: string;
+  planDate?: string;
 };
 export type Goal = { id: string; title: string; year: number };
 export type Project = { id: string; title: string; completed: boolean };
@@ -36,6 +41,7 @@ export type Routine = {
   archived?: boolean;
 };
 export type WeeklyRoutine = Omit<Routine, 'archived'>;
+export type FocusBlock = { id: string; time: string; taskId: string | null };
 export type PlannerState = {
   version: 1;
   tasks: Task[];
@@ -43,6 +49,7 @@ export type PlannerState = {
   projects?: Project[];
   routines?: Routine[];
   routineWeeks?: Record<string, WeeklyRoutine[]>;
+  dailyPlans?: Record<string, FocusBlock[]>;
   outcomes?: Record<string, string>;
   focus?: FocusSession | null;
 };
@@ -80,6 +87,40 @@ export function decodeState(raw: string | null): PlannerState {
   const value = JSON.parse(raw);
   if (value?.version !== 1 || !Array.isArray(value.tasks))
     throw new Error('Unsupported planner data');
+  const blockIds = new Set<string>();
+  if (
+    value.dailyPlans !== undefined &&
+    (!value.dailyPlans ||
+      typeof value.dailyPlans !== 'object' ||
+      Array.isArray(value.dailyPlans))
+  )
+    throw new Error('Invalid daily plans');
+  for (const [day, blocks] of Object.entries(value.dailyPlans ?? {})) {
+    if (!validDate(day) || !Array.isArray(blocks) || blocks.length > 24)
+      throw new Error('Invalid daily plan');
+    for (const block of blocks) {
+      if (
+        !block ||
+        typeof block.id !== 'string' ||
+        !block.id ||
+        blockIds.has(block.id) ||
+        typeof block.time !== 'string' ||
+        !/^([01]\d|2[0-3]):[0-5]\d$/.test(block.time) ||
+        block.time > '23:00' ||
+        (block.taskId !== null &&
+          (typeof block.taskId !== 'string' || !block.taskId))
+      )
+        throw new Error('Invalid focus block');
+      blockIds.add(block.id);
+    }
+  }
+  const validBlockLink = (entry: FocusRecord | FocusSession) =>
+    (entry.blockId === undefined && entry.planDate === undefined) ||
+    (typeof entry.blockId === 'string' &&
+      validDate(entry.planDate) &&
+      (value.dailyPlans?.[entry.planDate] ?? []).some(
+        (block: FocusBlock) => block.id === entry.blockId,
+      ));
   const routineIds = new Set<string>();
   const validRoutine = (item: Routine) =>
     item &&
@@ -231,6 +272,7 @@ export function decodeState(raw: string | null): PlannerState {
         task.sessions.some(
           (entry: FocusRecord) =>
             !entry ||
+            !validBlockLink(entry) ||
             typeof entry.id !== 'string' ||
             !Number.isFinite(entry.startedAt) ||
             !Number.isFinite(entry.endedAt) ||
@@ -246,7 +288,11 @@ export function decodeState(raw: string | null): PlannerState {
   const focus = value.focus;
   if (
     focus != null &&
-    (!ids.has(focus.taskId) ||
+    ((focus.workform !== undefined &&
+      (typeof focus.workform !== 'string' || focus.workform.length > 2000)) ||
+      !validBlockLink(focus) ||
+      (focus.blockId !== undefined && focus.duration !== 60) ||
+      !ids.has(focus.taskId) ||
       !Number.isFinite(focus.startedAt) ||
       !Number.isInteger(focus.duration) ||
       focus.duration < 1 ||
@@ -325,9 +371,9 @@ export function finishFocus(
 ): PlannerState {
   const focus = state.focus;
   if (!focus) return state;
-  const endedAt = Math.min(
-    focus.stoppedAt ?? now,
-    focus.startedAt + focus.duration * 60000,
+  const endedAt = Math.max(
+    focus.startedAt,
+    Math.min(focus.stoppedAt ?? now, focus.startedAt + focus.duration * 60000),
   );
   return {
     ...state,
@@ -347,6 +393,9 @@ export function finishFocus(
                 endedAt,
                 minutes: Math.max(0, (endedAt - focus.startedAt) / 60000),
                 progress: progress.trim(),
+                ...(focus.blockId
+                  ? { blockId: focus.blockId, planDate: focus.planDate }
+                  : {}),
               },
             ],
           },
@@ -437,4 +486,31 @@ export function toggleRoutineDay(
       },
     ],
   };
+}
+
+export function planForDay(state: PlannerState, day: string): FocusBlock[] {
+  return (
+    state.dailyPlans?.[day] ??
+    ['09:00', '10:30', '13:00', '14:30'].map((time, index) => ({
+      id: `${day}-block-${index + 1}`,
+      time,
+      taskId: null,
+    }))
+  );
+}
+export function blockRecords(
+  state: PlannerState,
+  day: string,
+  blockId: string,
+): FocusRecord[] {
+  return state.tasks
+    .flatMap((task) => task.sessions ?? [])
+    .filter((record) => record.planDate === day && record.blockId === blockId);
+}
+export function completedBlocks(state: PlannerState, day: string): number {
+  return planForDay(state, day).filter((block) =>
+    blockRecords(state, day, block.id).some(
+      (record) => record.minutes >= 60 && record.progress.trim(),
+    ),
+  ).length;
 }

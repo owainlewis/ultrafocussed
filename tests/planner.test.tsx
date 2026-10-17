@@ -1388,3 +1388,135 @@ it('counts an existing task linked to a routine without creating another record'
     notes: 'Preserve',
   });
 });
+
+it('plans existing tasks into hours and counts a block only after its workform is submitted', async () => {
+  const start = Date.now();
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
+  stored([{ id: 't', title: 'Write a lesson', notes: 'Keep notes' }]);
+  let app = render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+  expect(screen.getAllByRole('article')).toHaveLength(4);
+  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
+  fireEvent.change(screen.getByLabelText('Start time for block 1'), {
+    target: { value: '08:00' },
+  });
+  expect(saved().dailyPlans![today][0].time).toBe('08:00');
+  expect(saved().tasks).toHaveLength(1);
+  expect(saved().tasks[0].date).toBeNull();
+  await user.click(screen.getByRole('button', { name: 'Start block 1' }));
+  expect(screen.getByLabelText('Time remaining').textContent).toBe('60:00');
+  await user.click(
+    screen.getByRole('button', { name: 'Close focus', exact: true }),
+  );
+  expect(
+    (screen.getByRole('button', { name: 'Start block 2' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  app.unmount();
+  app = render(<App />);
+  await user.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+  await user.click(
+    screen.getByRole('button', { name: 'Resume focus', exact: true }),
+  );
+  act(() => {
+    clock.mockReturnValue(start + 3600000);
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  expect(
+    (
+      screen.getByRole('button', {
+        name: 'Submit workform',
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  await user.type(
+    screen.getByLabelText('What did you work on?'),
+    'Finished the lesson outline.',
+  );
+  await user.click(
+    screen.getByRole('button', { name: 'Close focus', exact: true }),
+  );
+  await user.click(
+    screen.getByRole('button', { name: 'Resume focus', exact: true }),
+  );
+  expect(
+    (screen.getByLabelText('What did you work on?') as HTMLTextAreaElement)
+      .value,
+  ).toBe('Finished the lesson outline.');
+  await user.click(screen.getByRole('button', { name: 'Submit workform' }));
+  expect(saved().focus).toBeNull();
+  expect(saved().tasks[0]).toMatchObject({
+    id: 't',
+    completed: false,
+    notes: 'Keep notes',
+  });
+  expect(saved().tasks[0].sessions![0]).toMatchObject({
+    minutes: 60,
+    progress: 'Finished the lesson outline.',
+    planDate: today,
+  });
+  expect(
+    screen.getByText('/ 4 blocks completed', { exact: false }).textContent,
+  ).toContain('1');
+  expect(document.activeElement).toBe(screen.getByText('Workforms (1)'));
+  await user.click(screen.getByText('Workforms (1)'));
+  expect(screen.getByText('Finished the lesson outline.')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Add another hour' }));
+  expect(screen.getAllByRole('article')).toHaveLength(5);
+});
+
+it('saves an early stop as a partial hour without completing the task or block', async () => {
+  const start = Date.now();
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
+  stored([{ id: 't', title: 'Client course' }]);
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
+  await user.click(screen.getByRole('button', { name: 'Start block 1' }));
+  clock.mockReturnValue(start + 10 * 60000);
+  await user.click(screen.getByRole('button', { name: 'Stop session' }));
+  expect(document.activeElement).toBe(
+    screen.getByLabelText('What did you work on?'),
+  );
+  await user.type(
+    screen.getByLabelText('What did you work on?'),
+    'Reviewed the brief.',
+  );
+  await user.click(screen.getByRole('button', { name: 'Submit workform' }));
+  expect(saved().tasks[0].sessions![0].minutes).toBe(10);
+  expect(
+    screen.getByText('/ 4 blocks completed', { exact: false }).textContent,
+  ).toContain('0');
+  await user.click(screen.getByRole('button', { name: 'Start block 1' }));
+  expect(screen.getByLabelText('Time remaining').textContent).toBe('60:00');
+});
+
+it('keeps each day’s plan separate and retains task identity across multiple blocks', async () => {
+  stored([{ id: 't', title: 'Course work' }]);
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
+  await user.selectOptions(screen.getByLabelText('Task for block 2'), 't');
+  await user.click(
+    screen.getByRole('button', { name: 'Next day', exact: true }),
+  );
+  expect(
+    (screen.getByLabelText('Task for block 1') as HTMLSelectElement).value,
+  ).toBe('');
+  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
+  expect(
+    (screen.getByRole('button', { name: 'Start block 1' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  await user.click(
+    screen.getByRole('button', { name: 'Previous day', exact: true }),
+  );
+  expect(
+    (screen.getByLabelText('Task for block 2') as HTMLSelectElement).value,
+  ).toBe('t');
+  expect(saved().tasks).toHaveLength(1);
+  expect(Object.keys(saved().dailyPlans!)).toHaveLength(2);
+});

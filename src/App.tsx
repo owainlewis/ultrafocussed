@@ -31,6 +31,7 @@ import {
   type Goal,
   type Project,
   type Routine,
+  planForDay,
 } from './model';
 import { MonthView, YearView, GoalsView } from './WarMapViews';
 import { Modal } from './Modal';
@@ -39,6 +40,7 @@ import {
   PlannerToolbar,
   type PlannerView,
 } from './PlannerChrome';
+import { DailyPlan } from './DailyPlan';
 import { WeeklyView } from './WeeklyView';
 import { ProjectsView } from './ProjectsView';
 import { TasksView } from './TasksView';
@@ -589,15 +591,18 @@ function FocusPanel({
   onStart,
   onStop,
   onFinish,
+  onWorkform,
 }: {
   task: Task;
   session: PlannerState['focus'];
   onStart: (duration: number) => void;
   onStop: () => void;
-  onFinish: () => void;
+  onFinish: (progress?: string) => void;
+  onWorkform: (text: string) => void;
 }) {
   const [now, setNow] = useState(Date.now());
   const [minutes, setMinutes] = useState('60');
+  const workform = session?.workform ?? '';
   const panel = useRef<HTMLElement>(null);
   const minutesRef = useRef<HTMLInputElement>(null);
   const finishRef = useRef<HTMLButtonElement>(null);
@@ -626,7 +631,11 @@ function FocusPanel({
     previous.current = mode;
     if (mode === 'setup') minutesRef.current?.focus();
     else if (mode === 'running' && before === 'setup') panel.current?.focus();
-    else if (mode === 'review') finishRef.current?.focus();
+    else if (mode === 'review')
+      (session?.blockId
+        ? panel.current?.querySelector<HTMLTextAreaElement>('textarea')
+        : finishRef.current
+      )?.focus();
   }, [mode]);
   return (
     <section
@@ -684,12 +693,44 @@ function FocusPanel({
           </button>
         </div>
       ) : (
-        <div className="focus-review">
-          <p>Session ended.</p>
-          <button ref={finishRef} className="primary-button" onClick={onFinish}>
-            Finish session
+        <form
+          className="focus-review"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!session?.blockId || workform.trim()) onFinish(workform);
+          }}
+        >
+          <p>
+            {session?.blockId
+              ? 'Save your workform to finish this session.'
+              : 'Session ended.'}
+          </p>
+          {session?.blockId && (
+            <label className="field">
+              What did you work on?
+              <textarea
+                value={workform}
+                onChange={(event) => onWorkform(event.target.value)}
+                required
+                maxLength={2000}
+                rows={4}
+              />
+            </label>
+          )}
+          {session?.blockId && seconds > 0 && (
+            <p className="routine-hint">
+              Stopped early. Submit the workform to save a partial session. It
+              won’t count as a completed hour.
+            </p>
+          )}
+          <button
+            ref={finishRef}
+            className="primary-button"
+            disabled={!!session?.blockId && !workform.trim()}
+          >
+            {session?.blockId ? 'Submit workform' : 'Finish session'}
           </button>
-        </div>
+        </form>
       )}
     </section>
   );
@@ -800,6 +841,14 @@ export default function App() {
       document
         .querySelector<HTMLInputElement>('.tasks-view .capture input')
         ?.focus();
+    else if (view === 'plan')
+      (
+        document.querySelector<HTMLElement>('.block-workforms summary') ??
+        document.querySelector<HTMLElement>(
+          '.focus-block button:not(:disabled)',
+        ) ??
+        document.querySelector<HTMLElement>('.daily-toolbar button')
+      )?.focus();
     else if (view === 'goals' || view === 'projects')
       document
         .querySelector<HTMLInputElement>('.goal-action-composer input')
@@ -1055,6 +1104,13 @@ export default function App() {
       key={focusTask.id}
       task={focusTask}
       session={state.focus}
+      onWorkform={(text) =>
+        setState((current) =>
+          current.focus
+            ? { ...current, focus: { ...current.focus, workform: text } }
+            : current,
+        )
+      }
       onStart={(duration) => {
         setState((current) => ({
           ...current,
@@ -1078,19 +1134,20 @@ export default function App() {
             : current,
         )
       }
-      onFinish={() => {
+      onFinish={(progress) => {
         setFocusTaskId(null);
         setState((current) => {
           const latest = current.tasks.find((task) => task.id === focusTask.id);
           return finishFocus(
             current,
-            '',
+            progress ?? '',
             latest?.completed ?? false,
             latest?.nextStep ?? '',
             Date.now(),
           );
         });
-        reveal(focusTask.date);
+        if (state.focus?.blockId) setView('plan');
+        else reveal(focusTask.date);
         setFocusRequest({ id: focusTask.id, onlyIfLost: false });
         announce('Session saved.');
       }}
@@ -1113,7 +1170,7 @@ export default function App() {
         saveError={saveError}
       />
       <div className="planner-workspace">
-        {view !== 'tasks' && view !== 'weekly' && (
+        {view !== 'tasks' && view !== 'weekly' && view !== 'plan' && (
           <PlannerToolbar
             view={view}
             title={
@@ -1185,6 +1242,39 @@ export default function App() {
               >
                 {renderList(listedTasks, null)}
               </TasksView>
+            ) : view === 'plan' ? (
+              <DailyPlan
+                state={state}
+                onChange={setState}
+                today={today}
+                onTasks={() => setView('tasks')}
+                onResume={() => {
+                  if (state.focus) setFocusTaskId(state.focus.taskId);
+                }}
+                onStart={(day, block) => {
+                  if (!block.taskId || state.focus || day !== today) return;
+                  setState((current) => {
+                    if (
+                      current.focus ||
+                      !current.tasks.some((task) => task.id === block.taskId)
+                    )
+                      return current;
+                    const blocks = planForDay(current, day);
+                    return {
+                      ...current,
+                      dailyPlans: { ...current.dailyPlans, [day]: blocks },
+                      focus: {
+                        taskId: block.taskId!,
+                        duration: 60,
+                        startedAt: Date.now(),
+                        blockId: block.id,
+                        planDate: day,
+                      },
+                    };
+                  });
+                  setFocusTaskId(block.taskId);
+                }}
+              />
             ) : view === 'weekly' ? (
               <WeeklyView state={state} onChange={setState} today={today} />
             ) : view === 'month' ? (
