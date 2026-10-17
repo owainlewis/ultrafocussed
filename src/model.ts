@@ -6,6 +6,7 @@ export type Task = {
   notes: string;
   main: boolean;
   goalId?: string | null;
+  projectId?: string | null;
   nextStep?: string;
   progressNotes?: string;
   outcomeWeek?: string | null;
@@ -25,10 +26,12 @@ export type FocusSession = {
   stoppedAt?: number;
 };
 export type Goal = { id: string; title: string; year: number };
+export type Project = { id: string; title: string; completed: boolean };
 export type PlannerState = {
   version: 1;
   tasks: Task[];
   goals?: Goal[];
+  projects?: Project[];
   outcomes?: Record<string, string>;
   focus?: FocusSession | null;
 };
@@ -89,6 +92,23 @@ export function decodeState(raw: string | null): PlannerState {
     if (count > 4) throw new Error('At most four goals per year');
     goalCounts.set(goal.year, count);
   }
+  const projectIds = new Set<string>();
+  if (value.projects !== undefined && !Array.isArray(value.projects))
+    throw new Error('Invalid projects');
+  for (const project of value.projects ?? []) {
+    if (
+      !project ||
+      typeof project.id !== 'string' ||
+      !project.id ||
+      projectIds.has(project.id) ||
+      typeof project.title !== 'string' ||
+      !project.title.trim() ||
+      project.title.length > 200 ||
+      typeof project.completed !== 'boolean'
+    )
+      throw new Error('Invalid project');
+    projectIds.add(project.id);
+  }
   const ids = new Set<string>();
   const mainDates = new Set<string>();
   for (const task of value.tasks) {
@@ -103,6 +123,9 @@ export function decodeState(raw: string | null): PlannerState {
       !task ||
       (task.goalId != null &&
         (typeof task.goalId !== 'string' || !goalIds.has(task.goalId))) ||
+      (task.projectId != null &&
+        (typeof task.projectId !== 'string' ||
+          !projectIds.has(task.projectId))) ||
       typeof task.id !== 'string' ||
       !task.id ||
       ids.has(task.id) ||
@@ -296,6 +319,16 @@ export function removeGoal(state: PlannerState, id: string): PlannerState {
     goals: (state.goals ?? []).filter((goal) => goal.id !== id),
     tasks: state.tasks.map((task) =>
       task.goalId === id ? { ...task, goalId: null } : task,
+    ),
+  };
+}
+
+export function removeProject(state: PlannerState, id: string): PlannerState {
+  return {
+    ...state,
+    projects: (state.projects ?? []).filter((project) => project.id !== id),
+    tasks: state.tasks.map((task) =>
+      task.projectId === id ? { ...task, projectId: null } : task,
     ),
   };
 }

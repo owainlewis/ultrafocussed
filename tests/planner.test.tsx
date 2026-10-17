@@ -114,9 +114,9 @@ describe('planner user flows', () => {
       within(editor).getByLabelText('Task', { exact: true }),
       'Updated outline',
     );
-    expect(editor.querySelectorAll('input, textarea, select')).toHaveLength(2);
+    expect(editor.querySelectorAll('input, textarea')).toHaveLength(2);
     expect(within(editor).queryByText('Notes')).toBeNull();
-    expect(within(editor).queryByLabelText('Goal')).toBeNull();
+    expect(editor.querySelector('details')?.open).toBe(false);
     expect(within(editor).queryByRole('checkbox')).toBeNull();
     expect(within(editor).queryByRole('button', { name: /focus/i })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -317,6 +317,9 @@ describe('planner user flows', () => {
     render(<App />);
     const user = userEvent.setup();
     await user.click(
+      screen.getByRole('button', { name: 'Calendar', exact: true }),
+    );
+    await user.click(
       screen.getByRole('button', { name: 'Month', exact: true }),
     );
     const add = screen.getAllByRole('button', { name: /^Add task to / })[0];
@@ -353,6 +356,9 @@ describe('closing task details after a date change', () => {
     stored([{ id: 'f', title: 'Friday task', date: '2026-10-02' }]);
     render(<App />);
     const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', { name: 'Calendar', exact: true }),
+    );
     await user.click(
       screen.getByRole('button', { name: 'Month', exact: true }),
     );
@@ -586,6 +592,9 @@ describe('year, month, and goal planning', () => {
       screen.getByRole('textbox', { name: 'New task', exact: true }),
     ).toBeTruthy();
     await user.click(
+      screen.getByRole('button', { name: 'Calendar', exact: true }),
+    );
+    await user.click(
       screen.getByRole('button', { name: 'Month', exact: true }),
     );
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(current);
@@ -635,7 +644,7 @@ describe('year, month, and goal planning', () => {
     await user.click(
       screen.getByRole('button', { name: 'Write first lesson', exact: true }),
     );
-    expect(screen.queryByLabelText('Goal')).toBeNull();
+    expect(screen.getByLabelText('Goal').closest('details')?.open).toBe(false);
     fireEvent.input(screen.getByLabelText('Date (optional)'), {
       target: { value: dateKey(new Date()) },
     });
@@ -743,6 +752,9 @@ describe('year, month, and goal planning', () => {
         screen.getAllByRole('button', { name: 'Mobile action', exact: true }),
       ).toHaveLength(1);
       const user = userEvent.setup();
+      await user.click(
+        screen.getByRole('button', { name: 'Calendar', exact: true }),
+      );
       await user.click(
         screen.getByRole('button', { name: 'Month', exact: true }),
       );
@@ -929,6 +941,9 @@ describe('Tasks brain dump', () => {
       screen.getByRole('button', { name: 'Complete Schedule this' }),
     );
     await user.click(
+      screen.getByRole('button', { name: 'Calendar', exact: true }),
+    );
+    await user.click(
       screen.getByRole('button', { name: 'Month', exact: true }),
     );
     expect(screen.queryByRole('complementary')).toBeNull();
@@ -952,6 +967,9 @@ describe('Tasks brain dump', () => {
     expect(
       screen.getByRole('button', { name: 'Schedule this', exact: true }),
     ).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Calendar', exact: true }),
+    );
     await user.click(
       screen.getByRole('button', { name: 'Month', exact: true }),
     );
@@ -1032,4 +1050,168 @@ it('hides completed rows, keeps keyboard focus useful, and can show and reopen t
     completed: true,
     date: today,
   });
+});
+
+it('links an existing task to a project and a goal without duplicating it', async () => {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      projects: [{ id: 'project', title: 'Client course', completed: false }],
+      goals: [
+        { id: 'goal', title: 'Teach well', year: new Date().getFullYear() },
+      ],
+      tasks: [
+        {
+          id: 'task',
+          title: 'Write lesson',
+          date: today,
+          notes: 'Keep these notes',
+          completed: false,
+          main: false,
+        },
+      ],
+    }),
+  );
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: 'Write lesson', exact: true }),
+  );
+  await user.click(screen.getByText('Organise', { exact: true }));
+  await user.selectOptions(
+    screen.getByLabelText('Project', { exact: true }),
+    'project',
+  );
+  await user.selectOptions(
+    screen.getByLabelText('Goal', { exact: true }),
+    'goal',
+  );
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(saved().tasks).toHaveLength(1);
+  expect(saved().tasks[0]).toMatchObject({
+    id: 'task',
+    projectId: 'project',
+    goalId: 'goal',
+    date: today,
+    notes: 'Keep these notes',
+  });
+  await user.click(
+    screen.getByRole('button', { name: 'Projects', exact: true }),
+  );
+  expect(
+    screen.getByRole('button', { name: 'Write lesson', exact: true }),
+  ).toBeTruthy();
+  await user.click(
+    screen.getByRole('button', { name: 'Complete project Client course' }),
+  );
+  expect(saved().projects![0].completed).toBe(true);
+  expect(saved().tasks[0].completed).toBe(false);
+  await user.click(
+    screen.getByRole('button', { name: 'Reopen project Client course' }),
+  );
+  await user.type(
+    screen.getByLabelText('New task for Client course'),
+    'Prepare slides{Enter}',
+  );
+  expect(saved().tasks[1]).toMatchObject({ projectId: 'project', date: null });
+  await user.click(screen.getByRole('button', { name: 'Goals', exact: true }));
+  expect(
+    screen.getByRole('button', { name: 'Write lesson', exact: true }),
+  ).toBeTruthy();
+  await user.click(
+    screen.getByRole('button', { name: 'Projects', exact: true }),
+  );
+  await user.click(
+    screen.getByRole('button', { name: 'Remove project Client course' }),
+  );
+  await user.click(
+    within(screen.getByRole('dialog')).getByRole('button', {
+      name: 'Remove project',
+      exact: true,
+    }),
+  );
+  expect(saved().tasks).toHaveLength(2);
+  expect(saved().tasks[0]).toMatchObject({
+    projectId: null,
+    goalId: 'goal',
+    notes: 'Keep these notes',
+    date: today,
+  });
+});
+
+it('creates and renames projects and remembers the calendar scale between tabs', async () => {
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: 'Projects', exact: true }),
+  );
+  await user.click(
+    screen.getByRole('button', { name: 'Add project', exact: true }),
+  );
+  await user.type(screen.getByLabelText('Project name'), 'Client work{Enter}');
+  await user.click(
+    screen.getByRole('button', { name: 'Edit project Client work' }),
+  );
+  await user.clear(screen.getByLabelText('Project name'));
+  await user.type(screen.getByLabelText('Project name'), 'Course work{Enter}');
+  expect(saved().projects![0].title).toBe('Course work');
+  await user.click(
+    screen.getByRole('button', { name: 'Calendar', exact: true }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Year', exact: true }));
+  await user.click(screen.getByRole('button', { name: 'Tasks', exact: true }));
+  expect(
+    screen.queryByRole('button', { name: 'Year', exact: true }),
+  ).toBeNull();
+  await user.click(
+    screen.getByRole('button', { name: 'Calendar', exact: true }),
+  );
+  expect(
+    screen
+      .getByRole('button', { name: 'Year', exact: true })
+      .getAttribute('aria-pressed'),
+  ).toBe('true');
+  expect(
+    screen
+      .getByRole('button', { name: 'Calendar', exact: true })
+      .getAttribute('aria-pressed'),
+  ).toBe('true');
+});
+
+it('keeps keyboard focus in the checklist when a task is unlinked', async () => {
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      projects: [{ id: 'p', title: 'Work', completed: false }],
+      tasks: [
+        {
+          id: 't',
+          title: 'Draft',
+          date: null,
+          notes: '',
+          completed: false,
+          main: false,
+          projectId: 'p',
+        },
+      ],
+    }),
+  );
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: 'Projects', exact: true }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Draft', exact: true }));
+  await user.click(screen.getByText('Organise', { exact: true }));
+  await user.selectOptions(
+    screen.getByLabelText('Project', { exact: true }),
+    '',
+  );
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(document.activeElement).toBe(
+    screen.getByLabelText('New task for Work'),
+  );
+  expect(saved().tasks[0].projectId).toBeNull();
 });

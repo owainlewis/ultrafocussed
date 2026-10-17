@@ -27,6 +27,9 @@ import {
   addMonths,
   monthDays,
   removeGoal,
+  removeProject,
+  type Goal,
+  type Project,
 } from './model';
 import { MonthView, YearView, GoalsView } from './WarMapViews';
 import { Modal } from './Modal';
@@ -35,6 +38,7 @@ import {
   PlannerToolbar,
   type PlannerView,
 } from './PlannerChrome';
+import { ProjectsView } from './ProjectsView';
 import { TasksView } from './TasksView';
 import { useTheme } from './useTheme';
 import { useToday } from './useToday';
@@ -331,8 +335,12 @@ function DetailPanel({
   onClose,
   onDelete,
   dateFirst,
+  goals,
+  projects,
 }: {
   task: Task;
+  goals: Goal[];
+  projects: Project[];
   dateFirst: boolean;
   onChange: (patch: Patch) => void;
   onClose: () => void;
@@ -340,6 +348,8 @@ function DetailPanel({
 }) {
   const [title, setTitle] = useState(task.title);
   const [date, setDate] = useState(task.date ?? '');
+  const [goalId, setGoalId] = useState(task.goalId ?? '');
+  const [projectId, setProjectId] = useState(task.projectId ?? '');
   const [discarding, setDiscarding] = useState(false);
   const previousTask = useRef(task);
   useEffect(() => {
@@ -348,10 +358,22 @@ function DetailPanel({
     setDate((current) =>
       current === (before.date ?? '') ? (task.date ?? '') : current,
     );
+    setGoalId((current) =>
+      current === (before.goalId ?? '') ? (task.goalId ?? '') : current,
+    );
+    setProjectId((current) =>
+      current === (before.projectId ?? '') ? (task.projectId ?? '') : current,
+    );
     previousTask.current = task;
   }, [task]);
   const close = () => {
-    if (title !== task.title || date !== (task.date ?? '')) setDiscarding(true);
+    if (
+      title !== task.title ||
+      date !== (task.date ?? '') ||
+      goalId !== (task.goalId ?? '') ||
+      projectId !== (task.projectId ?? '')
+    )
+      setDiscarding(true);
     else onClose();
   };
   return (
@@ -366,7 +388,16 @@ function DetailPanel({
           event.preventDefault();
           if (!title.trim()) return;
           // Send only editable fields. Legacy notes and metadata stay on the task.
-          onChange({ title: title.trim(), date: date || null });
+          onChange({
+            title: title.trim(),
+            date: date || null,
+            ...(goalId !== (task.goalId ?? '')
+              ? { goalId: goalId || null }
+              : {}),
+            ...(projectId !== (task.projectId ?? '')
+              ? { projectId: projectId || null }
+              : {}),
+          });
           onClose();
         }}
       >
@@ -399,6 +430,38 @@ function DetailPanel({
             Clear date
           </button>
         )}
+        <details className="task-organise">
+          <summary>Organise</summary>
+          <label className="field">
+            Project
+            <select
+              value={projectId}
+              onChange={(event) => setProjectId(event.target.value)}
+            >
+              <option value="">No project</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.title}
+                  {project.completed ? ' (completed)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Goal
+            <select
+              value={goalId}
+              onChange={(event) => setGoalId(event.target.value)}
+            >
+              <option value="">No goal</option>
+              {goals.map((goal) => (
+                <option key={goal.id} value={goal.id}>
+                  {goal.title} ({goal.year})
+                </option>
+              ))}
+            </select>
+          </label>
+        </details>
         <footer className="task-editor-actions">
           <button type="button" className="delete-button" onClick={onDelete}>
             Delete task
@@ -606,6 +669,8 @@ function FocusPanel({
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme();
   const [creatingGoal, setCreatingGoal] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [calendarMode, setCalendarMode] = useState<'month' | 'year'>('month');
   const [initial] = useState(initialData);
   const [now, setNow] = useState(Date.now());
   const [state, setState] = useState<PlannerState>(initial.state);
@@ -614,6 +679,9 @@ export default function App() {
   const [month, setMonth] = useState(() => monthStart(new Date()));
   const [view, setView] = useState<PlannerView>('tasks');
   const [showCompleted, setShowCompleted] = useState(false);
+  useEffect(() => {
+    if (view === 'month' || view === 'year') setCalendarMode(view);
+  }, [view]);
   const [selectedDay, setSelectedDay] = useState(() => dateKey(new Date()));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDateFirst, setEditingDateFirst] = useState(false);
@@ -703,6 +771,10 @@ export default function App() {
       document
         .querySelector<HTMLInputElement>('.tasks-view .capture input')
         ?.focus();
+    else if (view === 'goals' || view === 'projects')
+      document
+        .querySelector<HTMLInputElement>('.goal-action-composer input')
+        ?.focus();
   }, [focusRequest]);
 
   const setTasks = (change: (tasks: Task[]) => Task[]) =>
@@ -755,9 +827,11 @@ export default function App() {
     const siblings = state.tasks.filter((item) =>
       view === 'tasks'
         ? showCompleted || !item.completed
-        : view === 'goals'
-          ? item.goalId === task.goalId
-          : item.date === task.date,
+        : view === 'projects'
+          ? item.projectId === task.projectId
+          : view === 'goals'
+            ? item.goalId === task.goalId
+            : item.date === task.date,
     );
     const neighbour =
       siblings[siblings.findIndex((item) => item.id === id) + direction];
@@ -999,7 +1073,7 @@ export default function App() {
       <PlannerHeader
         view={view}
         onView={(mode) => {
-          setView(mode);
+          setView(mode === 'month' ? calendarMode : mode);
         }}
         theme={theme}
         onTheme={toggleTheme}
@@ -1018,10 +1092,18 @@ export default function App() {
                   month: 'long',
                   year: 'numeric',
                 }).format(month)
-              : month.getFullYear()
+              : view === 'projects'
+                ? 'Projects'
+                : month.getFullYear()
           }
           onToday={goToday}
           onPeriod={goPeriod}
+          onCalendarView={setView}
+          onAddProject={
+            view === 'projects' && !readError
+              ? () => setCreatingProject(true)
+              : undefined
+          }
           onAddGoal={
             view === 'goals' &&
             !readError &&
@@ -1103,6 +1185,50 @@ export default function App() {
                 setView('month');
               }}
               onDay={showDate}
+            />
+          ) : view === 'projects' ? (
+            <ProjectsView
+              projects={state.projects ?? []}
+              tasks={state.tasks}
+              creating={creatingProject}
+              onCreationClose={() => setCreatingProject(false)}
+              renderTasks={(tasks) => renderList(tasks, null, true)}
+              onAdd={(title) =>
+                setState((current) => ({
+                  ...current,
+                  projects: [
+                    ...(current.projects ?? []),
+                    { id: crypto.randomUUID(), title, completed: false },
+                  ],
+                }))
+              }
+              onRename={(id, title) =>
+                setState((current) => ({
+                  ...current,
+                  projects: (current.projects ?? []).map((project) =>
+                    project.id === id ? { ...project, title } : project,
+                  ),
+                }))
+              }
+              onToggleState={(id) =>
+                setState((current) => ({
+                  ...current,
+                  projects: (current.projects ?? []).map((project) =>
+                    project.id === id
+                      ? { ...project, completed: !project.completed }
+                      : project,
+                  ),
+                }))
+              }
+              onRemove={(id) =>
+                setState((current) => removeProject(current, id))
+              }
+              onAddTask={(title, projectId) =>
+                setTasks((tasks) => [
+                  ...tasks,
+                  { ...createTask(title, null), projectId },
+                ])
+              }
             />
           ) : (
             <GoalsView
@@ -1214,6 +1340,8 @@ export default function App() {
         <DetailPanel
           key={currentTask.id}
           task={currentTask}
+          goals={state.goals ?? []}
+          projects={state.projects ?? []}
           dateFirst={editingDateFirst}
           onClose={() => {
             setEditingId(null);

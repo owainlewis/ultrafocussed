@@ -18,7 +18,7 @@ npm run build
 npm run preview
 ```
 
-## Tasks, Year, Month, Goals
+## Tasks, Calendar, Projects, Goals
 
 Tasks is the default view for capturing work before scheduling it. Press Enter to add an unscheduled task. Scheduled and past tasks remain in this list. Completed tasks are hidden by default; use Show completed to see or reopen them. This filter only changes Tasks, not the calendar or Goals. Choose Add date or the displayed date to open the two-field task editor. Scheduling puts the same task on the calendar and keeps you in Tasks. Clear its date to remove it from the calendar without removing it from the list.
 
@@ -28,7 +28,7 @@ Year shows twelve months with markers for planned and completed actions. Choose 
 
 Goals supports up to four goals per year. Choose Add goal to name an outcome in a dialog, list its actions, then open an action to give it a date in task details. It is the same task in Goals and Month: completion, dates and timer history stay in sync. Existing notes are preserved in saved data and backups. Rename a goal without changing its action links. Removing a goal asks for confirmation and keeps all actions and dates.
 
-Task editing has just a title and an optional date. Clear the date to make a task unscheduled. Completion stays on the task row. Actions created under a goal are linked automatically. Existing notes, progress notes, goal links and session history are retained when editing. Capture work in Tasks or use a day’s plus button to add one in a dialog. Drag between days in Month, or use Alt (Option) with Left/Right to move a date and Up/Down to reorder. In Goals, Up/Down reorders that goal's actions across dates; dragging is disabled there.
+Task editing starts with a title and an optional date. Expand Organise to link the task to a project and a goal. Clear the date to make a task unscheduled. Completion stays on the task row. Actions created under a goal are linked automatically. Existing notes, progress notes, goal links and session history are retained when editing. Capture work in Tasks or use a day’s plus button to add one in a dialog. Drag between days in Month, or use Alt (Option) with Left/Right to move a date and Up/Down to reorder. In Goals, Up/Down reorders that goal's actions across dates; dragging is disabled there.
 
 Focus is a separate timer action on the task row. Its dialog asks only for minutes, defaulting to 60 and accepting 1 to 180. Stop early or let the timer expire, then finish the session. Closing the dialog keeps an active session running; its row timer reopens it. Reloads preserve sessions without opening dialogs. Finishing records time without changing completion or asking for notes. Recorded time is capped at the planned duration. No scores, streaks, sounds or daily-hour target.
 
@@ -55,3 +55,5 @@ npm run format:check
 ```
 
 Model tests cover persistence format, invalid data, local calendar dates, week boundaries, moving and reordering, completion, and main outcomes. Browser verification is recorded in [docs/verification.md](docs/verification.md).
+
+Calendar has one navigation tab with a Month/Year switch in its toolbar. It remembers the scale when switching tabs. Projects uses the same title-and-checklist layout as Goals, without a year or count limit. Projects have an independent Active/Completed state; changing it keeps task completion unchanged. Tasks can link to both a project and a goal under Organise. Removing either group keeps the tasks, dates, notes and other links.

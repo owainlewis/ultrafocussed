@@ -4,7 +4,7 @@ Ultrafocussed is an Operate surface. The work leads: dates, tasks, and goal chec
 
 ## Structure
 
-The app header contains the identity, Tasks/Month/Year/Goals tabs, backup controls, theme toggle, and help. The selected tab has a short underline. A separate, attached toolbar contains the period title, previous/next, Today, and the current view's primary action. Add goal belongs here, never in a detached content band. Only failed saves need a persistent status message.
+The app header contains the identity, Tasks/Calendar/Projects/Goals tabs, backup controls, theme toggle, and help. The selected tab has a short underline. A separate, attached toolbar contains the period title, previous/next, Today, and the current view's primary action. Add goal belongs here, never in a detached content band. Only failed saves need a persistent status message.
 
 On phones, navigation tabs occupy a second header row. Period controls stay grouped. Main views have no horizontal page scrolling.
 
@@ -22,7 +22,7 @@ Goals has up to four title-and-checklist sections for the year. Each section has
 
 PlannerHeader owns application navigation and utilities. PlannerToolbar owns period navigation and view actions. Modal provides native focus trapping, labelled headings, Escape handling, and focus restoration. Goal creation/rename and calendar task creation use this shared component.
 
-Task editing uses the shared Modal and contains only a title and optional date, with Clear date when scheduled. Delete and Save share a footer. Saving patches only title and date; existing notes, progress notes, goal links, main outcomes and session history remain in saved data and backups. Unsaved edits require an explicit Keep editing or Discard changes decision. Saving a changed date returns focus to the task. Tasks keeps its list in place; calendar edits follow the new date or open Tasks when clearing it. Task rows omit old note previews and main-outcome labels.
+Task editing uses the shared Modal and contains a title and optional date, plus a collapsed Organise section for project and goal links, with Clear date when scheduled. Delete and Save share a footer. Saving patches editable fields only; existing notes, progress notes, goal links, main outcomes and session history remain in saved data and backups. Unsaved edits require an explicit Keep editing or Discard changes decision. Saving a changed date returns focus to the task. Tasks keeps its list in place; calendar edits follow the new date or open Tasks when clearing it. Task rows omit old note previews and main-outcome labels.
 
 Focus is a separate timer action on every eligible task row, including Goals. It opens its own Modal with only Minutes and Begin. A running timer offers Stop, and an ended timer offers Finish session. Closing the modal does not stop the session; the task row reopens it. Reloads never open a focus dialog automatically. Completion stays on the row and is preserved when finishing. No next-step or notes fields appear in focus. Keyboard moves, backup recovery, cross-tab updates and Undo remain supported. No automatic rollover, scores, sounds or streaks.
 
@@ -33,3 +33,5 @@ The first visit follows the system preference. The header's sun/moon control swi
 Both themes use semantic tokens for text, muted text, surfaces, separators, controls, past dates, primary actions, header bands, errors, and keyboard focus. Filled actions use an explicit foreground token instead of assuming white text. Native inputs and date pickers inherit color-scheme. Secondary text retains at least 4.5:1 contrast, including past-date cells. Dark mode uses layered charcoal surfaces rather than inverting white header bands.
 
 System sans typography, compact application chrome, 14 px body text, 13 px calendar tasks, and tabular date/timer numerals. Keyboard focus has a visible blue ring. Errors use warm red. Surfaces use restrained rounding; goal sections contain their own controls. No decorative imagery or animation.
+
+Calendar has one navigation tab with a Month/Year switch in its toolbar. It remembers the scale when switching tabs. Projects uses the same title-and-checklist layout as Goals, without a year or count limit. Projects have an independent Active/Completed state; changing it keeps task completion unchanged. Tasks can link to both a project and a goal under Organise. Removing either group keeps the tasks, dates, notes and other links.

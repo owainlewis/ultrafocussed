@@ -12,7 +12,7 @@ import {
 import type { ReactNode } from 'react';
 import type { Theme } from './useTheme';
 
-export type PlannerView = 'tasks' | 'year' | 'month' | 'goals';
+export type PlannerView = 'tasks' | 'year' | 'month' | 'goals' | 'projects';
 
 export function PlannerHeader({
   view,
@@ -42,18 +42,22 @@ export function PlannerHeader({
         <span>UltraFocussed</span>
       </div>
       <nav className="planner-tabs" aria-label="Planner view">
-        {(['tasks', 'month', 'year', 'goals'] as const).map((mode) => (
+        {(['tasks', 'month', 'projects', 'goals'] as const).map((mode) => (
           <button
             key={mode}
-            aria-pressed={view === mode}
+            aria-pressed={
+              mode === 'month'
+                ? view === 'month' || view === 'year'
+                : view === mode
+            }
             onClick={() => onView(mode)}
           >
             {mode === 'tasks'
               ? 'Tasks'
               : mode === 'month'
-                ? 'Month'
-                : mode === 'year'
-                  ? 'Year'
+                ? 'Calendar'
+                : mode === 'projects'
+                  ? 'Projects'
                   : 'Goals'}
           </button>
         ))}
@@ -108,6 +112,8 @@ export function PlannerToolbar({
   onToday,
   onPeriod,
   onAddGoal,
+  onAddProject,
+  onCalendarView,
   children,
 }: {
   view: PlannerView;
@@ -115,13 +121,15 @@ export function PlannerToolbar({
   onToday: () => void;
   onPeriod: (delta: number) => void;
   onAddGoal?: () => void;
+  onAddProject?: () => void;
+  onCalendarView?: (view: 'month' | 'year') => void;
   children?: ReactNode;
 }) {
   return (
     <div className="planner-toolbar">
       <div className="period-controls">
         <h1>{title}</h1>
-        {view !== 'tasks' && (
+        {(view === 'month' || view === 'year' || view === 'goals') && (
           <>
             <div className="period-buttons">
               <button
@@ -153,6 +161,32 @@ export function PlannerToolbar({
       </div>
       <div className="view-actions">
         {children}
+        {(view === 'month' || view === 'year') && (
+          <div
+            className="calendar-scale"
+            role="group"
+            aria-label="Calendar scale"
+          >
+            <button
+              aria-pressed={view === 'month'}
+              onClick={() => onCalendarView?.('month')}
+            >
+              Month
+            </button>
+            <button
+              aria-pressed={view === 'year'}
+              onClick={() => onCalendarView?.('year')}
+            >
+              Year
+            </button>
+          </div>
+        )}
+        {onAddProject && (
+          <button className="primary-button" onClick={onAddProject}>
+            <Plus size={16} aria-hidden="true" />
+            Add project
+          </button>
+        )}
         {onAddGoal && (
           <button className="primary-button" onClick={onAddGoal}>
             <Plus size={16} aria-hidden="true" />

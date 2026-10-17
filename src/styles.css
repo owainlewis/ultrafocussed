@@ -1587,3 +1587,59 @@ dialog::backdrop {
   height: 15px;
   margin: 0;
 }
+
+.view-projects {
+  background: var(--canvas);
+}
+.checklist-status {
+  padding: 4px 6px;
+  border: 1px solid var(--control);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--band-ink);
+  font-size: 12px;
+}
+.checklist-status:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.goal-column > header {
+  flex-wrap: wrap;
+}
+.task-organise summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+.task-organise .field {
+  margin-top: 16px;
+}
+.task-organise select {
+  width: 100%;
+  padding: 9px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+.calendar-scale {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  background: var(--rail);
+}
+.calendar-scale button {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+.calendar-scale button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}

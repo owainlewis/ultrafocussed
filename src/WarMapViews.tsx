@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Modal } from './Modal';
+import { Checklist, NameDialog } from './Checklist';
 import { useToday } from './useToday';
 import { dateKey, monthDays, monthStart, type Goal, type Task } from './model';
 
@@ -164,123 +164,6 @@ export function YearView({
   );
 }
 
-function ActionComposer({
-  goal,
-  onAdd,
-}: {
-  goal: Goal;
-  onAdd: (title: string, goalId: string) => void;
-}) {
-  const [title, setTitle] = useState('');
-  return (
-    <form
-      className="goal-action-composer"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!title.trim()) return;
-        onAdd(title.trim(), goal.id);
-        setTitle('');
-      }}
-    >
-      <Plus size={15} aria-hidden="true" />
-      <input
-        aria-label={`New action for ${goal.title}`}
-        placeholder="Add an action"
-        maxLength={300}
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
-      <button className="small-primary" disabled={!title.trim()}>
-        Add
-      </button>
-    </form>
-  );
-}
-
-function GoalColumn({
-  goal,
-  tasks,
-  renderActions,
-  onAdd,
-  onRename,
-  onDelete,
-}: {
-  goal: Goal;
-  tasks: Task[];
-  renderActions: (tasks: Task[]) => ReactNode;
-  onAdd: (title: string, goalId: string) => void;
-  onRename: (id: string, title: string) => void;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <section className="goal-column" aria-label={`Goal: ${goal.title}`}>
-      <header>
-        <h2>{goal.title}</h2>
-        <div className="goal-controls">
-          <button
-            className="icon-button"
-            aria-label={`Edit goal ${goal.title}`}
-            onClick={() => onRename(goal.id, goal.title)}
-          >
-            <Pencil size={15} />
-          </button>
-          <button
-            className="icon-button"
-            aria-label={`Remove goal ${goal.title}`}
-            onClick={() => onDelete(goal.id)}
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
-      </header>
-      {renderActions(tasks)}
-      <ActionComposer goal={goal} onAdd={onAdd} />
-    </section>
-  );
-}
-
-function GoalDialog({
-  goal,
-  onSave,
-  onClose,
-}: {
-  goal: Goal | null;
-  onSave: (title: string) => void;
-  onClose: () => void;
-}) {
-  const [title, setTitle] = useState(goal?.title ?? '');
-  return (
-    <Modal title={goal ? 'Edit goal' : 'Add a goal'} onClose={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (title.trim()) onSave(title.trim());
-        }}
-      >
-        <label className="field">
-          Goal name
-          <input
-            autoFocus
-            required
-            maxLength={200}
-            placeholder="What do you want to achieve?"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </label>
-        <footer className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="primary-button" disabled={!title.trim()}>
-            {goal ? 'Save goal' : 'Add goal'}
-          </button>
-        </footer>
-      </form>
-    </Modal>
-  );
-}
-
 export function GoalsView({
   year,
   creating,
@@ -322,20 +205,23 @@ export function GoalsView({
     <div className="goals-view" ref={root}>
       <div className="goals-grid">
         {visible.map((goal) => (
-          <GoalColumn
+          <Checklist
+            kind="goal"
             key={goal.id}
-            goal={goal}
+            id={goal.id}
+            title={goal.title}
             tasks={tasks.filter((task) => task.goalId === goal.id)}
-            renderActions={renderActions}
+            renderTasks={renderActions}
             onAdd={onAddAction}
-            onRename={() => setEditor(goal)}
-            onDelete={() => setRemoving(goal)}
+            onEdit={() => setEditor(goal)}
+            onRemove={() => setRemoving(goal)}
           />
         ))}
       </div>
       {(editor || creating) && (
-        <GoalDialog
-          goal={editor}
+        <NameDialog
+          kind="goal"
+          title={editor?.title}
           onClose={() => {
             setEditor(null);
             onCreationClose();

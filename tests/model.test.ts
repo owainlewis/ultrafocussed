@@ -14,6 +14,7 @@ import {
   monthStart,
   addMonths,
   removeGoal,
+  removeProject,
   remainingSeconds,
   finishFocus,
   type Task,
@@ -271,4 +272,25 @@ test('a stale setup clock or a backwards clock change cannot extend the countdow
   assert.equal(remainingSeconds(session, 115000), 3600);
   assert.equal(remainingSeconds(session, 121500), 3599);
   assert.equal(remainingSeconds(session, 3720000), 0);
+});
+
+test('project links round-trip and removal preserves the shared task and goal', () => {
+  const state = {
+    version: 1 as const,
+    projects: [{ id: 'p', title: 'Client work', completed: false }],
+    goals: [{ id: 'g', title: 'Teach', year: 2026 }],
+    tasks: [{ ...task('a'), projectId: 'p', goalId: 'g', notes: 'Preserve' }],
+  };
+  assert.deepEqual(decodeState(JSON.stringify(state)), state);
+  const removed = removeProject(state, 'p');
+  assert.deepEqual(removed.tasks, [{ ...state.tasks[0], projectId: null }]);
+  assert.deepEqual(decodeState(JSON.stringify(removed)), removed);
+  for (const projects of [
+    [],
+    [...state.projects, ...state.projects],
+    [{ ...state.projects[0], completed: 'yes' }],
+    [{ ...state.projects[0], title: '' }],
+  ]) {
+    assert.throws(() => decodeState(JSON.stringify({ ...state, projects })));
+  }
 });
