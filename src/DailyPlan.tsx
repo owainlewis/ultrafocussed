@@ -1,4 +1,11 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
+import { Modal } from './Modal';
 import { Check, ChevronLeft, ChevronRight, Play, Plus } from 'lucide-react';
 import {
   addDays,
@@ -31,6 +38,19 @@ export function DailyPlan({
 }) {
   const [day, setDay] = useState(today);
   const [capture, setCapture] = useState('');
+  const [recording, setRecording] = useState<string | null>(null);
+  const [workform, setWorkform] = useState('');
+  const [viewing, setViewing] = useState<string | null>(null);
+  const completedFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!completedFocus.current) return;
+    Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[data-workform-block]'),
+    )
+      .find((button) => button.dataset.workformBlock === completedFocus.current)
+      ?.focus();
+    completedFocus.current = null;
+  }, [state.tasks]);
   const blocks = planForDay(state, day);
   const done = completedBlocks(state, day);
   const canCapture =
@@ -202,57 +222,79 @@ export function DailyPlan({
                       </select>
                     </label>
                   </div>
-                  <button
-                    className={`block-start ${!complete && !state.focus && block.id === nextBlock?.id ? 'primary-button' : 'icon-button'}`}
-                    disabled={
-                      complete ||
-                      (!active &&
-                        (!!state.focus ||
-                          (!task && !block.intent?.trim()) ||
-                          day !== today))
-                    }
-                    onClick={() => (active ? onResume() : onStart(day, block))}
-                    aria-label={`${complete ? 'Completed' : active ? 'Resume' : 'Start'} block ${index + 1}`}
-                    title={
-                      day !== today && !complete
-                        ? 'Start blocks from today’s plan'
-                        : complete
-                          ? 'Hour completed'
-                          : active
-                            ? 'Resume focus'
-                            : task || block.intent?.trim()
-                              ? 'Start a focused hour'
-                              : 'Describe your hour or choose a task'
-                    }
-                  >
+                  <div className="block-actions">
+                    <button
+                      className={`block-start ${!complete && !state.focus && block.id === nextBlock?.id ? 'primary-button' : 'icon-button'}`}
+                      disabled={
+                        complete ||
+                        (!active &&
+                          (!!state.focus ||
+                            (!task && !block.intent?.trim()) ||
+                            day !== today))
+                      }
+                      onClick={() =>
+                        active ? onResume() : onStart(day, block)
+                      }
+                      aria-label={`${complete ? 'Completed' : active ? 'Resume' : 'Start'} block ${index + 1}`}
+                      title={
+                        day !== today && !complete
+                          ? 'Start blocks from today’s plan'
+                          : complete
+                            ? 'Hour completed'
+                            : active
+                              ? 'Resume focus'
+                              : task || block.intent?.trim()
+                                ? 'Start a focused hour'
+                                : 'Describe your hour or choose a task'
+                      }
+                    >
+                      {complete ? (
+                        <Check size={18} aria-hidden="true" />
+                      ) : active ? (
+                        <Play size={16} aria-hidden="true" />
+                      ) : (
+                        <>
+                          <Play size={14} aria-hidden="true" />
+                          {block.id === nextBlock?.id && !state.focus && (
+                            <span>Start hour</span>
+                          )}
+                        </>
+                      )}
+                    </button>
                     {complete ? (
-                      <Check size={18} aria-hidden="true" />
-                    ) : active ? (
-                      <Play size={16} aria-hidden="true" />
+                      <span className="hour-done">Done</span>
                     ) : (
-                      <>
-                        <Play size={14} aria-hidden="true" />
-                        {block.id === nextBlock?.id && !state.focus && (
-                          <span>Start hour</span>
-                        )}
-                      </>
+                      <button
+                        className="text-button block-done"
+                        aria-label={`Mark block ${index + 1} done`}
+                        disabled={!!state.focus || day > today}
+                        title={
+                          state.focus
+                            ? 'Finish or stop your active session first'
+                            : 'Record an hour you have completed'
+                        }
+                        onClick={() => {
+                          setWorkform('');
+                          setRecording(block.id);
+                        }}
+                      >
+                        Mark done
+                      </button>
                     )}
-                  </button>
+                  </div>
                 </div>
                 {records.length > 0 && (
-                  <details className="block-workforms">
-                    <summary>Workforms ({records.length})</summary>
-                    {records.map((record) => (
-                      <div key={record.id}>
-                        <small>
-                          {record.minutes >= 60
-                            ? '1 hour'
-                            : `${Math.floor(record.minutes)} min · partial session`}
-                        </small>
-                        <p>{record.progress}</p>
-                      </div>
-                    ))}
-                  </details>
+                  <div className="block-workforms">
+                    <button
+                      className="text-button"
+                      data-workform-block={block.id}
+                      aria-label={`View workform for block ${index + 1}`}
+                      onClick={() => setViewing(block.id)}
+                    >
+                      View workform
+                      {records.length > 1 ? `s (${records.length})` : ''}
+                    </button>
+                  </div>
                 )}
               </article>
             );
@@ -326,6 +368,124 @@ export function DailyPlan({
           </button>
         )}
       </section>
+      {viewing && (
+        <Modal
+          title="Hour workform"
+          onClose={() => setViewing(null)}
+          initialFocus="button"
+        >
+          <div className="saved-workforms">
+            {blockRecords(state, day, viewing).map((record) => (
+              <section key={record.id}>
+                <p className="routine-hint">
+                  {record.minutes >= 60
+                    ? '1 focused hour'
+                    : `${Math.floor(record.minutes)} minutes · partial session`}
+                </p>
+                {record.intent && (
+                  <p className="routine-hint">Planned: {record.intent}</p>
+                )}
+                <h3>What you worked on</h3>
+                <p className="saved-reflection">{record.progress}</p>
+              </section>
+            ))}
+          </div>
+          <footer className="modal-actions">
+            <button className="primary-button" onClick={() => setViewing(null)}>
+              Close workform
+            </button>
+          </footer>
+        </Modal>
+      )}
+      {recording && (
+        <Modal
+          title="Complete hour"
+          description="Record a focused hour you have already worked."
+          onClose={() => setRecording(null)}
+        >
+          <form
+            className="task-editor"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!workform.trim()) return;
+              onChange((current) => {
+                const list = planForDay(current, day);
+                const block = list.find((item) => item.id === recording);
+                if (
+                  !block ||
+                  current.focus ||
+                  blockRecords(current, day, block.id).some(
+                    (record) => record.minutes >= 60 && record.progress.trim(),
+                  )
+                )
+                  return current;
+                const task =
+                  current.tasks.find((item) => item.id === block.taskId) ??
+                  createTask(
+                    (block.intent?.trim() || workform.trim()).slice(0, 300),
+                    null,
+                  );
+                const endedAt = Date.now();
+                const record = {
+                  id: crypto.randomUUID(),
+                  startedAt: endedAt - 3600000,
+                  endedAt,
+                  minutes: 60,
+                  progress: workform.trim(),
+                  blockId: block.id,
+                  planDate: day,
+                  ...(block.intent ? { intent: block.intent } : {}),
+                };
+                const updated = {
+                  ...task,
+                  sessions: [...(task.sessions ?? []), record],
+                };
+                return {
+                  ...current,
+                  tasks: current.tasks.some((item) => item.id === task.id)
+                    ? current.tasks.map((item) =>
+                        item.id === task.id ? updated : item,
+                      )
+                    : [...current.tasks, updated],
+                  dailyPlans: {
+                    ...current.dailyPlans,
+                    [day]: list.map((item) =>
+                      item.id === block.id
+                        ? { ...item, taskId: task.id }
+                        : item,
+                    ),
+                  },
+                };
+              });
+              completedFocus.current = recording;
+              setRecording(null);
+            }}
+          >
+            <label className="field">
+              What did you work on?
+              <textarea
+                required
+                rows={5}
+                maxLength={2000}
+                value={workform}
+                onChange={(event) => setWorkform(event.target.value)}
+              />
+            </label>
+            <footer className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setRecording(null)}
+              >
+                Cancel
+              </button>
+              <button className="primary-button" disabled={!workform.trim()}>
+                <Check size={16} aria-hidden="true" /> Complete hour
+              </button>
+            </footer>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }

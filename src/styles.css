@@ -2164,3 +2164,72 @@ dialog::backdrop {
   grid-row: auto;
   width: 100%;
 }
+:root {
+  --success: #187044;
+  --success-soft: #e9f6ee;
+  --success-ink: #155c38;
+}
+:root[data-theme='dark'] {
+  --success: #78d49c;
+  --success-soft: #20392c;
+  --success-ink: #9ae6b7;
+}
+.goal-hour.is-earned {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--paper);
+}
+:root[data-theme='dark'] .goal-hour.is-earned {
+  color: #133420;
+}
+.block-complete {
+  background: var(--success-soft);
+}
+.block-complete .block-number,
+.block-complete .block-start,
+.hour-done {
+  color: var(--success-ink);
+}
+.block-actions {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.block-actions .block-start {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.block-done,
+.hour-done {
+  font-size: 12px;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .block-actions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+.saved-workforms {
+  display: grid;
+  gap: 24px;
+}
+.saved-workforms section + section {
+  border-top: 1px solid var(--rule-soft);
+  padding-top: 20px;
+}
+.saved-workforms h3 {
+  font-size: 14px;
+  margin: 12px 0 6px;
+}
+.saved-reflection {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+  margin: 0;
+}

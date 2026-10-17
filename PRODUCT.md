@@ -55,3 +55,5 @@ Plan uses one compact sheet of hour rows and a four-segment progress display. A 
 Dialogs share a stable top position and scroll within the viewport when expanded. Focus-panel state classes are separate from form-layout classes, so workforms stack at full width. Input sizing, wrapping action footers and nested unsaved-change prompts work on phones. Keyboard focus returns to Add after checklist removal, to Undo after task deletion, and to the restored task after Undo. Undo clears group links if the group was removed in the meantime, preventing unreadable saved state.
 
 Each Plan hour accepts a saved free-text intention with an optional task link. Starting an unlinked intention creates a shared task. The timer and submitted workform retain the intention for that hour.
+
+Plan offers Mark done for an hour worked without the timer. Submit a short workform to record the hour; it turns green and earns one green progress segment. Four hours fill the goal bar. View workform opens saved reflections in a modal, keeping the plan free of expanding sections. Recording an hour does not complete its linked task.

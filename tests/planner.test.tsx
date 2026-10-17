@@ -1470,9 +1470,14 @@ it('plans existing tasks into hours and counts a block only after its workform i
     screen.getByRole('status', { name: /of 4 deep-work hours completed/ })
       .textContent,
   ).toContain('1');
-  expect(document.activeElement).toBe(screen.getByText('Workforms (1)'));
-  await user.click(screen.getByText('Workforms (1)'));
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'View workform for block 1' }),
+  );
+  await user.click(
+    screen.getByRole('button', { name: 'View workform for block 1' }),
+  );
   expect(screen.getByText('Finished the lesson outline.')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Close workform' }));
   await user.click(screen.getByRole('button', { name: 'Add another hour' }));
   expect(screen.getAllByRole('article')).toHaveLength(5);
 });
@@ -1880,4 +1885,72 @@ it('disables quick capture when all 24 hours already have intentions', () => {
       }) as HTMLInputElement
     ).disabled,
   ).toBe(true);
+});
+
+it('records completed hours directly and fills all four green goal segments without completing the task', async () => {
+  stored([{ id: 't', title: 'Course', notes: 'Keep these notes' }]);
+  render(<App />);
+  const user = userEvent.setup();
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Task for block 1' }),
+    't',
+  );
+  for (let hour = 1; hour <= 4; hour++) {
+    await user.click(
+      screen.getByRole('button', {
+        name: `Mark block ${hour} done`,
+        exact: true,
+      }),
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Complete hour' });
+    expect(
+      (
+        within(dialog).getByRole('button', {
+          name: 'Complete hour',
+          exact: true,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    await user.type(
+      within(dialog).getByLabelText('What did you work on?'),
+      `Finished lesson ${hour}`,
+    );
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Complete hour',
+        exact: true,
+      }),
+    );
+    expect(
+      screen.getByRole('status', {
+        name: `${hour} of 4 deep-work hours completed`,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', {
+        name: `Mark block ${hour} done`,
+        exact: true,
+      }),
+    ).toBeNull();
+  }
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'View workform for block 4' }),
+  );
+  expect(screen.getByText('Daily goal reached')).toBeTruthy();
+  expect(document.querySelectorAll('.goal-hour.is-earned')).toHaveLength(4);
+  expect(document.querySelectorAll('.block-complete')).toHaveLength(4);
+  expect(saved().tasks[0]).toMatchObject({
+    title: 'Course',
+    notes: 'Keep these notes',
+    completed: false,
+  });
+  expect(saved().tasks[0].sessions?.[0]).toMatchObject({
+    minutes: 60,
+    progress: 'Finished lesson 1',
+  });
+  cleanup();
+  render(<App />);
+  expect(
+    screen.getByRole('status', { name: '4 of 4 deep-work hours completed' }),
+  ).toBeTruthy();
 });

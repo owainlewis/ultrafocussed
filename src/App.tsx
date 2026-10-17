@@ -809,7 +809,7 @@ export default function App() {
         ?.focus();
     else if (view === 'plan')
       (
-        document.querySelector<HTMLElement>('.block-workforms summary') ??
+        document.querySelector<HTMLElement>('.block-workforms button') ??
         document.querySelector<HTMLElement>(
           '.focus-block button:not(:disabled)',
         ) ??
