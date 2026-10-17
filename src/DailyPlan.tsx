@@ -38,7 +38,6 @@ export function DailyPlan({
   onResume: () => void;
 }) {
   const [day, setDay] = useState(today);
-  const [capture, setCapture] = useState('');
   const [recording, setRecording] = useState<string | null>(null);
   const [workform, setWorkform] = useState('');
   const [viewing, setViewing] = useState<string | null>(null);
@@ -54,15 +53,13 @@ export function DailyPlan({
   }, [state.tasks]);
   const blocks = planForDay(state, day);
   const done = completedBlocks(state, day);
-  const canCapture =
-    blocks.length < 24 ||
-    blocks.some(
-      (block) =>
-        !block.intent?.trim() &&
-        (!block.taskId ||
-          !state.tasks.some((task) => task.id === block.taskId)),
-    );
-  const newTask = useRef<HTMLSelectElement>(null);
+  const newIntention = useRef<HTMLTextAreaElement>(null);
+  const focusNewHour = useRef(false);
+  useEffect(() => {
+    if (!focusNewHour.current) return;
+    newIntention.current?.focus();
+    focusNewHour.current = false;
+  }, [blocks.length]);
   const nextBlock = blocks.find(
     (block) =>
       (block.taskId || block.intent?.trim()) &&
@@ -170,23 +167,13 @@ export function DailyPlan({
               <article
                 className={`focus-block ${complete ? 'block-complete' : ''} ${active ? 'block-active' : ''}`}
                 key={block.id}
-                aria-label={`Block ${index + 1}`}
+                aria-label={`Hour ${index + 1}`}
               >
                 <div className="block-fields">
-                  <div className="block-number">
-                    {complete ? (
-                      <Check size={18} aria-hidden="true" />
-                    ) : (
-                      <span>{index + 1}</span>
-                    )}
-                    <span className="visually-hidden">
-                      {complete ? 'Completed' : `Block ${index + 1}`}
-                    </span>
-                  </div>
                   <div className="block-description">
                     <div className="block-caption">
                       <span>Hour {index + 1}</span>
-                      <span>{active ? 'In progress' : '60 minutes'}</span>
+                      {active && <span>In progress</span>}
                     </div>
                     {complete ? (
                       <div className="completed-hour-copy">
@@ -200,45 +187,21 @@ export function DailyPlan({
                     ) : (
                       <>
                         <textarea
-                          aria-label={`Intention for block ${index + 1}`}
+                          ref={
+                            index === blocks.length - 1
+                              ? newIntention
+                              : undefined
+                          }
+                          aria-label={`Intention for hour ${index + 1}`}
                           placeholder="What will you work on this hour?"
                           maxLength={1000}
-                          rows={2}
-                          value={block.intent ?? ''}
+                          rows={1}
+                          value={block.intent ?? task?.title ?? ''}
                           disabled={locked}
                           onChange={(event) =>
                             change(block.id, { intent: event.target.value })
                           }
                         />
-                        <label className="block-task">
-                          <span className="visually-hidden">Task</span>
-                          <select
-                            ref={
-                              index === blocks.length - 1 ? newTask : undefined
-                            }
-                            aria-label={`Task for block ${index + 1}`}
-                            value={task?.id ?? ''}
-                            disabled={locked}
-                            onChange={(event) =>
-                              change(block.id, {
-                                taskId: event.target.value || null,
-                              })
-                            }
-                          >
-                            <option value="">Link a task (optional)</option>
-                            {state.tasks
-                              .filter(
-                                (item) =>
-                                  !item.completed || item.id === block.taskId,
-                              )
-                              .map((item) => (
-                                <option key={item.id} value={item.id}>
-                                  {item.title}
-                                  {item.completed ? ' (completed)' : ''}
-                                </option>
-                              ))}
-                          </select>
-                        </label>
                       </>
                     )}
                   </div>
@@ -256,7 +219,7 @@ export function DailyPlan({
                         onClick={() =>
                           active ? onResume() : onStart(day, block)
                         }
-                        aria-label={`${complete ? 'Completed' : active ? 'Resume' : 'Start'} block ${index + 1}`}
+                        aria-label={`${complete ? 'Completed' : active ? 'Resume' : 'Start'} hour ${index + 1}`}
                         title={
                           day !== today && !complete
                             ? 'Start blocks from today’s plan'
@@ -266,7 +229,7 @@ export function DailyPlan({
                                 ? 'Resume focus'
                                 : task || block.intent?.trim()
                                   ? 'Start a focused hour'
-                                  : 'Describe your hour or choose a task'
+                                  : 'Write an intention to start this hour'
                         }
                       >
                         <Play size={14} aria-hidden="true" />
@@ -281,7 +244,7 @@ export function DailyPlan({
                     ) : (
                       <button
                         className="text-button block-done"
-                        aria-label={`Mark block ${index + 1} done`}
+                        aria-label={`Mark done: hour ${index + 1}`}
                         disabled={!!state.focus || day > today}
                         title={
                           state.focus
@@ -325,7 +288,7 @@ export function DailyPlan({
                         <button
                           className="text-button"
                           data-workform-block={block.id}
-                          aria-label={`View workform for block ${index + 1}`}
+                          aria-label={`View workform for hour ${index + 1}`}
                           onClick={() => {
                             setWorkform(records[0]?.progress ?? '');
                             setViewing(block.id);
@@ -341,60 +304,11 @@ export function DailyPlan({
             );
           })}
         </div>
-        <form
-          className="plan-capture"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!capture.trim() || !canCapture) return;
-            const task = createTask(capture, null);
-            onChange((current) => {
-              const list = planForDay(current, day);
-              const empty = list.find(
-                (block) =>
-                  !block.intent?.trim() &&
-                  (!block.taskId ||
-                    !current.tasks.some((item) => item.id === block.taskId)),
-              );
-              if (!empty && list.length >= 24) return current;
-              return {
-                ...current,
-                tasks: [...current.tasks, task],
-                dailyPlans: {
-                  ...current.dailyPlans,
-                  [day]: empty
-                    ? list.map((block) =>
-                        block.id === empty.id
-                          ? { ...block, taskId: task.id }
-                          : block,
-                      )
-                    : [...list, extraBlock(task.id)],
-                },
-              };
-            });
-            setCapture('');
-          }}
-        >
-          <Plus size={16} aria-hidden="true" />
-          <input
-            aria-label="New task for today’s plan"
-            placeholder={
-              canCapture
-                ? 'Add a task for your next hour'
-                : 'All 24 hours are planned'
-            }
-            disabled={!canCapture}
-            value={capture}
-            maxLength={300}
-            onChange={(event) => setCapture(event.target.value)}
-          />
-          {capture.trim() && (
-            <button className="small-primary">Add task</button>
-          )}
-        </form>
         {blocks.length < 24 && (
           <button
             className="add-focus-block"
             onClick={() => {
+              focusNewHour.current = true;
               onChange((current) => ({
                 ...current,
                 dailyPlans: {
@@ -402,7 +316,6 @@ export function DailyPlan({
                   [day]: [...planForDay(current, day), extraBlock()],
                 },
               }));
-              requestAnimationFrame(() => newTask.current?.focus());
             }}
           >
             <Plus size={16} aria-hidden="true" /> Add another hour

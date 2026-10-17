@@ -2674,3 +2674,89 @@ dialog::backdrop {
     overflow: hidden;
   }
 }
+
+/* Each hour starts with an intention, without a task prerequisite. */
+.daily-plan .block-fields {
+  grid-template-columns: minmax(0, 1fr) 128px;
+  gap: 24px;
+}
+.daily-plan .focus-block {
+  padding: 20px 24px;
+}
+.daily-plan .block-caption {
+  margin-bottom: 2px;
+}
+.daily-plan .block-description textarea {
+  padding: 10px 12px;
+  min-height: 44px;
+  max-height: 220px;
+  resize: none;
+  field-sizing: content;
+  border: 1px solid var(--rule-soft);
+  background: var(--canvas);
+  overflow: auto;
+}
+.daily-plan .block-description textarea:hover:not(:disabled) {
+  border-color: var(--rule);
+}
+.daily-plan .block-description textarea:focus {
+  border-color: var(--focus);
+  background: var(--paper);
+}
+.daily-plan .block-actions {
+  padding-top: 27px;
+}
+.daily-plan .add-focus-block {
+  width: 100%;
+  margin-top: 16px;
+  min-height: 44px;
+  border: 1px dashed var(--rule);
+  border-radius: var(--radius);
+  justify-content: center;
+}
+@media (max-width: 760px) {
+  .daily-plan .focus-block {
+    padding: 18px 16px;
+  }
+  .daily-plan .block-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .daily-plan .block-description,
+  .daily-plan .block-actions {
+    grid-column: 1;
+  }
+  .daily-plan .block-actions {
+    padding-top: 0;
+  }
+}
+@media (min-width: 1100px) {
+  .daily-plan .block-fields {
+    grid-template-columns: minmax(0, 1fr) 228px;
+  }
+  .daily-plan .block-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+  .daily-plan .block-actions .block-start {
+    width: 120px;
+    flex-shrink: 0;
+  }
+  .daily-plan .block-done {
+    flex: 1;
+  }
+  .daily-plan .block-workforms {
+    flex: 1;
+  }
+  .daily-plan .hour-done {
+    min-width: 96px;
+  }
+}
+@media (max-width: 760px) {
+  .daily-plan .block-done,
+  .daily-plan .block-workforms button,
+  .daily-plan .block-actions .block-start {
+    min-height: 44px;
+  }
+}

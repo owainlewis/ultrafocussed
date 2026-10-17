@@ -1408,25 +1408,37 @@ it('counts an existing task linked to a routine without creating another record'
   });
 });
 
+function seedPlanLinks(count = 1) {
+  const state = saved();
+  state.dailyPlans = {
+    ...state.dailyPlans,
+    [today]: Array.from({ length: 4 }, (_, index) => ({
+      id: `${today}-block-${index + 1}`,
+      taskId: index < count ? state.tasks[0].id : null,
+    })),
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
 it('plans existing tasks into hours and counts a block only after its workform is submitted', async () => {
   const start = Date.now();
   const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
   stored([{ id: 't', title: 'Write a lesson', notes: 'Keep notes' }]);
+  seedPlanLinks(1);
   let app = renderTasks();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Plan', exact: true }));
   expect(screen.getAllByRole('article')).toHaveLength(4);
-  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
   expect(screen.queryByLabelText('Start time for block 1')).toBeNull();
   expect(saved().tasks).toHaveLength(1);
   expect(saved().tasks[0].date).toBeNull();
-  await user.click(screen.getByRole('button', { name: 'Start block 1' }));
+  await user.click(screen.getByRole('button', { name: 'Start hour 1' }));
   expect(screen.getByLabelText('Time remaining').textContent).toBe('60:00');
   await user.click(
     screen.getByRole('button', { name: 'Close focus', exact: true }),
   );
   expect(
-    (screen.getByRole('button', { name: 'Start block 2' }) as HTMLButtonElement)
+    (screen.getByRole('button', { name: 'Start hour 2' }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
   app.unmount();
@@ -1477,10 +1489,10 @@ it('plans existing tasks into hours and counts a block only after its workform i
       .textContent,
   ).toContain('1');
   expect(document.activeElement).toBe(
-    screen.getByRole('button', { name: 'View workform for block 1' }),
+    screen.getByRole('button', { name: 'View workform for hour 1' }),
   );
   await user.click(
-    screen.getByRole('button', { name: 'View workform for block 1' }),
+    screen.getByRole('button', { name: 'View workform for hour 1' }),
   );
   expect(screen.getByDisplayValue('Finished the lesson outline.')).toBeTruthy();
   await user.click(screen.getByRole('button', { name: 'Close workform' }));
@@ -1492,11 +1504,11 @@ it('saves an early stop as a partial hour without completing the task or block',
   const start = Date.now();
   const clock = vi.spyOn(Date, 'now').mockReturnValue(start);
   stored([{ id: 't', title: 'Client course' }]);
+  seedPlanLinks(1);
   renderTasks();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Plan', exact: true }));
-  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
-  await user.click(screen.getByRole('button', { name: 'Start block 1' }));
+  await user.click(screen.getByRole('button', { name: 'Start hour 1' }));
   clock.mockReturnValue(start + 10 * 60000);
   await user.click(screen.getByRole('button', { name: 'Stop session' }));
   expect(document.activeElement).toBe(
@@ -1512,76 +1524,72 @@ it('saves an early stop as a partial hour without completing the task or block',
     screen.getByRole('status', { name: /of 4 deep-work hours completed/ })
       .textContent,
   ).toContain('0');
-  await user.click(screen.getByRole('button', { name: 'Start block 1' }));
+  await user.click(screen.getByRole('button', { name: 'Start hour 1' }));
   expect(screen.getByLabelText('Time remaining').textContent).toBe('50:00');
 });
 
 it('keeps each day’s plan separate and retains task identity across multiple blocks', async () => {
   stored([{ id: 't', title: 'Course work' }]);
+  seedPlanLinks(2);
   renderTasks();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Plan', exact: true }));
-  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
-  await user.selectOptions(screen.getByLabelText('Task for block 2'), 't');
   await user.click(
     screen.getByRole('button', { name: 'Next day', exact: true }),
   );
   expect(
-    (screen.getByLabelText('Task for block 1') as HTMLSelectElement).value,
+    (screen.getByLabelText('Intention for hour 1') as HTMLTextAreaElement)
+      .value,
   ).toBe('');
-  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
+  await user.type(
+    screen.getByLabelText('Intention for hour 1'),
+    'Tomorrow course work',
+  );
   expect(
-    (screen.getByRole('button', { name: 'Start block 1' }) as HTMLButtonElement)
+    (screen.getByRole('button', { name: 'Start hour 1' }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
   await user.click(
     screen.getByRole('button', { name: 'Previous day', exact: true }),
   );
   expect(
-    (screen.getByLabelText('Task for block 2') as HTMLSelectElement).value,
-  ).toBe('t');
+    (screen.getByLabelText('Intention for hour 2') as HTMLTextAreaElement)
+      .value,
+  ).toBe('Course work');
   expect(saved().tasks).toHaveLength(1);
   expect(Object.keys(saved().dailyPlans!)).toHaveLength(2);
 });
 
-it('opens on Plan with a fixed four-hour daily goal and captures directly into an hour', async () => {
+it('plans intentions without a task selector or task creation and preserves them on reload', async () => {
   const app = renderPlan();
   const user = userEvent.setup();
+  expect(screen.queryByRole('combobox')).toBeNull();
   expect(
-    screen
-      .getByRole('button', { name: 'Plan', exact: true })
-      .getAttribute('aria-pressed'),
-  ).toBe('true');
-  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Plan');
+    screen.queryByRole('textbox', { name: 'New task for today’s plan' }),
+  ).toBeNull();
   expect(
     screen
       .getByRole('progressbar', { name: 'Daily deep-work goal' })
       .getAttribute('aria-valuemax'),
   ).toBe('4');
   await user.type(
-    screen.getByRole('textbox', { name: 'New task for today’s plan' }),
-    'Write the course outline{Enter}',
+    screen.getByLabelText('Intention for hour 1'),
+    'Write the course outline',
   );
-  expect(saved().tasks).toHaveLength(1);
-  expect(saved().dailyPlans![today][0].taskId).toBe(saved().tasks[0].id);
-  expect(
-    (screen.getByLabelText('Task for block 1') as HTMLSelectElement).value,
-  ).toBe(saved().tasks[0].id);
+  expect(saved().tasks).toHaveLength(0);
+  expect(saved().dailyPlans![today][0]).toMatchObject({
+    intent: 'Write the course outline',
+    taskId: null,
+  });
   await user.click(screen.getByRole('button', { name: 'Add another hour' }));
+  expect(document.activeElement).toBe(
+    screen.getByLabelText('Intention for hour 5'),
+  );
   expect(screen.getAllByRole('article')).toHaveLength(5);
-  expect(
-    screen.getByRole('status', { name: '0 of 4 deep-work hours completed' }),
-  ).toBeTruthy();
   app.unmount();
   renderPlan();
-  expect(
-    screen
-      .getByRole('button', { name: 'Plan', exact: true })
-      .getAttribute('aria-pressed'),
-  ).toBe('true');
-  expect(
-    (screen.getByLabelText('Task for block 1') as HTMLSelectElement).value,
-  ).toBe(saved().tasks[0].id);
+  expect(screen.getByDisplayValue('Write the course outline')).toBeTruthy();
+  expect(saved().tasks).toHaveLength(0);
 });
 
 it('shows the daily goal reached and keeps each day’s earned hours separate', async () => {
@@ -1637,36 +1645,32 @@ it('shows the daily goal reached and keeps each day’s earned hours separate', 
   ).toBeTruthy();
 });
 
-it('gives a newly captured task an extra hour when the first four are assigned', async () => {
-  stored([{ id: 't', title: 'Course' }]);
+it('adds another hour directly without creating a task', async () => {
   renderPlan();
   const user = userEvent.setup();
-  for (let index = 1; index <= 4; index++)
-    await user.selectOptions(
-      screen.getByLabelText(`Task for block ${index}`),
-      't',
+  for (let hour = 1; hour <= 4; hour++)
+    await user.type(
+      screen.getByLabelText(`Intention for hour ${hour}`),
+      `Work ${hour}`,
     );
+  await user.click(screen.getByRole('button', { name: 'Add another hour' }));
   await user.type(
-    screen.getByRole('textbox', { name: 'New task for today’s plan' }),
-    'Publish lesson{Enter}',
+    screen.getByLabelText('Intention for hour 5'),
+    'Publish lesson',
   );
-  expect(screen.getAllByRole('article')).toHaveLength(5);
-  const task = saved().tasks.find((item) => item.title === 'Publish lesson')!;
-  expect(saved().dailyPlans![today][4].taskId).toBe(task.id);
-  expect(
-    (screen.getByLabelText('Task for block 5') as HTMLSelectElement).value,
-  ).toBe(task.id);
-  expect(
-    screen.getByRole('status', { name: '0 of 4 deep-work hours completed' }),
-  ).toBeTruthy();
+  expect(saved().dailyPlans![today][4]).toMatchObject({
+    intent: 'Publish lesson',
+    taskId: null,
+  });
+  expect(saved().tasks).toHaveLength(0);
 });
 
 it('keeps workform layout classes separate from the panel state', async () => {
   stored([{ id: 't', title: 'Review work' }]);
+  seedPlanLinks(1);
   renderPlan();
   const user = userEvent.setup();
-  await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
-  await user.click(screen.getByRole('button', { name: 'Start block 1' }));
+  await user.click(screen.getByRole('button', { name: 'Start hour 1' }));
   await user.click(screen.getByRole('button', { name: 'Stop session' }));
   const textarea = screen.getByLabelText('What did you work on?');
   expect(textarea.closest('section')?.classList.contains('focus-review')).toBe(
@@ -1840,7 +1844,7 @@ it('saves an hour intention and starts it without requiring an existing task', a
   renderPlan();
   const user = userEvent.setup();
   await user.type(
-    screen.getByRole('textbox', { name: 'Intention for block 1' }),
+    screen.getByRole('textbox', { name: 'Intention for hour 1' }),
     'Outline the management course',
   );
   expect(saved().dailyPlans![today][0].intent).toBe(
@@ -1848,7 +1852,7 @@ it('saves an hour intention and starts it without requiring an existing task', a
   );
   expect(saved().tasks).toHaveLength(0);
   await user.click(
-    screen.getByRole('button', { name: 'Start block 1', exact: true }),
+    screen.getByRole('button', { name: 'Start hour 1', exact: true }),
   );
   expect(saved().tasks).toHaveLength(1);
   expect(saved().focus?.intent).toBe('Outline the management course');
@@ -1861,14 +1865,14 @@ it('saves an hour intention and starts it without requiring an existing task', a
   expect(
     (
       screen.getByRole('textbox', {
-        name: 'Intention for block 1',
+        name: 'Intention for hour 1',
       }) as HTMLTextAreaElement
     ).value,
   ).toBe('Outline the management course');
   expect(saved().tasks).toHaveLength(1);
 });
 
-it('disables quick capture when all 24 hours already have intentions', () => {
+it('limits additional hours to 24 without showing task controls', () => {
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify({
@@ -1884,27 +1888,19 @@ it('disables quick capture when all 24 hours already have intentions', () => {
     }),
   );
   renderPlan();
-  expect(
-    (
-      screen.getByRole('textbox', {
-        name: 'New task for today’s plan',
-      }) as HTMLInputElement
-    ).disabled,
-  ).toBe(true);
+  expect(screen.queryByRole('button', { name: 'Add another hour' })).toBeNull();
+  expect(screen.queryByRole('combobox')).toBeNull();
 });
 
 it('records completed hours directly and fills all four green goal segments without completing the task', async () => {
   stored([{ id: 't', title: 'Course', notes: 'Keep these notes' }]);
+  seedPlanLinks();
   renderPlan();
   const user = userEvent.setup();
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: 'Task for block 1' }),
-    't',
-  );
   for (let hour = 1; hour <= 4; hour++) {
     await user.click(
       screen.getByRole('button', {
-        name: `Mark block ${hour} done`,
+        name: `Mark done: hour ${hour}`,
         exact: true,
       }),
     );
@@ -1934,13 +1930,13 @@ it('records completed hours directly and fills all four green goal segments with
     ).toBeTruthy();
     expect(
       screen.queryByRole('button', {
-        name: `Mark block ${hour} done`,
+        name: `Mark done: hour ${hour}`,
         exact: true,
       }),
     ).toBeNull();
   }
   expect(document.activeElement).toBe(
-    screen.getByRole('button', { name: 'View workform for block 4' }),
+    screen.getByRole('button', { name: 'View workform for hour 4' }),
   );
   expect(screen.getByText('Daily goal reached')).toBeTruthy();
   expect(document.querySelectorAll('.goal-hour.is-earned')).toHaveLength(4);
@@ -1993,7 +1989,7 @@ it('finishes a partial hour with one workform and edits its reflection without a
   );
   renderPlan();
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Mark block 1 done' }));
+  await user.click(screen.getByRole('button', { name: 'Mark done: hour 1' }));
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(saved().tasks[0].sessions).toHaveLength(1);
   expect(saved().tasks[0].sessions![0]).toMatchObject({
@@ -2005,7 +2001,7 @@ it('finishes a partial hour with one workform and edits its reflection without a
     screen.getByRole('status', { name: '1 of 4 deep-work hours completed' }),
   ).toBeTruthy();
   await user.click(
-    screen.getByRole('button', { name: 'View workform for block 1' }),
+    screen.getByRole('button', { name: 'View workform for hour 1' }),
   );
   await user.clear(screen.getByLabelText('What did you work on?'));
   await user.type(
