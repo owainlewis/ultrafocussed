@@ -1,59 +1,13 @@
-import { useState } from 'react';
+import { useCurrentPeriod } from './useCurrentPeriod';
 import { ArrowRight, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   addDays,
-  completedBlocks,
+  weeklyScore,
   dateKey,
   parseDate,
   weekStart,
   type PlannerState,
 } from './model';
-
-export function weeklyScore(state: PlannerState, week: string) {
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const day = dateKey(addDays(parseDate(week), index));
-    return { day, hours: completedBlocks(state, day) };
-  });
-  const end = days[6].day;
-  const seen = new Set<string>();
-  const workforms = state.tasks
-    .flatMap((task) =>
-      (task.sessions ?? []).flatMap((record) => {
-        if (
-          !record.planDate ||
-          !record.blockId ||
-          record.planDate < week ||
-          record.planDate > end ||
-          record.minutes < 60 ||
-          !record.progress.trim() ||
-          !(state.dailyPlans?.[record.planDate] ?? []).some(
-            (block) => block.id === record.blockId,
-          )
-        )
-          return [];
-        const key = JSON.stringify([record.planDate, record.blockId]);
-        if (seen.has(key)) return [];
-        seen.add(key);
-        return [
-          {
-            record,
-            title: record.intent?.trim() || task.title,
-            day: record.planDate,
-          },
-        ];
-      }),
-    )
-    .sort(
-      (a, b) =>
-        b.day.localeCompare(a.day) || b.record.endedAt - a.record.endedAt,
-    );
-  return {
-    days,
-    hours: days.reduce((sum, day) => sum + day.hours, 0),
-    goalDays: days.filter((day) => day.hours >= 4).length,
-    workforms,
-  };
-}
 
 export function Dashboard({
   state,
@@ -65,7 +19,7 @@ export function Dashboard({
   onPlan: () => void;
 }) {
   const currentWeek = dateKey(weekStart(parseDate(today)));
-  const [week, setWeek] = useState(currentWeek);
+  const [week, setWeek] = useCurrentPeriod(currentWeek);
   const score = weeklyScore(state, week);
   const previous = weeklyScore(state, dateKey(addDays(parseDate(week), -7)));
   const difference = score.hours - previous.hours;

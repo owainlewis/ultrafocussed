@@ -1,5 +1,7 @@
 # Planner verification
 
+Historical verification record. For the current release, see [production audit](production-audit.md).
+
 Verified on 2 October 2026 after Claude's UX/UI redesign. Verification tasks were created through the app and removed afterward. The shipped planner starts empty.
 
 ## Automated checks

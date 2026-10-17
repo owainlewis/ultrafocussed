@@ -1,3 +1,4 @@
+import { useCurrentPeriod } from './useCurrentPeriod';
 import {
   useEffect,
   useRef,
@@ -37,7 +38,7 @@ export function DailyPlan({
   onStart: (day: string, block: FocusBlock) => void;
   onResume: () => void;
 }) {
-  const [day, setDay] = useState(today);
+  const [day, setDay] = useCurrentPeriod(today);
   const [recording, setRecording] = useState<string | null>(null);
   const [workform, setWorkform] = useState('');
   const completedFocus = useRef<string | null>(null);

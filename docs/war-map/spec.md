@@ -20,7 +20,7 @@ Replace the weekly-only surface with a high-level Year, default Month, and Goals
 
 `PlannerState` retains version 1 and its storage key, adding optional `goals: Goal[]`. `Goal` has ID, title (1–200 trimmed characters) and year (1–9999). `Task.goalId` is optional/null or references an existing goal. Decode rejects duplicates, dangling goal references, invalid fields and more than four goals per year. Old backups without goals load unchanged.
 
-App owns state and persistence; WarMapViews receives values and callbacks. Views do not store separate task copies. Goal removal updates goals and task links in one state transition. Other-tab writes retain the existing last-write-wins policy and saved-data failure protections.
+App coordinates shared state; usePlannerStorage handles persistence. WarMapViews receives values and callbacks. Views do not store separate task copies. Goal removal updates goals and task links in one state transition. Other-tab writes retain the existing last-write-wins policy and saved-data failure protections.
 
 ## Acceptance
 

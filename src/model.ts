@@ -65,6 +65,7 @@ export type PlannerState = {
   outcomes?: Record<string, string>;
   focus?: FocusSession | null;
 };
+export const MAX_BACKUP_BYTES = 10_000_000;
 export const STORAGE_KEY = 'ultrafocussed.planner.v1';
 export const emptyState = (): PlannerState => ({ version: 1, tasks: [] });
 
@@ -96,6 +97,8 @@ export function weekStart(date: Date): Date {
 }
 export function decodeState(raw: string | null): PlannerState {
   if (raw === null) return emptyState();
+  if (raw.length > MAX_BACKUP_BYTES)
+    throw new Error('Planner data is too large');
   const value = JSON.parse(raw);
   if (value?.version !== 1 || !Array.isArray(value.tasks))
     throw new Error('Unsupported planner data');
@@ -242,7 +245,7 @@ export function decodeState(raw: string | null): PlannerState {
             task.routineWeek)) ||
       (task.routineSlots !== undefined &&
         (!Array.isArray(task.routineSlots) ||
-          task.routineSlots.length > 1000 ||
+          task.routineSlots.length !== (task.routineUnits ?? 1) ||
           new Set(task.routineSlots).size !== task.routineSlots.length ||
           task.routineSlots.some(
             (slot: number) =>
@@ -314,7 +317,7 @@ export function decodeState(raw: string | null): PlannerState {
             !Number.isFinite(entry.minutes) ||
             entry.minutes < 0 ||
             typeof entry.progress !== 'string' ||
-            entry.progress.length > 1000000,
+            entry.progress.length > MAX_BACKUP_BYTES,
         ))
     )
       throw new Error('Invalid progress history');
@@ -324,7 +327,7 @@ export function decodeState(raw: string | null): PlannerState {
     focus != null &&
     ((focus.workform !== undefined &&
       (typeof focus.workform !== 'string' ||
-        focus.workform.length > 1000000)) ||
+        focus.workform.length > MAX_BACKUP_BYTES)) ||
       (focus.creditedMinutes !== undefined &&
         (!focus.blockId ||
           !Number.isFinite(focus.creditedMinutes) ||
@@ -399,7 +402,7 @@ export function moveTask(
 export function remainingSeconds(session: FocusSession, now: number): number {
   const planned = (session.duration - (session.creditedMinutes ?? 0)) * 60;
   const elapsed = ((session.stoppedAt ?? now) - session.startedAt) / 1000;
-  return Math.max(0, Math.min(planned, Math.ceil(planned - elapsed)));
+  return Math.ceil(Math.max(0, Math.min(planned, planned - elapsed)));
 }
 
 export function finishFocus(
@@ -523,11 +526,20 @@ export function blockRecords(
     .filter((record) => record.planDate === day && record.blockId === blockId);
 }
 export function completedBlocks(state: PlannerState, day: string): number {
-  return planForDay(state, day).filter((block) =>
-    blockRecords(state, day, block.id).some(
-      (record) => record.minutes >= 60 && record.progress.trim(),
-    ),
-  ).length;
+  const planned = new Set(planForDay(state, day).map((block) => block.id));
+  const complete = new Set<string>();
+  for (const task of state.tasks)
+    for (const record of task.sessions ?? []) {
+      if (
+        record.planDate === day &&
+        record.blockId &&
+        planned.has(record.blockId) &&
+        record.minutes >= 60 &&
+        record.progress.trim()
+      )
+        complete.add(record.blockId);
+    }
+  return complete.size;
 }
 
 export function routineEntries(
@@ -555,70 +567,39 @@ export function routineProgress(
   const entries = routineEntries(state, routine.id, week);
   return entries.reduce((total, task) => total + (task.routineUnits ?? 1), 0);
 }
-export function logRoutineProgress(
-  state: PlannerState,
-  routine: WeeklyRoutine,
-  day: string,
-  units: number,
-): PlannerState {
-  if (
-    !validDate(day) ||
-    !Number.isInteger(units) ||
-    units < 1 ||
-    units > 1000 ||
-    (routine.daily &&
-      (units !== 1 ||
-        state.tasks.some(
-          (task) =>
-            task.completed &&
-            task.routineId === routine.id &&
-            (task.completedOn ?? task.date) === day,
-        )))
-  )
-    return state;
-  return {
-    ...state,
-    tasks: [
-      ...state.tasks,
-      {
-        ...createTask(routine.title, null),
-        completed: true,
-        completedOn: day,
-        routineId: routine.id,
-        routineUnits: units,
-      },
-    ],
-  };
-}
-
 // Stable slots let a checkbox be reopened without shifting the other completions.
 export function routineChecks(
   state: PlannerState,
   routine: WeeklyRoutine,
   week: string,
 ) {
+  const completed = new Set(
+    routineEntries(state, routine.id, week).map((task) => task.id),
+  );
   const entries = state.tasks.filter(
     (task) =>
       task.routineId === routine.id &&
-      (routineEntries(state, routine.id, week).some(
-        (item) => item.id === task.id,
-      ) ||
+      (completed.has(task.id) ||
         (!task.completed && task.routineWeek === week)),
+  );
+  const capacity = Math.max(
+    routine.target,
+    entries.reduce((total, task) => total + (task.routineUnits ?? 1), 0),
   );
   const used = new Set<number>();
   const allocations = entries.map((task) => ({
     task,
     slots: (task.routineWeek === week ? (task.routineSlots ?? []) : []).filter(
       (slot) => {
-        if (used.has(slot)) return false;
+        if (slot >= capacity || used.has(slot)) return false;
         used.add(slot);
         return true;
       },
     ),
   }));
+  let slot = 0;
   for (const entry of allocations) {
     while (entry.slots.length < (entry.task.routineUnits ?? 1)) {
-      let slot = 0;
       while (used.has(slot)) slot++;
       used.add(slot);
       entry.slots.push(slot);
@@ -636,8 +617,9 @@ export function toggleRoutineCheck(
   if (dateKey(weekStart(parseDate(today))) !== week) return state;
   const allocations = routineChecks(state, routine, week);
   const owner = allocations.find((entry) => entry.slots.includes(slot));
+  const byId = new Map(allocations.map((entry) => [entry.task.id, entry]));
   let tasks = state.tasks.map((task) => {
-    const allocation = allocations.find((entry) => entry.task.id === task.id);
+    const allocation = byId.get(task.id);
     return allocation
       ? { ...task, routineWeek: week, routineSlots: allocation.slots }
       : task;
@@ -755,4 +737,55 @@ export function consolidateBlockWorkforms(state: PlannerState): PlannerState {
     });
   }
   return state.focus ? { ...result, focus: state.focus } : result;
+}
+
+export function weeklyScore(state: PlannerState, week: string) {
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const day = dateKey(addDays(parseDate(week), index));
+    return { day, hours: completedBlocks(state, day) };
+  });
+  const end = days[6].day;
+  const seen = new Set<string>();
+  const workforms = state.tasks
+    .flatMap((task) =>
+      (task.sessions ?? []).flatMap((record) => {
+        if (
+          !record.planDate ||
+          !record.blockId ||
+          record.planDate < week ||
+          record.planDate > end ||
+          record.minutes < 60 ||
+          !record.progress.trim() ||
+          !(state.dailyPlans?.[record.planDate] ?? []).some(
+            (block) => block.id === record.blockId,
+          )
+        )
+          return [];
+        const key = JSON.stringify([record.planDate, record.blockId]);
+        if (seen.has(key)) return [];
+        seen.add(key);
+        return [
+          {
+            record,
+            title: record.intent?.trim() || task.title,
+            day: record.planDate,
+          },
+        ];
+      }),
+    )
+    .sort(
+      (a, b) =>
+        b.day.localeCompare(a.day) || b.record.endedAt - a.record.endedAt,
+    );
+  return {
+    days,
+    hours: days.reduce((sum, day) => sum + day.hours, 0),
+    goalDays: days.filter((day) => day.hours >= 4).length,
+    workforms,
+  };
+}
+
+export function formatClock(seconds: number): string {
+  const whole = Math.max(0, Math.ceil(seconds));
+  return `${String(Math.floor(whole / 60)).padStart(2, '0')}:${String(whole % 60).padStart(2, '0')}`;
 }

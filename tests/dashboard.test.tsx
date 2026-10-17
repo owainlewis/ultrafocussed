@@ -9,7 +9,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../src/App';
-import { weeklyScore } from '../src/Dashboard';
+import { weeklyScore } from '../src/model';
 import {
   addDays,
   createTask,
@@ -97,9 +97,7 @@ it('opens on Dashboard, reviews workforms and previous weeks, and keeps Plan acc
   localStorage.setItem(STORAGE_KEY, JSON.stringify(fixture()));
   const user = userEvent.setup();
   let app = render(<App />);
-  expect(
-    screen.getByRole('heading', { name: 'Dashboard', exact: true }),
-  ).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
   expect(screen.getByText('2h ahead of last week')).toBeTruthy();
   expect(
     within(
@@ -119,14 +117,10 @@ it('opens on Dashboard, reviews workforms and previous weeks, and keeps Plan acc
   ).toHaveLength(2);
   await user.click(screen.getByRole('button', { name: 'This week' }));
   await user.click(screen.getByRole('button', { name: 'Plan your day' }));
-  expect(
-    screen.getByRole('heading', { name: 'Plan', exact: true }),
-  ).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Plan' })).toBeTruthy();
   app.unmount();
   app = render(<App />);
-  expect(
-    screen.getByRole('heading', { name: 'Dashboard', exact: true }),
-  ).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
   expect(
     within(
       screen.getByRole('list', { name: 'Completed workforms' }),
@@ -139,7 +133,5 @@ it('has an honest empty score and directs the user to Plan', () => {
     screen.getByText('No completed hours recorded this week.'),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Go to Plan' }));
-  expect(
-    screen.getByRole('heading', { name: 'Plan', exact: true }),
-  ).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Plan' })).toBeTruthy();
 });

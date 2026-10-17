@@ -1,3 +1,8 @@
+import { download } from './download';
+import { usePlannerStorage } from './usePlannerStorage';
+import { TaskEditor } from './TaskEditor';
+import { FocusPanel } from './FocusPanel';
+import { Help } from './Help';
 import {
   useEffect,
   useRef,
@@ -13,23 +18,20 @@ import {
   createTask,
   dateKey,
   decodeState,
-  emptyState,
   moveTask,
   parseDate,
   STORAGE_KEY,
+  MAX_BACKUP_BYTES,
   updateTask,
   finishFocus,
   remainingSeconds,
-  type PlannerState,
+  formatClock as clock,
   type Task,
   monthStart,
   addMonths,
   monthDays,
   removeGoal,
   removeProject,
-  type Goal,
-  type Project,
-  type Routine,
   planForDay,
   blockRecords,
 } from './model';
@@ -68,28 +70,6 @@ const MOVE_KEYS = 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight';
 type Notice = { text: string; visible: boolean };
 type DropTarget = { date: string | null; beforeId?: string };
 type Patch = Partial<Omit<Task, 'id'>>;
-
-function initialData(): { state: PlannerState; error: boolean } {
-  try {
-    return {
-      state: decodeState(localStorage.getItem(STORAGE_KEY)),
-      error: false,
-    };
-  } catch {
-    return { state: emptyState(), error: true };
-  }
-}
-
-function download(content: string, name: string) {
-  const url = URL.createObjectURL(
-    new Blob([content], { type: 'application/json' }),
-  );
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 function CaptureField({
   onAdd,
@@ -317,400 +297,18 @@ function TaskRow({
   );
 }
 
-function DetailPanel({
-  task,
-  onChange,
-  onClose,
-  onDelete,
-  dateFirst,
-  goals,
-  projects,
-  routines,
-}: {
-  task: Task;
-  goals: Goal[];
-  projects: Project[];
-  routines: Routine[];
-  dateFirst: boolean;
-  onChange: (patch: Patch) => void;
-  onClose: () => void;
-  onDelete: () => void;
-}) {
-  const [title, setTitle] = useState(task.title);
-  const [date, setDate] = useState(task.date ?? '');
-  const [goalId, setGoalId] = useState(task.goalId ?? '');
-  const [projectId, setProjectId] = useState(task.projectId ?? '');
-  const [routineId, setRoutineId] = useState(task.routineId ?? '');
-  const [discarding, setDiscarding] = useState(false);
-  const previousTask = useRef(task);
-  useEffect(() => {
-    const before = previousTask.current;
-    setTitle((current) => (current === before.title ? task.title : current));
-    setDate((current) =>
-      current === (before.date ?? '') ? (task.date ?? '') : current,
-    );
-    setGoalId((current) =>
-      current === (before.goalId ?? '') ? (task.goalId ?? '') : current,
-    );
-    setProjectId((current) =>
-      current === (before.projectId ?? '') ? (task.projectId ?? '') : current,
-    );
-    setRoutineId((current) =>
-      current === (before.routineId ?? '') ? (task.routineId ?? '') : current,
-    );
-    previousTask.current = task;
-  }, [task]);
-  const close = () => {
-    if (
-      title !== task.title ||
-      date !== (task.date ?? '') ||
-      goalId !== (task.goalId ?? '') ||
-      routineId !== (task.routineId ?? '') ||
-      projectId !== (task.projectId ?? '')
-    )
-      setDiscarding(true);
-    else onClose();
-  };
-  return (
-    <Modal
-      title="Task details"
-      onClose={close}
-      initialFocus={dateFirst ? 'input[type="date"]' : undefined}
-    >
-      <form
-        className="task-editor"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!title.trim()) return;
-          // Send only editable fields. Legacy notes and metadata stay on the task.
-          onChange({
-            title: title.trim(),
-            date: date || null,
-            ...(routineId !== (task.routineId ?? '')
-              ? { routineId: routineId || null }
-              : {}),
-            ...(goalId !== (task.goalId ?? '')
-              ? { goalId: goalId || null }
-              : {}),
-            ...(projectId !== (task.projectId ?? '')
-              ? { projectId: projectId || null }
-              : {}),
-          });
-          onClose();
-        }}
-      >
-        <label className="field">
-          Task
-          <input
-            autoFocus
-            value={title}
-            maxLength={300}
-            required
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </label>
-        <label className="field">
-          Date (optional)
-          <input
-            type="date"
-            value={date}
-            min="0001-01-01"
-            max="9999-12-31"
-            onInput={(event) => setDate(event.currentTarget.value)}
-          />
-        </label>
-        {date && (
-          <button
-            className="clear-date"
-            type="button"
-            onClick={() => setDate('')}
-          >
-            Clear date
-          </button>
-        )}
-        <details className="task-organise">
-          <summary>Organise</summary>
-          <label className="field">
-            Project
-            <select
-              value={projectId}
-              onChange={(event) => setProjectId(event.target.value)}
-            >
-              <option value="">No project</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.title}
-                  {project.completed ? ' (completed)' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            Goal
-            <select
-              value={goalId}
-              onChange={(event) => setGoalId(event.target.value)}
-            >
-              <option value="">No goal</option>
-              {goals.map((goal) => (
-                <option key={goal.id} value={goal.id}>
-                  {goal.title} ({goal.year})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            Routine
-            <select
-              value={routineId}
-              onChange={(event) => setRoutineId(event.target.value)}
-            >
-              <option value="">No routine</option>
-              {routines
-                .filter((item) => !item.archived || item.id === routineId)
-                .map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title}
-                    {item.archived ? ' (archived)' : ''}
-                  </option>
-                ))}
-            </select>
-          </label>
-        </details>
-        <footer className="task-editor-actions">
-          <button type="button" className="delete-button" onClick={onDelete}>
-            Delete task
-          </button>
-          <button className="primary-button" disabled={!title.trim()}>
-            Save changes
-          </button>
-        </footer>
-      </form>
-      {discarding && (
-        <Modal
-          title="Discard changes?"
-          description="Your unsaved task edits will be lost."
-          onClose={() => setDiscarding(false)}
-        >
-          <footer className="modal-actions">
-            <button
-              className="secondary-button"
-              onClick={() => setDiscarding(false)}
-            >
-              Keep editing
-            </button>
-            <button className="danger-button" onClick={onClose}>
-              Discard changes
-            </button>
-          </footer>
-        </Modal>
-      )}
-    </Modal>
-  );
-}
-
-function Help({ onClose }: { onClose: () => void }) {
-  return (
-    <Modal title="How the planner works" onClose={onClose}>
-      <div className="help-content">
-        <ul>
-          <li>
-            <strong>Plan:</strong> choose a task and start a focused hour.
-            Submit a workform afterward. Four completed hours is your daily
-            goal; partial sessions stay in history.
-          </li>
-          <li>
-            <strong>Tasks:</strong> capture work with a title and optional date.
-            Completed tasks are hidden until you choose Show completed.
-          </li>
-          <li>
-            <strong>Calendar:</strong> use Month or Year to schedule tasks. Plan
-            records focused hours without clock times.
-          </li>
-          <li>
-            <strong>Projects and Goals:</strong> list the work needed for each
-            outcome. Link existing tasks under Organise so every view stays in
-            sync.
-          </li>
-          <li>
-            <strong>Weekly:</strong> log completed work toward weekly targets,
-            including batches, and review previous weeks.
-          </li>
-        </ul>
-        <p className="help-storage">
-          Your planner is saved in this browser on this device. Export a backup
-          to keep a copy. Clearing site data removes the local planner.
-        </p>
-      </div>
-    </Modal>
-  );
-}
-
-const clock = (seconds: number) =>
-  `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-
-type FocusMode = 'setup' | 'running' | 'review';
-function FocusPanel({
-  task,
-  session,
-  onStart,
-  onStop,
-  onFinish,
-  onWorkform,
-}: {
-  task: Task;
-  session: PlannerState['focus'];
-  onStart: (duration: number) => void;
-  onStop: () => void;
-  onFinish: (progress?: string) => void;
-  onWorkform: (text: string) => void;
-}) {
-  const [now, setNow] = useState(Date.now());
-  const [minutes, setMinutes] = useState('60');
-  const workform = session?.workform ?? '';
-  const panel = useRef<HTMLElement>(null);
-  const minutesRef = useRef<HTMLInputElement>(null);
-  const finishRef = useRef<HTMLButtonElement>(null);
-  const previous = useRef<FocusMode | null>(null);
-  const seconds = session ? remainingSeconds(session, now) : 0;
-  const mode: FocusMode = !session
-    ? 'setup'
-    : session.stoppedAt !== undefined || seconds === 0
-      ? 'review'
-      : 'running';
-  const duration = Number(minutes);
-  const valid = Number.isInteger(duration) && duration >= 1 && duration <= 180;
-  useEffect(() => {
-    if (mode !== 'running') return;
-    const update = () => setNow(Date.now());
-    update();
-    const timer = window.setInterval(update, 1000);
-    document.addEventListener('visibilitychange', update);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', update);
-    };
-  }, [mode]);
-  useEffect(() => {
-    const before = previous.current;
-    previous.current = mode;
-    if (mode === 'setup') minutesRef.current?.focus();
-    else if (mode === 'running' && before === 'setup') panel.current?.focus();
-    else if (mode === 'review')
-      (session?.blockId
-        ? panel.current?.querySelector<HTMLTextAreaElement>('textarea')
-        : finishRef.current
-      )?.focus();
-  }, [mode]);
-  return (
-    <section
-      ref={panel}
-      tabIndex={-1}
-      className={`focus-panel focus-state-${mode}`}
-      aria-label="Focus session"
-    >
-      <h3 className="focus-task">{session?.intent?.trim() || task.title}</h3>
-      {mode === 'setup' ? (
-        <form
-          className="focus-start"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (valid) onStart(duration);
-          }}
-        >
-          <label className="field">
-            Minutes
-            <input
-              ref={minutesRef}
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={180}
-              step={1}
-              required
-              aria-invalid={!valid}
-              aria-describedby="focus-minutes-hint"
-              value={minutes}
-              onChange={(event) => setMinutes(event.target.value)}
-            />
-          </label>
-          <small
-            id="focus-minutes-hint"
-            className={valid ? 'visually-hidden' : 'focus-error'}
-          >
-            Choose 1 to 180 minutes.
-          </small>
-          <button className="primary-button" disabled={!valid}>
-            Begin session
-          </button>
-        </form>
-      ) : mode === 'running' ? (
-        <div className="focus-running-controls">
-          <output aria-label="Time remaining" className="focus-clock">
-            {clock(seconds)}
-          </output>
-          <button
-            className="secondary-button"
-            aria-label="Stop session"
-            onClick={onStop}
-          >
-            Stop
-          </button>
-        </div>
-      ) : (
-        <form
-          className="focus-review"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!session?.blockId || workform.trim()) onFinish(workform);
-          }}
-        >
-          <p>
-            {session?.blockId
-              ? 'Save your workform to finish this session.'
-              : 'Session ended.'}
-          </p>
-          {session?.blockId && (
-            <label className="field">
-              What did you work on?
-              <textarea
-                value={workform}
-                onChange={(event) => onWorkform(event.target.value)}
-                required
-                maxLength={1000000}
-                rows={4}
-              />
-            </label>
-          )}
-          {session?.blockId && seconds > 0 && (
-            <p className="routine-hint">
-              Stopped early. Your time and notes will be saved to this hour.
-              Continue later or use Mark done when the hour is complete.
-            </p>
-          )}
-          <button
-            ref={finishRef}
-            className="primary-button"
-            disabled={!!session?.blockId && !workform.trim()}
-          >
-            {session?.blockId ? 'Submit workform' : 'Finish session'}
-          </button>
-        </form>
-      )}
-    </section>
-  );
-}
-
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme();
   const [creatingGoal, setCreatingGoal] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   const [calendarMode, setCalendarMode] = useState<'month' | 'year'>('month');
-  const [initial] = useState(initialData);
-  const [now, setNow] = useState(Date.now());
-  const [state, setState] = useState<PlannerState>(initial.state);
-  const [readError, setReadError] = useState(initial.error);
-  const [saveError, setSaveError] = useState(false);
+  const { state, setState, readError, saveError, retry, restore } =
+    usePlannerStorage(() => {
+      setFocusTaskId(null);
+      setDeleted(null);
+      setEditingId(null);
+      announce('Planner updated from another tab.', true);
+    });
   const [month, setMonth] = useState(() => monthStart(new Date()));
   const [view, setView] = useState<PlannerView>('dashboard');
   const [showCompleted, setShowCompleted] = useState(false);
@@ -735,6 +333,7 @@ export default function App() {
     null,
   );
   const today = useToday();
+  const [now, setNow] = useState(Date.now());
   const days = monthDays(month);
   const currentTask = state.tasks.find((task) => task.id === editingId);
   const visibleDays = days;
@@ -762,33 +361,6 @@ export default function App() {
   const announce = (text: string, visible = false) =>
     setNotice({ text, visible });
 
-  useEffect(() => {
-    if (readError) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setSaveError(false);
-    } catch {
-      setSaveError(true);
-    }
-  }, [state, readError]);
-  useEffect(() => {
-    const sync = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY && event.key !== null) return;
-      // Keep unsaved local work if storage is unavailable; do not overwrite it.
-      if (saveError || readError) return;
-      try {
-        setFocusTaskId(null);
-        setState(decodeState(event.newValue));
-        setDeleted(null);
-        setEditingId(null);
-        announce('Planner updated from another tab.', true);
-      } catch {
-        setReadError(true);
-      }
-    };
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
-  }, [readError, saveError]);
   useEffect(() => {
     if (!notice) return;
     const timeout = window.setTimeout(() => setNotice(null), 6000);
@@ -1026,21 +598,12 @@ export default function App() {
     </ul>
   );
   const retrySave = () => {
-    try {
-      if (readError) {
-        setState(decodeState(localStorage.getItem(STORAGE_KEY)));
-        setReadError(false);
-      } else {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        setSaveError(false);
-      }
-      announce('Planner saved.', true);
-    } catch {
+    if (retry()) announce('Planner saved.', true);
+    else
       announce(
         'Storage is still unavailable. Export a backup to keep your work.',
         true,
       );
-    }
   };
   const exportBackup = () => {
     download(JSON.stringify(state, null, 2), `ultrafocussed-${today}.json`);
@@ -1061,7 +624,7 @@ export default function App() {
   const importBackup = async (file: File | undefined) => {
     if (!file) return;
     try {
-      if (file.size > 10_000_000) throw new Error('Backup too large');
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('Backup too large');
       const backup = decodeState(await file.text());
       if (
         window.confirm(
@@ -1069,8 +632,7 @@ export default function App() {
         )
       ) {
         setFocusTaskId(null);
-        setState(backup);
-        setReadError(false);
+        restore(backup);
         setEditingId(null);
         setDeleted(null);
         announce('Planner restored from backup.', true);
@@ -1497,7 +1059,7 @@ export default function App() {
         )}
       </div>
       {currentTask && (
-        <DetailPanel
+        <TaskEditor
           key={currentTask.id}
           task={currentTask}
           goals={state.goals ?? []}

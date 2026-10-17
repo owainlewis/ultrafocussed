@@ -1,0 +1,284 @@
+/* Plan has one layout for intentions, actions and earned-hour feedback. */
+.daily-plan {
+  width: min(800px, calc(100% - 56px));
+  margin: 32px auto 48px;
+}
+.daily-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.daily-heading h2 {
+  margin: 0;
+  max-width: 24ch;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.daily-score {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.daily-score strong {
+  font-size: 36px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+.daily-score strong span {
+  font-size: 18px;
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+.daily-score small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.daily-goal {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.goal-hour {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.goal-hour.is-earned {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--paper);
+}
+:root[data-theme='dark'] .goal-hour.is-earned {
+  color: #133420;
+}
+.focus-blocks {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.focus-block {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.focus-block:last-child {
+  border-bottom: 0;
+}
+.block-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px;
+  align-items: start;
+  gap: 24px;
+}
+.block-description {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.block-caption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.block-caption > span:first-child {
+  font-weight: 600;
+  color: var(--ink);
+}
+.block-active .block-caption > span:last-child {
+  color: var(--focus);
+  font-weight: 600;
+}
+.block-description textarea {
+  width: 100%;
+  padding: 10px 12px;
+  min-height: 44px;
+  max-height: 220px;
+  resize: none;
+  field-sizing: content;
+  border: 1px solid var(--rule-soft);
+  border-radius: 4px;
+  background: var(--canvas);
+  overflow: auto;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  color: inherit;
+}
+.block-description textarea:hover:not(:disabled) {
+  border-color: var(--rule);
+  background: var(--tint);
+}
+.block-description textarea:focus {
+  border-color: var(--focus);
+  background: var(--paper);
+}
+.block-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex-shrink: 0;
+  gap: 8px;
+  padding-top: 27px;
+}
+.block-actions .block-start {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 44px;
+  min-height: 38px;
+  margin: 0;
+  font-size: 13px;
+}
+.block-done {
+  min-height: 32px;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.hour-done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--success-ink);
+}
+.block-complete {
+  background: var(--success-soft);
+}
+.completed-hour-copy {
+  min-width: 0;
+}
+.completed-hour-copy h3 {
+  margin: 5px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.completed-hour-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.add-focus-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
+  min-height: 44px;
+  padding: 12px 0;
+  border: 1px dashed var(--rule);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (min-width: 1100px) {
+  .block-fields {
+    grid-template-columns: minmax(0, 1fr) 228px;
+  }
+  .block-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+  .block-actions .block-start {
+    width: 120px;
+    flex-shrink: 0;
+  }
+  .block-done {
+    flex: 1;
+  }
+  .hour-done {
+    min-width: 96px;
+  }
+}
+@media (max-width: 760px) {
+  .daily-plan {
+    width: calc(100% - 24px);
+    margin-top: 24px;
+  }
+  .daily-toolbar .period-controls {
+    flex-wrap: wrap;
+  }
+  .daily-toolbar .period-controls h1 {
+    flex-basis: 100%;
+  }
+  .daily-heading h2 {
+    font-size: 13px;
+  }
+  .daily-score strong {
+    font-size: 28px;
+  }
+  .daily-score strong span {
+    font-size: 14px;
+  }
+  .focus-block {
+    padding: 18px 16px;
+  }
+  .block-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .block-actions {
+    grid-column: 1;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 0;
+    gap: 10px;
+  }
+  .block-actions .block-start {
+    width: auto;
+    padding-inline: 14px;
+    min-width: 105px;
+    min-height: 44px;
+  }
+  .block-done {
+    padding-inline: 8px;
+    min-height: 44px;
+  }
+  .hour-done {
+    justify-content: flex-start;
+  }
+  .block-description textarea {
+    font-size: 16px;
+  }
+  .completed-hour-copy p {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}

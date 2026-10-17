@@ -1,3 +1,4 @@
+import { useCurrentPeriod } from './useCurrentPeriod';
 import {
   useEffect,
   useState,
@@ -31,7 +32,7 @@ export function WeeklyView({
   today: string;
 }) {
   const currentWeek = dateKey(weekStart(parseDate(today)));
-  const [week, setWeek] = useState(currentWeek);
+  const [week, setWeek] = useCurrentPeriod(currentWeek);
   const [editor, setEditor] = useState<WeeklyRoutine | 'new' | null>(null);
   const [removing, setRemoving] = useState<WeeklyRoutine | null>(null);
   // Only the current week is created automatically. Browsing history never invents missed work.
@@ -52,10 +53,10 @@ export function WeeklyView({
   }, [rows]);
   const format = (day: string, options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(undefined, options).format(parseDate(day));
-  const save = (title: string, target: number, daily: boolean) => {
+  const save = (title: string, target: number) => {
     onChange((value) => {
       const id = editor && editor !== 'new' ? editor.id : crypto.randomUUID();
-      const routine = { id, title, target, daily };
+      const routine = { id, title, target, daily: false };
       const routines = value.routines ?? [];
       const updateTemplate = week >= currentWeek;
       return {
@@ -140,12 +141,7 @@ export function WeeklyView({
               const count = routineProgress(state, row, week);
               const entries = routineEntries(state, row.id, week);
               const allocations = routineChecks(state, row, week);
-              const size = Math.max(
-                row.target,
-                ...allocations.flatMap((entry) =>
-                  entry.slots.map((slot) => slot + 1),
-                ),
-              );
+              const size = row.target;
               return (
                 <article
                   className="weekly-routine"
@@ -307,7 +303,7 @@ function RoutineDialog({
   onClose,
 }: {
   routine?: WeeklyRoutine;
-  onSave: (title: string, target: number, daily: boolean) => void;
+  onSave: (title: string, target: number) => void;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(routine?.title ?? '');
@@ -324,7 +320,7 @@ function RoutineDialog({
             Number(target) >= 1 &&
             Number(target) <= 1000
           )
-            onSave(title.trim(), Number(target), false);
+            onSave(title.trim(), Number(target));
         }}
       >
         <label className="field">

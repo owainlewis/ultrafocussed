@@ -18,7 +18,6 @@ import {
   planForDay,
   completedBlocks,
   startChecklistWeek,
-  logRoutineProgress,
   routineEntries,
   routineProgress,
   toggleRoutineCheck,
@@ -310,7 +309,7 @@ test('weekly checklists use dated shared tasks and keep snapshots', () => {
   const first = startChecklistWeek(original, '2026-10-12');
   assert.deepEqual(first.routineWeeks?.['2026-10-12'], [routine]);
   assert.equal(startChecklistWeek(first, '2026-10-12'), first);
-  const checked = logRoutineProgress(first, routine, '2026-10-13', 1);
+  const checked = legacyBatch(first, routine, '2026-10-13', 1);
   assert.equal(checked.tasks[0].completed, true);
   const unchecked = {
     ...checked,
@@ -404,6 +403,27 @@ test('daily blocks share tasks, preserve workforms and count only full submitted
   );
 });
 
+function legacyBatch(
+  state: import('../src/model.ts').PlannerState,
+  routine: import('../src/model.ts').WeeklyRoutine,
+  day: string,
+  units: number,
+) {
+  return {
+    ...state,
+    tasks: [
+      ...state.tasks,
+      {
+        ...createTask(routine.title, null),
+        completed: true,
+        completedOn: day,
+        routineId: routine.id,
+        routineUnits: units,
+      },
+    ],
+  };
+}
+
 test('weekly batches record quantities on unscheduled shared tasks and keep legacy records', () => {
   const routine = { id: 'r', title: 'Posts', target: 7, daily: false };
   const week = '2026-10-12';
@@ -413,7 +433,7 @@ test('weekly batches record quantities on unscheduled shared tasks and keep lega
     routines: [routine],
     routineWeeks: { [week]: [routine] },
   };
-  const logged = logRoutineProgress(state, routine, '2026-10-13', 7);
+  const logged = legacyBatch(state, routine, '2026-10-13', 7);
   assert.equal(logged.tasks.length, 1);
   assert.equal(logged.tasks[0].date, null);
   assert.equal(routineProgress(logged, routine, week), 7);
@@ -435,21 +455,12 @@ test('weekly batches record quantities on unscheduled shared tasks and keep lega
     tasks: [{ ...task('old', '2026-10-14'), routineId: 'r', completed: true }],
   };
   assert.equal(routineProgress(legacy, routine, week), 1);
-  const daily = { ...routine, id: 'd', daily: true };
-  const first = logRoutineProgress(
-    { ...state, routines: [daily] },
-    daily,
-    '2026-10-13',
-    1,
-  );
-  assert.equal(logRoutineProgress(first, daily, '2026-10-13', 1), first);
-  assert.equal(logRoutineProgress(first, daily, '2026-10-14', 7), first);
 });
 
 test('legacy batch checkboxes split one completion without shifting slots or losing notes', () => {
   const routine = { id: 'r', title: 'Posts', target: 7, daily: false };
   const week = '2026-10-12';
-  let state = logRoutineProgress(
+  let state = legacyBatch(
     { version: 1, tasks: [], routines: [routine] },
     routine,
     '2026-10-13',
@@ -619,4 +630,57 @@ test('editing a reflection during a resumed timer updates its draft', () => {
   assert.equal(finished.tasks[0].sessions!.length, 1);
   assert.equal(finished.tasks[0].sessions![0].progress, 'Revised notes');
   assert.equal(completedBlocks(finished, day), 1);
+});
+
+test('a resumed timer always returns whole seconds at sub-second boundaries', () => {
+  const focus = {
+    taskId: 'a',
+    startedAt: 1000,
+    duration: 60,
+    creditedMinutes: 59.999,
+  };
+  assert.equal(remainingSeconds(focus, 1000), 1);
+  assert.equal(remainingSeconds(focus, 1100), 0);
+});
+test('consolidated legacy reflections stay readable after saving and reloading', () => {
+  const day = '2026-10-17';
+  const item = task('a', null);
+  const blocks = planForDay({ version: 1, tasks: [item] }, day);
+  const base = {
+    startedAt: 0,
+    endedAt: 1800000,
+    minutes: 30,
+    blockId: blocks[0].id,
+    planDate: day,
+  };
+  item.sessions = [
+    { ...base, id: 'one', progress: 'a'.repeat(600000) },
+    { ...base, id: 'two', progress: 'b'.repeat(600000) },
+  ];
+  const initial = {
+    version: 1 as const,
+    tasks: [item],
+    dailyPlans: { [day]: blocks },
+  };
+  const migrated = decodeState(JSON.stringify(initial));
+  assert.equal(migrated.tasks[0].sessions!.length, 1);
+  assert.equal(migrated.tasks[0].sessions![0].progress.length, 1200002);
+  assert.deepEqual(decodeState(JSON.stringify(migrated)), migrated);
+});
+test('inconsistent routine slots are rejected rather than showing a false score', () => {
+  const routine = { id: 'r', title: 'Posts', target: 3, daily: false };
+  const item = {
+    ...task('a', null),
+    completed: true,
+    completedOn: '2026-10-17',
+    routineId: 'r',
+    routineWeek: '2026-10-12',
+    routineUnits: 1,
+    routineSlots: [0, 1, 2],
+  };
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({ version: 1, tasks: [item], routines: [routine] }),
+    ),
+  );
 });

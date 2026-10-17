@@ -1,5 +1,7 @@
 # Focus loop verification
 
+Historical verification record. For the current release, see [production audit](production-audit.md).
+
 Scope: one outcome per week, optional task outcome links and next steps, chosen-duration focus sessions, early stopping, useful progress notes, task completion and history. The later UI refinement was implemented by Claude at the user's request, with the green palette removed.
 
 ## Automated evidence
