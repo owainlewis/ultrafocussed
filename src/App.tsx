@@ -43,6 +43,7 @@ import {
 import { DailyPlan } from './DailyPlan';
 import { WeeklyView } from './WeeklyView';
 import { ProjectsView } from './ProjectsView';
+import { Dashboard } from './Dashboard';
 import { TasksView } from './TasksView';
 import { useTheme } from './useTheme';
 import { useToday } from './useToday';
@@ -711,7 +712,7 @@ export default function App() {
   const [readError, setReadError] = useState(initial.error);
   const [saveError, setSaveError] = useState(false);
   const [month, setMonth] = useState(() => monthStart(new Date()));
-  const [view, setView] = useState<PlannerView>('plan');
+  const [view, setView] = useState<PlannerView>('dashboard');
   const [showCompleted, setShowCompleted] = useState(false);
   useEffect(() => {
     if (view === 'month' || view === 'year') setCalendarMode(view);
@@ -1149,38 +1150,41 @@ export default function App() {
         saveError={saveError}
       />
       <div className="planner-workspace">
-        {view !== 'tasks' && view !== 'weekly' && view !== 'plan' && (
-          <PlannerToolbar
-            view={view}
-            title={
-              view === 'month'
-                ? new Intl.DateTimeFormat(undefined, {
-                    month: 'long',
-                    year: 'numeric',
-                  }).format(month)
-                : view === 'projects'
-                  ? 'Projects'
-                  : month.getFullYear()
-            }
-            onToday={goToday}
-            onPeriod={goPeriod}
-            onCalendarView={setView}
-            onAddProject={
-              view === 'projects' && !readError
-                ? () => setCreatingProject(true)
-                : undefined
-            }
-            onAddGoal={
-              view === 'goals' &&
-              !readError &&
-              (state.goals ?? []).filter(
-                (goal) => goal.year === month.getFullYear(),
-              ).length < 4
-                ? () => setCreatingGoal(true)
-                : undefined
-            }
-          />
-        )}
+        {view !== 'tasks' &&
+          view !== 'weekly' &&
+          view !== 'plan' &&
+          view !== 'dashboard' && (
+            <PlannerToolbar
+              view={view}
+              title={
+                view === 'month'
+                  ? new Intl.DateTimeFormat(undefined, {
+                      month: 'long',
+                      year: 'numeric',
+                    }).format(month)
+                  : view === 'projects'
+                    ? 'Projects'
+                    : month.getFullYear()
+              }
+              onToday={goToday}
+              onPeriod={goPeriod}
+              onCalendarView={setView}
+              onAddProject={
+                view === 'projects' && !readError
+                  ? () => setCreatingProject(true)
+                  : undefined
+              }
+              onAddGoal={
+                view === 'goals' &&
+                !readError &&
+                (state.goals ?? []).filter(
+                  (goal) => goal.year === month.getFullYear(),
+                ).length < 4
+                  ? () => setCreatingGoal(true)
+                  : undefined
+              }
+            />
+          )}
         {(readError || saveError) && (
           <div className="storage-error" role="alert">
             <span>
@@ -1209,7 +1213,13 @@ export default function App() {
             className={`planner-content war-map-content view-${view}`}
             disabled={readError}
           >
-            {view === 'tasks' ? (
+            {view === 'dashboard' ? (
+              <Dashboard
+                state={state}
+                today={today}
+                onPlan={() => setView('plan')}
+              />
+            ) : view === 'tasks' ? (
               <TasksView
                 capture={
                   <CaptureField onAdd={(title) => addTask(title, null)} />

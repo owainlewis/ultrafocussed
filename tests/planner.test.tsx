@@ -33,6 +33,12 @@ function renderTasks() {
   return app;
 }
 
+function renderPlan() {
+  const app = render(<App />);
+  fireEvent.click(screen.getByRole('button', { name: 'Plan', exact: true }));
+  return app;
+}
+
 async function logWeekly(
   user: ReturnType<typeof userEvent.setup>,
   title: string,
@@ -1539,7 +1545,7 @@ it('keeps each day’s plan separate and retains task identity across multiple b
 });
 
 it('opens on Plan with a fixed four-hour daily goal and captures directly into an hour', async () => {
-  const app = render(<App />);
+  const app = renderPlan();
   const user = userEvent.setup();
   expect(
     screen
@@ -1567,7 +1573,7 @@ it('opens on Plan with a fixed four-hour daily goal and captures directly into a
     screen.getByRole('status', { name: '0 of 4 deep-work hours completed' }),
   ).toBeTruthy();
   app.unmount();
-  render(<App />);
+  renderPlan();
   expect(
     screen
       .getByRole('button', { name: 'Plan', exact: true })
@@ -1610,7 +1616,7 @@ it('shows the daily goal reached and keeps each day’s earned hours separate', 
       ],
     }),
   );
-  render(<App />);
+  renderPlan();
   const user = userEvent.setup();
   expect(
     screen.getByRole('status', { name: '5 of 4 deep-work hours completed' }),
@@ -1633,7 +1639,7 @@ it('shows the daily goal reached and keeps each day’s earned hours separate', 
 
 it('gives a newly captured task an extra hour when the first four are assigned', async () => {
   stored([{ id: 't', title: 'Course' }]);
-  render(<App />);
+  renderPlan();
   const user = userEvent.setup();
   for (let index = 1; index <= 4; index++)
     await user.selectOptions(
@@ -1657,7 +1663,7 @@ it('gives a newly captured task an extra hour when the first four are assigned',
 
 it('keeps workform layout classes separate from the panel state', async () => {
   stored([{ id: 't', title: 'Review work' }]);
-  render(<App />);
+  renderPlan();
   const user = userEvent.setup();
   await user.selectOptions(screen.getByLabelText('Task for block 1'), 't');
   await user.click(screen.getByRole('button', { name: 'Start block 1' }));
@@ -1692,7 +1698,7 @@ it('returns focus to Add project and Add goal after removing their last checklis
       goals: [{ id: 'g', title: 'Learn', year: new Date().getFullYear() }],
     }),
   );
-  render(<App />);
+  renderPlan();
   const user = userEvent.setup();
   await user.click(
     screen.getByRole('button', { name: 'Projects', exact: true }),
@@ -1796,7 +1802,7 @@ it('logs seven weekly outputs in one batch without creating scheduled daily task
       routineWeeks: { [week]: [routine] },
     }),
   );
-  render(<App />);
+  renderPlan();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Weekly', exact: true }));
   expect(screen.getAllByRole('checkbox')).toHaveLength(7);
@@ -1831,7 +1837,7 @@ it('logs seven weekly outputs in one batch without creating scheduled daily task
 });
 
 it('saves an hour intention and starts it without requiring an existing task', async () => {
-  render(<App />);
+  renderPlan();
   const user = userEvent.setup();
   await user.type(
     screen.getByRole('textbox', { name: 'Intention for block 1' }),
@@ -1851,7 +1857,7 @@ it('saves an hour intention and starts it without requiring an existing task', a
     screen.getByRole('heading', { name: 'Outline the management course' }),
   ).toBeTruthy();
   cleanup();
-  render(<App />);
+  renderPlan();
   expect(
     (
       screen.getByRole('textbox', {
@@ -1877,7 +1883,7 @@ it('disables quick capture when all 24 hours already have intentions', () => {
       },
     }),
   );
-  render(<App />);
+  renderPlan();
   expect(
     (
       screen.getByRole('textbox', {
@@ -1889,7 +1895,7 @@ it('disables quick capture when all 24 hours already have intentions', () => {
 
 it('records completed hours directly and fills all four green goal segments without completing the task', async () => {
   stored([{ id: 't', title: 'Course', notes: 'Keep these notes' }]);
-  render(<App />);
+  renderPlan();
   const user = userEvent.setup();
   await user.selectOptions(
     screen.getByRole('combobox', { name: 'Task for block 1' }),
@@ -1949,7 +1955,7 @@ it('records completed hours directly and fills all four green goal segments with
     progress: 'Finished lesson 1',
   });
   cleanup();
-  render(<App />);
+  renderPlan();
   expect(
     screen.getByRole('status', { name: '4 of 4 deep-work hours completed' }),
   ).toBeTruthy();
@@ -1985,7 +1991,7 @@ it('finishes a partial hour with one workform and edits its reflection without a
       dailyPlans: { [today]: [{ id: blockId, taskId: 't' }] },
     }),
   );
-  render(<App />);
+  renderPlan();
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Mark block 1 done' }));
   expect(screen.queryByRole('dialog')).toBeNull();

@@ -10,6 +10,7 @@ import {
   Layers,
   ListTodo,
   Clock3,
+  LayoutDashboard,
   CalendarCheck,
   CalendarDays,
   FolderOpen,
@@ -21,7 +22,14 @@ import { useState, type ReactNode } from 'react';
 import type { Theme } from './useTheme';
 
 export type PlannerView =
-  'tasks' | 'year' | 'month' | 'goals' | 'projects' | 'weekly' | 'plan';
+  | 'dashboard'
+  | 'tasks'
+  | 'year'
+  | 'month'
+  | 'goals'
+  | 'projects'
+  | 'weekly'
+  | 'plan';
 
 export function PlannerSidebar({
   view,
@@ -64,6 +72,7 @@ export function PlannerSidebar({
     }
   };
   const navigation = [
+    { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { view: 'plan', label: 'Plan', icon: Clock3 },
     { view: 'tasks', label: 'Tasks', icon: ListTodo },
     { view: 'weekly', label: 'Weekly', icon: CalendarCheck },
