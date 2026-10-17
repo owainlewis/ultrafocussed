@@ -1259,3 +1259,132 @@ it('collapses navigation without losing names, selection or the saved preference
       .getAttribute('aria-expanded'),
   ).toBe('true');
 });
+
+it('tracks weekly routines through shared tasks and preserves previous weeks', async () => {
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Weekly', exact: true }));
+  await user.click(
+    screen.getByRole('button', { name: 'Add routine', exact: true }),
+  );
+  await user.type(screen.getByLabelText('Name', { exact: true }), 'Gym');
+  await user.clear(screen.getByLabelText('Weekly target'));
+  await user.type(screen.getByLabelText('Weekly target'), '3');
+  await user.click(screen.getByRole('button', { name: 'Save routine' }));
+  const monday = dateKey(weekStart(new Date()));
+  const dayLabel = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(monday + 'T12:00:00'));
+  await user.click(screen.getByRole('checkbox', { name: `Gym, ${dayLabel}` }));
+  expect(saved().tasks).toHaveLength(1);
+  expect(saved().tasks[0]).toMatchObject({
+    title: 'Gym',
+    date: monday,
+    completed: true,
+    routineId: saved().routines![0].id,
+  });
+  expect(screen.getByText('1 / 3')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Tasks', exact: true }));
+  await user.click(screen.getByRole('checkbox', { name: 'Show completed' }));
+  await user.click(screen.getByRole('button', { name: 'Reopen Gym' }));
+  await user.click(screen.getByRole('button', { name: 'Weekly', exact: true }));
+  expect(screen.getByText('0 / 3')).toBeTruthy();
+  await user.click(screen.getByRole('checkbox', { name: `Gym, ${dayLabel}` }));
+  expect(saved().tasks).toHaveLength(1);
+  await user.click(screen.getByRole('button', { name: 'Next week' }));
+  await user.click(screen.getByRole('button', { name: 'Use my routines' }));
+  expect(screen.getByText('0 / 3')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Edit routine Gym' }));
+  await user.clear(screen.getByLabelText('Weekly target'));
+  await user.type(screen.getByLabelText('Weekly target'), '4');
+  await user.click(screen.getByRole('button', { name: 'Save routine' }));
+  await user.click(screen.getByRole('button', { name: 'Previous week' }));
+  expect(screen.getByText('1 / 3')).toBeTruthy();
+  await user.click(screen.getByRole('button', { name: 'Previous week' }));
+  expect(screen.getByText('No checklist recorded for this week.')).toBeTruthy();
+  expect(Object.keys(saved().routineWeeks!)).toHaveLength(2);
+});
+
+it('supports daily targets and keeps task records when removing a routine', async () => {
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Weekly', exact: true }));
+  await user.click(
+    screen.getByRole('button', { name: 'Add routine', exact: true }),
+  );
+  await user.type(
+    screen.getByLabelText('Name', { exact: true }),
+    'Daily practice',
+  );
+  await user.click(screen.getByRole('checkbox', { name: 'Every day' }));
+  await user.click(screen.getByRole('button', { name: 'Save routine' }));
+  expect(saved().routines![0]).toMatchObject({ daily: true, target: 7 });
+  const boxes = screen.getAllByRole('checkbox');
+  const firstEnabled = boxes.find(
+    (box) => !(box as HTMLInputElement).disabled,
+  )!;
+  await user.click(firstEnabled);
+  const task = saved().tasks[0];
+  await user.click(
+    screen.getByRole('button', { name: 'Remove routine Daily practice' }),
+  );
+  await user.click(
+    within(screen.getByRole('dialog')).getByRole('button', {
+      name: 'Remove routine',
+      exact: true,
+    }),
+  );
+  expect(saved().tasks[0]).toEqual(task);
+  expect(saved().routines![0].archived).toBe(true);
+  expect(document.activeElement).toBe(
+    screen.getByRole('button', { name: 'Add routine', exact: true }),
+  );
+});
+
+it('counts an existing task linked to a routine without creating another record', async () => {
+  const routine = { id: 'r', title: 'YouTube', target: 1, daily: false };
+  const monday = dateKey(weekStart(new Date()));
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      routines: [routine],
+      routineWeeks: { [monday]: [routine] },
+      tasks: [
+        {
+          id: 'existing',
+          title: 'Publish video',
+          date: today,
+          notes: 'Preserve',
+          completed: false,
+          main: false,
+        },
+      ],
+    }),
+  );
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole('button', { name: 'Publish video', exact: true }),
+  );
+  await user.click(screen.getByText('Organise', { exact: true }));
+  await user.selectOptions(
+    screen.getByLabelText('Routine', { exact: true }),
+    'r',
+  );
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await user.click(
+    screen.getByRole('button', { name: 'Complete Publish video' }),
+  );
+  await user.click(screen.getByRole('button', { name: 'Weekly', exact: true }));
+  expect(screen.getByText('1 / 1')).toBeTruthy();
+  expect(saved().tasks).toHaveLength(1);
+  expect(saved().tasks[0]).toMatchObject({
+    id: 'existing',
+    routineId: 'r',
+    notes: 'Preserve',
+  });
+});

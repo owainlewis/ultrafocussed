@@ -7,6 +7,7 @@ export type Task = {
   main: boolean;
   goalId?: string | null;
   projectId?: string | null;
+  routineId?: string | null;
   nextStep?: string;
   progressNotes?: string;
   outcomeWeek?: string | null;
@@ -27,11 +28,21 @@ export type FocusSession = {
 };
 export type Goal = { id: string; title: string; year: number };
 export type Project = { id: string; title: string; completed: boolean };
+export type Routine = {
+  id: string;
+  title: string;
+  target: number;
+  daily: boolean;
+  archived?: boolean;
+};
+export type WeeklyRoutine = Omit<Routine, 'archived'>;
 export type PlannerState = {
   version: 1;
   tasks: Task[];
   goals?: Goal[];
   projects?: Project[];
+  routines?: Routine[];
+  routineWeeks?: Record<string, WeeklyRoutine[]>;
   outcomes?: Record<string, string>;
   focus?: FocusSession | null;
 };
@@ -69,6 +80,51 @@ export function decodeState(raw: string | null): PlannerState {
   const value = JSON.parse(raw);
   if (value?.version !== 1 || !Array.isArray(value.tasks))
     throw new Error('Unsupported planner data');
+  const routineIds = new Set<string>();
+  const validRoutine = (item: Routine) =>
+    item &&
+    typeof item.id === 'string' &&
+    item.id.length > 0 &&
+    typeof item.title === 'string' &&
+    item.title.trim().length > 0 &&
+    item.title.length <= 200 &&
+    Number.isInteger(item.target) &&
+    item.target >= 1 &&
+    item.target <= 7 &&
+    typeof item.daily === 'boolean' &&
+    (!item.daily || item.target === 7);
+  if (value.routines !== undefined && !Array.isArray(value.routines))
+    throw new Error('Invalid routines');
+  for (const item of value.routines ?? []) {
+    if (
+      !validRoutine(item) ||
+      routineIds.has(item.id) ||
+      (item.archived !== undefined && typeof item.archived !== 'boolean')
+    )
+      throw new Error('Invalid routine');
+    routineIds.add(item.id);
+  }
+  if (
+    value.routineWeeks !== undefined &&
+    (!value.routineWeeks ||
+      typeof value.routineWeeks !== 'object' ||
+      Array.isArray(value.routineWeeks))
+  )
+    throw new Error('Invalid checklist weeks');
+  for (const [key, items] of Object.entries(value.routineWeeks ?? {})) {
+    if (
+      !validDate(key) ||
+      dateKey(weekStart(parseDate(key))) !== key ||
+      !Array.isArray(items)
+    )
+      throw new Error('Invalid checklist week');
+    const seen = new Set<string>();
+    for (const item of items) {
+      if (!validRoutine(item) || !routineIds.has(item.id) || seen.has(item.id))
+        throw new Error('Invalid weekly routine');
+      seen.add(item.id);
+    }
+  }
   const goalIds = new Set<string>();
   const goalCounts = new Map<number, number>();
   if (value.goals !== undefined && !Array.isArray(value.goals))
@@ -121,6 +177,9 @@ export function decodeState(raw: string | null): PlannerState {
       throw new Error('Invalid progress notes');
     if (
       !task ||
+      (task.routineId != null &&
+        (typeof task.routineId !== 'string' ||
+          !routineIds.has(task.routineId))) ||
       (task.goalId != null &&
         (typeof task.goalId !== 'string' || !goalIds.has(task.goalId))) ||
       (task.projectId != null &&
@@ -330,5 +389,52 @@ export function removeProject(state: PlannerState, id: string): PlannerState {
     tasks: state.tasks.map((task) =>
       task.projectId === id ? { ...task, projectId: null } : task,
     ),
+  };
+}
+
+export function startChecklistWeek(
+  state: PlannerState,
+  week: string,
+): PlannerState {
+  if (state.routineWeeks?.[week]) return state;
+  return {
+    ...state,
+    routineWeeks: {
+      ...state.routineWeeks,
+      [week]: (state.routines ?? [])
+        .filter((item) => !item.archived)
+        .map(({ id, title, target, daily }) => ({ id, title, target, daily })),
+    },
+  };
+}
+
+export function toggleRoutineDay(
+  state: PlannerState,
+  routine: WeeklyRoutine,
+  day: string,
+): PlannerState {
+  const matches = state.tasks.filter(
+    (task) => task.routineId === routine.id && task.date === day,
+  );
+  const done = matches.some((task) => task.completed);
+  if (matches.length)
+    return {
+      ...state,
+      tasks: state.tasks.map((task) =>
+        task.routineId === routine.id && task.date === day
+          ? { ...task, completed: !done }
+          : task,
+      ),
+    };
+  return {
+    ...state,
+    tasks: [
+      ...state.tasks,
+      {
+        ...createTask(routine.title, day),
+        routineId: routine.id,
+        completed: true,
+      },
+    ],
   };
 }

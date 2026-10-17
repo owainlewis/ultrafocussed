@@ -15,6 +15,8 @@ import {
   addMonths,
   removeGoal,
   removeProject,
+  startChecklistWeek,
+  toggleRoutineDay,
   remainingSeconds,
   finishFocus,
   type Task,
@@ -293,4 +295,39 @@ test('project links round-trip and removal preserves the shared task and goal', 
   ]) {
     assert.throws(() => decodeState(JSON.stringify({ ...state, projects })));
   }
+});
+
+test('weekly checklists use dated shared tasks and keep snapshots', () => {
+  const routine = { id: 'r', title: 'Gym', target: 3, daily: false };
+  const original = { version: 1 as const, tasks: [], routines: [routine] };
+  const first = startChecklistWeek(original, '2026-10-12');
+  assert.deepEqual(first.routineWeeks?.['2026-10-12'], [routine]);
+  assert.equal(startChecklistWeek(first, '2026-10-12'), first);
+  const checked = toggleRoutineDay(first, routine, '2026-10-13');
+  assert.equal(checked.tasks[0].completed, true);
+  const unchecked = toggleRoutineDay(checked, routine, '2026-10-13');
+  assert.equal(unchecked.tasks.length, 1);
+  assert.equal(unchecked.tasks[0].id, checked.tasks[0].id);
+  assert.equal(unchecked.tasks[0].completed, false);
+  const next = startChecklistWeek(
+    { ...checked, routines: [{ ...routine, target: 4 }] },
+    '2026-10-19',
+  );
+  assert.equal(next.routineWeeks?.['2026-10-12'][0].target, 3);
+  assert.equal(next.routineWeeks?.['2026-10-19'][0].target, 4);
+  assert.deepEqual(decodeState(JSON.stringify(next)), next);
+  for (const target of [0, 8, 1.5])
+    assert.throws(() =>
+      decodeState(
+        JSON.stringify({ ...original, routines: [{ ...routine, target }] }),
+      ),
+    );
+  assert.throws(() =>
+    decodeState(
+      JSON.stringify({ ...first, routineWeeks: { '2026-10-13': [routine] } }),
+    ),
+  );
+  assert.throws(() =>
+    decodeState(JSON.stringify({ ...checked, routines: [] })),
+  );
 });

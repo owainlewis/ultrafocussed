@@ -1671,3 +1671,127 @@ dialog::backdrop {
     padding: 12px;
   }
 }
+
+.weekly-sheet {
+  margin: 24px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.week-range {
+  margin: 0;
+  padding: 18px 20px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.weekly-table-scroll {
+  position: relative;
+  overflow-x: auto;
+}
+.weekly-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  text-align: center;
+}
+.weekly-table th,
+.weekly-table td {
+  padding: 12px 6px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.weekly-table tr:last-child > * {
+  border-bottom: 0;
+}
+.weekly-table thead {
+  background: var(--rail);
+  color: var(--muted);
+  font-size: 12px;
+}
+.weekly-table th:first-child {
+  text-align: left;
+  padding-left: 20px;
+  min-width: 150px;
+}
+.weekly-table tbody th {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  max-width: 240px;
+}
+.weekly-table small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  margin-top: 3px;
+}
+.weekly-table th[aria-current='date'] {
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+.weekly-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.weekly-check input {
+  width: 19px;
+  height: 19px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.weekly-check input:disabled {
+  cursor: default;
+}
+.weekly-table .elapsed-day {
+  background: var(--tint);
+}
+.weekly-table .missed-day {
+  background: var(--error-bg);
+}
+.weekly-total {
+  min-width: 90px;
+  font-variant-numeric: tabular-nums;
+}
+.weekly-total strong {
+  font-weight: 600;
+}
+.weekly-row-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.weekly-empty {
+  padding: 24px 20px;
+  color: var(--muted);
+}
+.weekly-empty p {
+  margin-top: 0;
+}
+.weekly-toolbar > .primary-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.routine-frequency {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.routine-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (max-width: 760px) {
+  .weekly-sheet {
+    margin: 12px;
+  }
+  .weekly-toolbar .period-controls {
+    flex-wrap: wrap;
+  }
+  .weekly-toolbar .period-controls h1 {
+    flex-basis: 100%;
+  }
+}

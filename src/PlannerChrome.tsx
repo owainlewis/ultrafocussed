@@ -9,6 +9,7 @@ import {
   Plus,
   Layers,
   ListTodo,
+  CalendarCheck,
   CalendarDays,
   FolderOpen,
   Flag,
@@ -18,7 +19,8 @@ import {
 import { useState, type ReactNode } from 'react';
 import type { Theme } from './useTheme';
 
-export type PlannerView = 'tasks' | 'year' | 'month' | 'goals' | 'projects';
+export type PlannerView =
+  'tasks' | 'year' | 'month' | 'goals' | 'projects' | 'weekly';
 
 export function PlannerSidebar({
   view,
@@ -62,6 +64,7 @@ export function PlannerSidebar({
   };
   const navigation = [
     { view: 'tasks', label: 'Tasks', icon: ListTodo },
+    { view: 'weekly', label: 'Weekly', icon: CalendarCheck },
     { view: 'month', label: 'Calendar', icon: CalendarDays },
     { view: 'projects', label: 'Projects', icon: FolderOpen },
     { view: 'goals', label: 'Goals', icon: Flag },

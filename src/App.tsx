@@ -30,6 +30,7 @@ import {
   removeProject,
   type Goal,
   type Project,
+  type Routine,
 } from './model';
 import { MonthView, YearView, GoalsView } from './WarMapViews';
 import { Modal } from './Modal';
@@ -38,6 +39,7 @@ import {
   PlannerToolbar,
   type PlannerView,
 } from './PlannerChrome';
+import { WeeklyView } from './WeeklyView';
 import { ProjectsView } from './ProjectsView';
 import { TasksView } from './TasksView';
 import { useTheme } from './useTheme';
@@ -337,10 +339,12 @@ function DetailPanel({
   dateFirst,
   goals,
   projects,
+  routines,
 }: {
   task: Task;
   goals: Goal[];
   projects: Project[];
+  routines: Routine[];
   dateFirst: boolean;
   onChange: (patch: Patch) => void;
   onClose: () => void;
@@ -350,6 +354,7 @@ function DetailPanel({
   const [date, setDate] = useState(task.date ?? '');
   const [goalId, setGoalId] = useState(task.goalId ?? '');
   const [projectId, setProjectId] = useState(task.projectId ?? '');
+  const [routineId, setRoutineId] = useState(task.routineId ?? '');
   const [discarding, setDiscarding] = useState(false);
   const previousTask = useRef(task);
   useEffect(() => {
@@ -364,6 +369,9 @@ function DetailPanel({
     setProjectId((current) =>
       current === (before.projectId ?? '') ? (task.projectId ?? '') : current,
     );
+    setRoutineId((current) =>
+      current === (before.routineId ?? '') ? (task.routineId ?? '') : current,
+    );
     previousTask.current = task;
   }, [task]);
   const close = () => {
@@ -371,6 +379,7 @@ function DetailPanel({
       title !== task.title ||
       date !== (task.date ?? '') ||
       goalId !== (task.goalId ?? '') ||
+      routineId !== (task.routineId ?? '') ||
       projectId !== (task.projectId ?? '')
     )
       setDiscarding(true);
@@ -391,6 +400,9 @@ function DetailPanel({
           onChange({
             title: title.trim(),
             date: date || null,
+            ...(routineId !== (task.routineId ?? '')
+              ? { routineId: routineId || null }
+              : {}),
             ...(goalId !== (task.goalId ?? '')
               ? { goalId: goalId || null }
               : {}),
@@ -459,6 +471,23 @@ function DetailPanel({
                   {goal.title} ({goal.year})
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="field">
+            Routine
+            <select
+              value={routineId}
+              onChange={(event) => setRoutineId(event.target.value)}
+            >
+              <option value="">No routine</option>
+              {routines
+                .filter((item) => !item.archived || item.id === routineId)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                    {item.archived ? ' (archived)' : ''}
+                  </option>
+                ))}
             </select>
           </label>
         </details>
@@ -1084,7 +1113,7 @@ export default function App() {
         saveError={saveError}
       />
       <div className="planner-workspace">
-        {view !== 'tasks' && (
+        {view !== 'tasks' && view !== 'weekly' && (
           <PlannerToolbar
             view={view}
             title={
@@ -1156,6 +1185,8 @@ export default function App() {
               >
                 {renderList(listedTasks, null)}
               </TasksView>
+            ) : view === 'weekly' ? (
+              <WeeklyView state={state} onChange={setState} today={today} />
             ) : view === 'month' ? (
               <div className="month-calendar">
                 <MonthView
@@ -1348,6 +1379,7 @@ export default function App() {
           task={currentTask}
           goals={state.goals ?? []}
           projects={state.projects ?? []}
+          routines={state.routines ?? []}
           dateFirst={editingDateFirst}
           onClose={() => {
             setEditingId(null);

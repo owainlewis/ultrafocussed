@@ -59,3 +59,9 @@ Model tests cover persistence format, invalid data, local calendar dates, week b
 Calendar has one navigation tab with a Month/Year switch in its toolbar. It remembers the scale when switching tabs. Projects uses the same title-and-checklist layout as Goals, without a year or count limit. Projects have an independent Active/Completed state; changing it keeps task completion unchanged. Tasks can link to both a project and a goal under Organise. Removing either group keeps the tasks, dates, notes and other links.
 
 Navigation lives in a collapsible left sidebar with icons. Its width preference is saved in this browser. Phones use a compact icon rail; backup, theme and help controls stay grouped at the bottom.
+
+Weekly checklist uses a Monday–Sunday grid with one check per day, weekly targets from 1 to 7, and a daily option. Routine templates supply new weeks; saved weeks retain their own names and targets. Previous and next week controls allow review and explicit setup, without inventing records for unvisited past weeks. Future days cannot be checked off.
+
+Checklist completion uses the existing Task model through a routineId link and a date. Checking a day creates or completes its shared task. Reopening, moving or deleting that task elsewhere changes the checklist accordingly. Templates and weekly target snapshots contain no separate completion counters. Removing a routine stops its repetition while retaining existing tasks and other weeks. Daily missed days are highlighted; weekly totals show the remaining target or the shortfall in a past week. Only the table scrolls horizontally on narrow screens.
+
+Existing tasks can link to a routine under Organise. Completing a linked, dated task counts toward that day in Weekly without creating a second task.
