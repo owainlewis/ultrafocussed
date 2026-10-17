@@ -102,20 +102,20 @@ it('opens on Dashboard, reviews workforms and previous weeks, and keeps Plan acc
   ).toBeTruthy();
   expect(screen.getByText('2h ahead of last week')).toBeTruthy();
   expect(
-    screen.getAllByRole('button', { name: /Read workform:/ }),
+    within(
+      screen.getByRole('list', { name: 'Completed workforms' }),
+    ).getAllByRole('listitem'),
   ).toHaveLength(4);
-  await user.click(
-    screen.getByRole('button', { name: 'Read workform: Write lesson 1' }),
-  );
-  expect(
-    within(screen.getByRole('dialog')).getByText('Finished lesson 1'),
-  ).toBeTruthy();
-  await user.click(
-    screen.getByRole('button', { name: 'Close workform', exact: true }),
-  );
+  expect(screen.getByText('Finished lesson 1')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Write lesson 1' })).toBeTruthy();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.queryByRole('button', { name: /Read workform:/ })).toBeNull();
+  expect(document.querySelectorAll(`time[datetime="${week}"]`)).toHaveLength(4);
   await user.click(screen.getByRole('button', { name: 'Previous week' }));
   expect(
-    screen.getAllByRole('button', { name: /Read workform:/ }),
+    within(
+      screen.getByRole('list', { name: 'Completed workforms' }),
+    ).getAllByRole('listitem'),
   ).toHaveLength(2);
   await user.click(screen.getByRole('button', { name: 'This week' }));
   await user.click(screen.getByRole('button', { name: 'Plan your day' }));
@@ -128,7 +128,9 @@ it('opens on Dashboard, reviews workforms and previous weeks, and keeps Plan acc
     screen.getByRole('heading', { name: 'Dashboard', exact: true }),
   ).toBeTruthy();
   expect(
-    screen.getAllByRole('button', { name: /Read workform:/ }),
+    within(
+      screen.getByRole('list', { name: 'Completed workforms' }),
+    ).getAllByRole('listitem'),
   ).toHaveLength(4);
 });
 it('has an honest empty score and directs the user to Plan', () => {

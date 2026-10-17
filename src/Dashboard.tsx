@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { ArrowRight, Check, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Modal } from './Modal';
 import {
   addDays,
   completedBlocks,
   dateKey,
   parseDate,
   weekStart,
-  type FocusRecord,
   type PlannerState,
 } from './model';
 
@@ -68,11 +66,6 @@ export function Dashboard({
 }) {
   const currentWeek = dateKey(weekStart(parseDate(today)));
   const [week, setWeek] = useState(currentWeek);
-  const [selected, setSelected] = useState<{
-    record: FocusRecord;
-    title: string;
-    day: string;
-  } | null>(null);
   const score = weeklyScore(state, week);
   const previous = weeklyScore(state, dateKey(addDays(parseDate(week), -7)));
   const difference = score.hours - previous.hours;
@@ -199,9 +192,7 @@ export function Dashboard({
           aria-labelledby="workforms-heading"
         >
           <header>
-            <h2 id="workforms-heading">
-              Completed workforms <span>{score.workforms.length}</span>
-            </h2>
+            <h2 id="workforms-heading">Completed workforms</h2>
           </header>
           {score.workforms.length === 0 ? (
             <div className="score-empty">
@@ -215,64 +206,37 @@ export function Dashboard({
               </button>
             </div>
           ) : (
-            [...score.days]
-              .reverse()
-              .filter(({ day }) =>
-                score.workforms.some((form) => form.day === day),
-              )
-              .map(({ day }) => (
-                <div className="workform-day-group" key={day}>
-                  <h3>
-                    {format(day, {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </h3>
-                  <div>
-                    {score.workforms
-                      .filter((form) => form.day === day)
-                      .map((form) => (
-                        <button
-                          className="dashboard-workform"
-                          key={`${form.day}-${form.record.blockId}`}
-                          onClick={() => setSelected(form)}
-                          aria-label={`Read workform: ${form.title}`}
-                        >
-                          <span className="workform-hour">
-                            <Check size={15} aria-hidden="true" /> 1h
-                          </span>
-                          <span className="workform-preview">
-                            <strong>{form.title}</strong>
-                            <span>{form.record.progress}</span>
-                          </span>
-                          <ArrowRight size={16} aria-hidden="true" />
-                        </button>
-                      ))}
+            <ol
+              role="list"
+              className="completed-workform-list"
+              aria-label="Completed workforms"
+            >
+              {score.workforms.map((form) => (
+                <li
+                  className="completed-workform"
+                  key={`${form.day}-${form.record.blockId}`}
+                >
+                  <div className="workform-date">
+                    <time dateTime={form.day}>
+                      {format(form.day, {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </time>
+                    <span>1 focused hour</span>
                   </div>
-                </div>
-              ))
+                  <div className="workform-text">
+                    <h3>{form.title}</h3>
+                    <p>{form.record.progress}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           )}
         </section>
       </div>
-      {selected && (
-        <Modal
-          title={selected.title}
-          description={`${format(selected.day, { weekday: 'long', day: 'numeric', month: 'long' })} · 1 focused hour`}
-          onClose={() => setSelected(null)}
-          initialFocus="button"
-        >
-          <p className="saved-reflection">{selected.record.progress}</p>
-          <footer className="modal-actions">
-            <button
-              className="primary-button"
-              onClick={() => setSelected(null)}
-            >
-              Close workform
-            </button>
-          </footer>
-        </Modal>
-      )}
     </>
   );
 }

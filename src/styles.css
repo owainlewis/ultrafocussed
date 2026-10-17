@@ -2354,66 +2354,44 @@ dialog::backdrop {
   padding-bottom: 16px;
   border-bottom: 1px solid var(--rule);
 }
-.dashboard-workforms h2 > span {
-  color: var(--muted);
-  font-size: 14px;
-  margin-left: 8px;
-  font-weight: 400;
+.completed-workform-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
-.workform-day-group {
+.completed-workform {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
-  gap: 20px;
-  padding: 20px 0;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px 0;
   border-bottom: 1px solid var(--rule-soft);
 }
-.workform-day-group h3 {
-  font-size: 13px;
-  margin: 12px 0;
-  color: var(--muted);
-  font-weight: 500;
-}
-.dashboard-workform {
-  width: 100%;
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  text-align: left;
-  padding: 12px 8px;
-  border-radius: 4px;
-  font: inherit;
-  cursor: pointer;
-}
-.dashboard-workform:hover {
-  background: var(--hover);
-}
-.workform-hour {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--success-ink);
-}
-.workform-preview {
+.workform-date {
   display: grid;
+  align-content: start;
   gap: 4px;
-  flex: 1;
+  color: var(--muted);
+  font-size: 12px;
+}
+.workform-date time {
+  color: var(--ink);
+  font-size: 13px;
+}
+.workform-text {
   min-width: 0;
 }
-.workform-preview strong {
+.workform-text h3 {
   font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
   overflow-wrap: anywhere;
 }
-.workform-preview > span {
-  font-size: 13px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.workform-text p {
+  margin: 0;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
 }
 .score-empty {
   padding: 28px 0;
@@ -2461,14 +2439,16 @@ dialog::backdrop {
   .score-rule {
     margin: 20px 14px;
   }
-  .workform-day-group {
+  .completed-workform {
     grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-    padding: 12px 0;
+    gap: 12px;
+    padding: 20px 0;
   }
-  .dashboard-workform {
-    gap: 10px;
-    padding-inline: 0;
+  .workform-date {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 16px;
   }
 }
 @media (max-width: 760px) {
