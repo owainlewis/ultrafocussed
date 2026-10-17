@@ -168,7 +168,7 @@ export function DailyPlan({
             const locked = complete || active;
             return (
               <article
-                className={`focus-block ${complete ? 'block-complete' : ''}`}
+                className={`focus-block ${complete ? 'block-complete' : ''} ${active ? 'block-active' : ''}`}
                 key={block.id}
                 aria-label={`Block ${index + 1}`}
               >
@@ -184,86 +184,100 @@ export function DailyPlan({
                     </span>
                   </div>
                   <div className="block-description">
-                    <textarea
-                      aria-label={`Intention for block ${index + 1}`}
-                      placeholder="What will you work on this hour?"
-                      maxLength={1000}
-                      rows={2}
-                      value={block.intent ?? ''}
-                      disabled={locked}
-                      onChange={(event) =>
-                        change(block.id, { intent: event.target.value })
-                      }
-                    />
-                    <label className="block-task">
-                      <span className="visually-hidden">Task</span>
-                      <select
-                        ref={index === blocks.length - 1 ? newTask : undefined}
-                        aria-label={`Task for block ${index + 1}`}
-                        value={task?.id ?? ''}
-                        disabled={locked}
-                        onChange={(event) =>
-                          change(block.id, {
-                            taskId: event.target.value || null,
-                          })
-                        }
-                      >
-                        <option value="">Link a task (optional)</option>
-                        {state.tasks
-                          .filter(
-                            (item) =>
-                              !item.completed || item.id === block.taskId,
-                          )
-                          .map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.title}
-                              {item.completed ? ' (completed)' : ''}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
+                    <div className="block-caption">
+                      <span>Hour {index + 1}</span>
+                      <span>{active ? 'In progress' : '60 minutes'}</span>
+                    </div>
+                    {complete ? (
+                      <div className="completed-hour-copy">
+                        <h3>
+                          {block.intent?.trim() ||
+                            task?.title ||
+                            'Focused hour'}
+                        </h3>
+                        <p>{records[0]?.progress}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <textarea
+                          aria-label={`Intention for block ${index + 1}`}
+                          placeholder="What will you work on this hour?"
+                          maxLength={1000}
+                          rows={2}
+                          value={block.intent ?? ''}
+                          disabled={locked}
+                          onChange={(event) =>
+                            change(block.id, { intent: event.target.value })
+                          }
+                        />
+                        <label className="block-task">
+                          <span className="visually-hidden">Task</span>
+                          <select
+                            ref={
+                              index === blocks.length - 1 ? newTask : undefined
+                            }
+                            aria-label={`Task for block ${index + 1}`}
+                            value={task?.id ?? ''}
+                            disabled={locked}
+                            onChange={(event) =>
+                              change(block.id, {
+                                taskId: event.target.value || null,
+                              })
+                            }
+                          >
+                            <option value="">Link a task (optional)</option>
+                            {state.tasks
+                              .filter(
+                                (item) =>
+                                  !item.completed || item.id === block.taskId,
+                              )
+                              .map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.title}
+                                  {item.completed ? ' (completed)' : ''}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                      </>
+                    )}
                   </div>
                   <div className="block-actions">
-                    <button
-                      className={`block-start ${!complete && !state.focus && block.id === nextBlock?.id ? 'primary-button' : 'icon-button'}`}
-                      disabled={
-                        complete ||
-                        (!active &&
-                          (!!state.focus ||
-                            (!task && !block.intent?.trim()) ||
-                            day !== today))
-                      }
-                      onClick={() =>
-                        active ? onResume() : onStart(day, block)
-                      }
-                      aria-label={`${complete ? 'Completed' : active ? 'Resume' : 'Start'} block ${index + 1}`}
-                      title={
-                        day !== today && !complete
-                          ? 'Start blocks from today’s plan'
-                          : complete
-                            ? 'Hour completed'
-                            : active
-                              ? 'Resume focus'
-                              : task || block.intent?.trim()
-                                ? 'Start a focused hour'
-                                : 'Describe your hour or choose a task'
-                      }
-                    >
-                      {complete ? (
-                        <Check size={18} aria-hidden="true" />
-                      ) : active ? (
-                        <Play size={16} aria-hidden="true" />
-                      ) : (
-                        <>
-                          <Play size={14} aria-hidden="true" />
-                          {block.id === nextBlock?.id && !state.focus && (
-                            <span>Start hour</span>
-                          )}
-                        </>
-                      )}
-                    </button>
+                    {!complete && (
+                      <button
+                        className={`block-start ${!complete && !state.focus && block.id === nextBlock?.id ? 'primary-button' : 'secondary-button'}`}
+                        disabled={
+                          complete ||
+                          (!active &&
+                            (!!state.focus ||
+                              (!task && !block.intent?.trim()) ||
+                              day !== today))
+                        }
+                        onClick={() =>
+                          active ? onResume() : onStart(day, block)
+                        }
+                        aria-label={`${complete ? 'Completed' : active ? 'Resume' : 'Start'} block ${index + 1}`}
+                        title={
+                          day !== today && !complete
+                            ? 'Start blocks from today’s plan'
+                            : complete
+                              ? 'Hour completed'
+                              : active
+                                ? 'Resume focus'
+                                : task || block.intent?.trim()
+                                  ? 'Start a focused hour'
+                                  : 'Describe your hour or choose a task'
+                        }
+                      >
+                        <Play size={14} aria-hidden="true" />
+                        <span>{active ? 'Resume' : 'Start hour'}</span>
+                      </button>
+                    )}
                     {complete ? (
-                      <span className="hour-done">Done</span>
+                      <span className="hour-done">
+                        <Check size={15} aria-hidden="true" />
+                        Completed
+                      </span>
                     ) : (
                       <button
                         className="text-button block-done"
@@ -306,23 +320,23 @@ export function DailyPlan({
                         Mark done
                       </button>
                     )}
+                    {records.length > 0 && (
+                      <div className="block-workforms">
+                        <button
+                          className="text-button"
+                          data-workform-block={block.id}
+                          aria-label={`View workform for block ${index + 1}`}
+                          onClick={() => {
+                            setWorkform(records[0]?.progress ?? '');
+                            setViewing(block.id);
+                          }}
+                        >
+                          View workform
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-                {records.length > 0 && (
-                  <div className="block-workforms">
-                    <button
-                      className="text-button"
-                      data-workform-block={block.id}
-                      aria-label={`View workform for block ${index + 1}`}
-                      onClick={() => {
-                        setWorkform(records[0]?.progress ?? '');
-                        setViewing(block.id);
-                      }}
-                    >
-                      View workform
-                    </button>
-                  </div>
-                )}
               </article>
             );
           })}
