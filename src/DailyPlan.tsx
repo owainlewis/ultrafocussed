@@ -181,7 +181,6 @@ export function DailyPlan({
                             task?.title ||
                             'Focused hour'}
                         </h3>
-                        <p>{records[0]?.progress}</p>
                       </div>
                     ) : (
                       <>

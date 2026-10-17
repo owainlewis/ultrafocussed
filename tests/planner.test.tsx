@@ -1999,6 +1999,7 @@ it('finishes a partial hour with one workform and no submitted-workform action',
   expect(screen.queryByRole('button', { name: /View workform/ })).toBeNull();
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(saved().tasks[0].notes).toBe('Keep notes');
+  expect(screen.queryByText('Started the outline')).toBeNull();
   expect(
     screen.getByRole('status', { name: '1 of 4 deep-work hours completed' }),
   ).toBeTruthy();
